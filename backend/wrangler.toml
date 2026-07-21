@@ -1,0 +1,17 @@
+name = "gia-ban-backend"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "gia-ban-db"
+database_id = ""  # Cần tạo bằng: wrangler d1 create gia-ban-db
+migrations_dir = "migrations"
+
+[env.staging]
+name = "gia-ban-backend-staging"
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "gia-ban-db-staging"
+database_id = ""
+migrations_dir = "migrations"
