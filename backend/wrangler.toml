@@ -5,7 +5,7 @@ compatibility_date = "2026-07-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "gia-ban-db"
-database_id = ""  # Cần tạo bằng: wrangler d1 create gia-ban-db
+database_id = "9b5816ee-a2fd-4711-909f-4c37f81c38d6"  # Cần tạo bằng: wrangler d1 create gia-ban-db
 migrations_dir = "migrations"
 
 [env.staging]
