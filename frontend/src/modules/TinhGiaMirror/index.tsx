@@ -2,6 +2,9 @@ import { useState, useCallback, useEffect } from 'react'
 import { apiGet } from '../../lib/api'
 import { colors, shadow, radius, input, pageContainer, pageTitle, spinner } from '../../theme'
 import { formatNum } from '../../lib/format'
+import PaginationBar, { DEFAULT_PAGE_SIZE } from '../../components/PaginationBar'
+import GuideTabs from '../../components/GuideTabs'
+import { mirrorGuideTabs } from '../../guides/mirror'
 
 const inputStyle: React.CSSProperties = { ...input, width: '100%', boxSizing: 'border-box' }
 const cell = (align = 'left'): React.CSSProperties => ({
@@ -24,11 +27,12 @@ export default function TinhGiaMirrorPage() {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [pageByNguon, setPageByNguon] = useState<Record<string, number>>({})
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await apiGet('/gia-chuan/mirror?limit=50')
+      const res = await apiGet('/gia-chuan/mirror?limit=20000')
       setData(res.data || [])
     } catch { setData([]) }
     finally { setLoading(false) }
@@ -63,6 +67,12 @@ export default function TinhGiaMirrorPage() {
         const rows = filtered.filter(r => r.nguon === nguon)
         if (rows.length === 0) return null
         const loais = [...new Set(rows.map(r => r.loai))] as string[]
+        const page = pageByNguon[nguon] || 0
+        const pageCount = Math.ceil(rows.length / DEFAULT_PAGE_SIZE)
+        const pageRows = (pageCount > 1)
+          ? rows.slice(page * DEFAULT_PAGE_SIZE, (page + 1) * DEFAULT_PAGE_SIZE)
+          : rows
+        const setPage = (p: number) => setPageByNguon(s => ({ ...s, [nguon]: p }))
         return (
           <div key={nguon}>
             <h2 style={sectionTitle}>{nguon}</h2>
@@ -80,7 +90,7 @@ export default function TinhGiaMirrorPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((r, i) => (
+                    {pageRows.map((r, i) => (
                       <tr key={r.id} style={{ background: i % 2 === 0 ? colors.card : colors.surfaceSecondary }}>
                         <td style={{ ...cell(), color: colors.textSecondary, fontSize: 12 }}>{r.loai}</td>
                         <td style={{ ...cell(), color: colors.text, fontWeight: 600 }}>{r.quy_cach}</td>
@@ -101,13 +111,13 @@ export default function TinhGiaMirrorPage() {
                   </tbody>
                 </table>
               </div>
-              <div style={{ padding: '10px 14px', fontSize: 12, color: colors.textMuted, borderTop: `1px solid ${colors.borderLight}` }}>
-                {rows.length} dòng
-              </div>
+              <PaginationBar page={page} pageCount={pageCount} total={rows.length} onPageChange={setPage} />
             </div>
           </div>
         )
       })}
+
+      <GuideTabs title="Hướng dẫn" tabs={mirrorGuideTabs} />
     </div>
   )
 }

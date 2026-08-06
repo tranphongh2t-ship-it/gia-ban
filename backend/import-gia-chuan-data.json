@@ -1,0 +1,4969 @@
+[
+  {
+    "table": "bang_gia_chuan_dam_okal",
+    "name": "VÁN DĂM OKAL",
+    "count": 6,
+    "data": [
+      {
+        "stt": 1,
+        "quy_cach": "9mm",
+        "e2": 180000,
+        "veco_e1": 195000,
+        "veco_cp2": 214000,
+        "veco_f4s": null,
+        "hmr_e1": 252000
+      },
+      {
+        "stt": 2,
+        "quy_cach": "12mm",
+        "e2": 233000,
+        "veco_e1": 252000,
+        "veco_cp2": 278000,
+        "veco_f4s": null,
+        "hmr_e1": 336000
+      },
+      {
+        "stt": 3,
+        "quy_cach": "15mm",
+        "e2": 278000,
+        "veco_e1": 297000,
+        "veco_cp2": 330000,
+        "veco_f4s": null,
+        "hmr_e1": null
+      },
+      {
+        "stt": 4,
+        "quy_cach": "17mm",
+        "e2": 306000,
+        "veco_e1": null,
+        "veco_cp2": null,
+        "veco_f4s": null,
+        "hmr_e1": null
+      },
+      {
+        "stt": 5,
+        "quy_cach": "18mm",
+        "e2": 322000,
+        "veco_e1": 351000,
+        "veco_cp2": 383000,
+        "veco_f4s": 600000,
+        "hmr_e1": 450000
+      },
+      {
+        "stt": 6,
+        "quy_cach": "25mm",
+        "e2": 478000,
+        "veco_e1": 520000,
+        "veco_cp2": 568000,
+        "veco_f4s": null,
+        "hmr_e1": null
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_mdf_hdf",
+    "name": "VÁN MDF HDF",
+    "count": 14,
+    "data": [
+      {
+        "stt": 1,
+        "quy_cach": "2.5mm",
+        "vn_ldf_e2": 68000,
+        "vn_mdf_e2": 68000,
+        "vn_mdf_cp2": null,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": null,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": null,
+        "vn_mmr_e2": null,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 2,
+        "quy_cach": "3mm",
+        "vn_ldf_e2": 82000,
+        "vn_mdf_e2": 82000,
+        "vn_mdf_cp2": null,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": null,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": 108000,
+        "vn_mmr_e2": 108000,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 3,
+        "quy_cach": "4mm",
+        "vn_ldf_e2": 97000,
+        "vn_mdf_e2": 97000,
+        "vn_mdf_cp2": null,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": 97000,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": null,
+        "vn_mmr_e2": null,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 4,
+        "quy_cach": "4.75mm",
+        "vn_ldf_e2": 114000,
+        "vn_mdf_e2": 114000,
+        "vn_mdf_cp2": null,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": null,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": null,
+        "vn_mmr_e2": null,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 5,
+        "quy_cach": "5.5mm",
+        "vn_ldf_e2": 136000,
+        "vn_mdf_e2": 136000,
+        "vn_mdf_cp2": null,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": null,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": 182000,
+        "vn_mmr_e2": 182000,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 6,
+        "quy_cach": "6mm",
+        "vn_ldf_e2": null,
+        "vn_mdf_e2": null,
+        "vn_mdf_cp2": 181000,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": null,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": null,
+        "vn_mmr_e2": null,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 7,
+        "quy_cach": "8mm",
+        "vn_ldf_e2": 170000,
+        "vn_mdf_e2": 170000,
+        "vn_mdf_cp2": null,
+        "vn_hdf_hmr_e2": 303000,
+        "vn_hdf_hmr_e1": 330000,
+        "th_mdf_e2": 170000,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": 190000,
+        "vn_mmr_e2": 190000,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": 285000,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 8,
+        "quy_cach": "9mm",
+        "vn_ldf_e2": 188000,
+        "vn_mdf_e2": 188000,
+        "vn_mdf_cp2": 263000,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": 188000,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": 210000,
+        "vn_mmr_e2": 210000,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": 327000,
+        "vn_hmr_cp2": 338000,
+        "th_mmr_e2": 320000,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 9,
+        "quy_cach": "12mm",
+        "vn_ldf_e2": 244000,
+        "vn_mdf_e2": 244000,
+        "vn_mdf_cp2": 333000,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": 537000,
+        "th_mdf_e2": 244000,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": 278000,
+        "vn_mmr_e2": 278000,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 10,
+        "quy_cach": "15mm",
+        "vn_ldf_e2": 300000,
+        "vn_mdf_e2": 300000,
+        "vn_mdf_cp2": 414000,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": null,
+        "th_hdf_hmr_e2": 334000,
+        "vn_lmr_e2": null,
+        "vn_mmr_e2": null,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 11,
+        "quy_cach": "17mm",
+        "vn_ldf_e2": 328000,
+        "vn_mdf_e2": 328000,
+        "vn_mdf_cp2": 461000,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": 601000,
+        "th_mdf_e2": null,
+        "th_hdf_hmr_e2": 672000,
+        "vn_lmr_e2": 358000,
+        "vn_mmr_e2": 358000,
+        "vn_hmr_e2": 478000,
+        "vn_hmr_e1": 560000,
+        "vn_hmr_cp2": 583000,
+        "th_mmr_e2": 527000,
+        "th_hmr_v313_e1": 683000
+      },
+      {
+        "stt": 12,
+        "quy_cach": "18mm",
+        "vn_ldf_e2": 352000,
+        "vn_mdf_e2": 352000,
+        "vn_mdf_cp2": 490000,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": null,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": null,
+        "vn_mmr_e2": null,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 13,
+        "quy_cach": "21mm",
+        "vn_ldf_e2": 521000,
+        "vn_mdf_e2": 521000,
+        "vn_mdf_cp2": null,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": null,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": null,
+        "vn_mmr_e2": null,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": null,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      },
+      {
+        "stt": 14,
+        "quy_cach": "25mm",
+        "vn_ldf_e2": 555000,
+        "vn_mdf_e2": 607000,
+        "vn_mdf_cp2": 741000,
+        "vn_hdf_hmr_e2": null,
+        "vn_hdf_hmr_e1": null,
+        "th_mdf_e2": 620000,
+        "th_hdf_hmr_e2": null,
+        "vn_lmr_e2": 680000,
+        "vn_mmr_e2": 770000,
+        "vn_hmr_e2": null,
+        "vn_hmr_e1": null,
+        "vn_hmr_cp2": 823000,
+        "th_mmr_e2": null,
+        "th_hmr_v313_e1": null
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_phu_thu_melamine",
+    "name": "MẶT PHỦ MELAMINE",
+    "count": 3,
+    "data": [
+      {
+        "stt": 1,
+        "mo_ta": "Đơn giá",
+        "basic_1m": 80000,
+        "basic_2m": 120000,
+        "eco_1m": 90000,
+        "eco_2m": 130000,
+        "standard_1m": 90000,
+        "standard_2m": 130000,
+        "premium_wood_art_1m": 90000,
+        "premium_wood_art_2m": 130000,
+        "premium_color_1m": 100000,
+        "premium_color_2m": 150000,
+        "superb_1m": 110000,
+        "superb_2m": 190000
+      },
+      {
+        "stt": 2,
+        "mo_ta": "Màu đặc biệt",
+        "basic_1m": null,
+        "basic_2m": null,
+        "eco_1m": null,
+        "eco_2m": null,
+        "standard_1m": null,
+        "standard_2m": null,
+        "premium_wood_art_1m": null,
+        "premium_wood_art_2m": null,
+        "premium_color_1m": null,
+        "premium_color_2m": null,
+        "superb_1m": "Màu 104",
+        "superb_2m": "Màu 106"
+      },
+      {
+        "stt": 3,
+        "mo_ta": "Đơn giá màu đặc biệt",
+        "basic_1m": null,
+        "basic_2m": null,
+        "eco_1m": null,
+        "eco_2m": null,
+        "standard_1m": null,
+        "standard_2m": null,
+        "premium_wood_art_1m": null,
+        "premium_wood_art_2m": null,
+        "premium_color_1m": null,
+        "premium_color_2m": null,
+        "superb_1m": 160000,
+        "superb_2m": 230000
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_mau_melamine",
+    "name": "MẶT PHỦ MELAMINE (220 màu)",
+    "count": 220,
+    "data": [
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Basic",
+        "loai": "Color",
+        "ma_mau": "108",
+        "vi_tri": 1
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "029",
+        "vi_tri": 2
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "303",
+        "vi_tri": 3
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "385",
+        "vi_tri": 4
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "402",
+        "vi_tri": 5
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "425",
+        "vi_tri": 6
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "444",
+        "vi_tri": 7
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "501",
+        "vi_tri": 8
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "601",
+        "vi_tri": 9
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "725",
+        "vi_tri": 10
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Art",
+        "ma_mau": "Đ5",
+        "vi_tri": 11
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Color",
+        "ma_mau": "203",
+        "vi_tri": 12
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "0330",
+        "vi_tri": 13
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "4028",
+        "vi_tri": 14
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "735",
+        "vi_tri": 15
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Color",
+        "ma_mau": "Đ2",
+        "vi_tri": 16
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "100",
+        "vi_tri": 17
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "132",
+        "vi_tri": 18
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "301",
+        "vi_tri": 19
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "439",
+        "vi_tri": 20
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "708",
+        "vi_tri": 21
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "571",
+        "vi_tri": 22
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "Đ6",
+        "vi_tri": 23
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "021",
+        "vi_tri": 24
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "200",
+        "vi_tri": 25
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "033",
+        "vi_tri": 26
+      },
+      {
+        "stt": 1,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "104 (150Gr)",
+        "vi_tri": 27
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Basic",
+        "loai": "Color",
+        "ma_mau": "388-2",
+        "vi_tri": 1
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "0439",
+        "vi_tri": 2
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "320",
+        "vi_tri": 3
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "386",
+        "vi_tri": 4
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "403",
+        "vi_tri": 5
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "426",
+        "vi_tri": 6
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "445",
+        "vi_tri": 7
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "502",
+        "vi_tri": 8
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "609",
+        "vi_tri": 9
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "737",
+        "vi_tri": 10
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Art",
+        "ma_mau": "Đ8",
+        "vi_tri": 11
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "23015",
+        "vi_tri": 12
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "4029",
+        "vi_tri": 13
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "736",
+        "vi_tri": 14
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Color",
+        "ma_mau": "Đ3",
+        "vi_tri": 15
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "136",
+        "vi_tri": 16
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "302",
+        "vi_tri": 17
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "551",
+        "vi_tri": 18
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "714",
+        "vi_tri": 19
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "572",
+        "vi_tri": 20
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "Đ7",
+        "vi_tri": 21
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "041",
+        "vi_tri": 22
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "025",
+        "vi_tri": 23
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "034",
+        "vi_tri": 24
+      },
+      {
+        "stt": 2,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "106 (270Gr)",
+        "vi_tri": 25
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Basic",
+        "loai": "Color",
+        "ma_mau": "109",
+        "vi_tri": 1
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "161",
+        "vi_tri": 2
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "325",
+        "vi_tri": 3
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "388",
+        "vi_tri": 4
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "404",
+        "vi_tri": 5
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "427",
+        "vi_tri": 6
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "447",
+        "vi_tri": 7
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "503",
+        "vi_tri": 8
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "611",
+        "vi_tri": 9
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "740",
+        "vi_tri": 10
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Art",
+        "ma_mau": "901",
+        "vi_tri": 11
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "329",
+        "vi_tri": 12
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "4030",
+        "vi_tri": 13
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "757",
+        "vi_tri": 14
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Color",
+        "ma_mau": "Đ4",
+        "vi_tri": 15
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "139",
+        "vi_tri": 16
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "311",
+        "vi_tri": 17
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "556",
+        "vi_tri": 18
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "719",
+        "vi_tri": 19
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "524",
+        "vi_tri": 20
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "Đ9",
+        "vi_tri": 21
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "030",
+        "vi_tri": 22
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "0212",
+        "vi_tri": 23
+      },
+      {
+        "stt": 3,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "01 (105Gr)",
+        "vi_tri": 24
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "184",
+        "vi_tri": 1
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "330",
+        "vi_tri": 2
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "389",
+        "vi_tri": 3
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "405",
+        "vi_tri": 4
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "428",
+        "vi_tri": 5
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "448",
+        "vi_tri": 6
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "530",
+        "vi_tri": 7
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "612",
+        "vi_tri": 8
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "741",
+        "vi_tri": 9
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Art",
+        "ma_mau": "430",
+        "vi_tri": 10
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "336",
+        "vi_tri": 11
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "4457",
+        "vi_tri": 12
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "759",
+        "vi_tri": 13
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "142",
+        "vi_tri": 14
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "312",
+        "vi_tri": 15
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "590",
+        "vi_tri": 16
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "722",
+        "vi_tri": 17
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "541",
+        "vi_tri": 18
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "Đ10",
+        "vi_tri": 19
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "220",
+        "vi_tri": 20
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "213",
+        "vi_tri": 21
+      },
+      {
+        "stt": 4,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "230",
+        "vi_tri": 22
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "331",
+        "vi_tri": 1
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "407",
+        "vi_tri": 2
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "429",
+        "vi_tri": 3
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "460",
+        "vi_tri": 4
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "577",
+        "vi_tri": 5
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "613",
+        "vi_tri": 6
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "750",
+        "vi_tri": 7
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Art",
+        "ma_mau": "431",
+        "vi_tri": 8
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "380",
+        "vi_tri": 9
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "504",
+        "vi_tri": 10
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "776",
+        "vi_tri": 11
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Color",
+        "ma_mau": "0446",
+        "vi_tri": 12
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "145",
+        "vi_tri": 13
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "321",
+        "vi_tri": 14
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "621",
+        "vi_tri": 15
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "787",
+        "vi_tri": 16
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "545",
+        "vi_tri": 17
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "Đ11",
+        "vi_tri": 18
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "073",
+        "vi_tri": 19
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "215",
+        "vi_tri": 20
+      },
+      {
+        "stt": 5,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "204",
+        "vi_tri": 21
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "201",
+        "vi_tri": 1
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "332",
+        "vi_tri": 2
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "412",
+        "vi_tri": 3
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "432",
+        "vi_tri": 4
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "467",
+        "vi_tri": 5
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "614",
+        "vi_tri": 6
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "771",
+        "vi_tri": 7
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "410",
+        "vi_tri": 8
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "610",
+        "vi_tri": 9
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "728",
+        "vi_tri": 10
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Color",
+        "ma_mau": "701",
+        "vi_tri": 11
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "322",
+        "vi_tri": 12
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "683",
+        "vi_tri": 13
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "789",
+        "vi_tri": 14
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "521",
+        "vi_tri": 15
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "984",
+        "vi_tri": 16
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "050",
+        "vi_tri": 17
+      },
+      {
+        "stt": 6,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "216",
+        "vi_tri": 18
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "209",
+        "vi_tri": 1
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "333",
+        "vi_tri": 2
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "413",
+        "vi_tri": 3
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "434",
+        "vi_tri": 4
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "469",
+        "vi_tri": 5
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "622",
+        "vi_tri": 6
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "786",
+        "vi_tri": 7
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "446",
+        "vi_tri": 8
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "681",
+        "vi_tri": 9
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "742",
+        "vi_tri": 10
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Color",
+        "ma_mau": "998",
+        "vi_tri": 11
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "268",
+        "vi_tri": 12
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "319",
+        "vi_tri": 13
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "684",
+        "vi_tri": 14
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "902",
+        "vi_tri": 15
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "581",
+        "vi_tri": 16
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "702",
+        "vi_tri": 17
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "051",
+        "vi_tri": 18
+      },
+      {
+        "stt": 7,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "219",
+        "vi_tri": 19
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "212",
+        "vi_tri": 1
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "335",
+        "vi_tri": 2
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "414",
+        "vi_tri": 3
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "435",
+        "vi_tri": 4
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "471",
+        "vi_tri": 5
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "642",
+        "vi_tri": 6
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "803",
+        "vi_tri": 7
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "452",
+        "vi_tri": 8
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "682",
+        "vi_tri": 9
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "743",
+        "vi_tri": 10
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "350",
+        "vi_tri": 11
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "686",
+        "vi_tri": 12
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "960",
+        "vi_tri": 13
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "585",
+        "vi_tri": 14
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "703",
+        "vi_tri": 15
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "052",
+        "vi_tri": 16
+      },
+      {
+        "stt": 8,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "222",
+        "vi_tri": 17
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "217",
+        "vi_tri": 1
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "337",
+        "vi_tri": 2
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "416",
+        "vi_tri": 3
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "436",
+        "vi_tri": 4
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "473",
+        "vi_tri": 5
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "668",
+        "vi_tri": 6
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "809",
+        "vi_tri": 7
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "463",
+        "vi_tri": 8
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "744",
+        "vi_tri": 9
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Color",
+        "ma_mau": "458",
+        "vi_tri": 10
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "351",
+        "vi_tri": 11
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "689",
+        "vi_tri": 12
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "533",
+        "vi_tri": 13
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "704",
+        "vi_tri": 14
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "026",
+        "vi_tri": 15
+      },
+      {
+        "stt": 9,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "224",
+        "vi_tri": 16
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "240",
+        "vi_tri": 1
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "338",
+        "vi_tri": 2
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "421",
+        "vi_tri": 3
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "440",
+        "vi_tri": 4
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "474",
+        "vi_tri": 5
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "861",
+        "vi_tri": 6
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "464",
+        "vi_tri": 7
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "783",
+        "vi_tri": 8
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "360",
+        "vi_tri": 9
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "Đ1",
+        "vi_tri": 10
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "484",
+        "vi_tri": 11
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "711",
+        "vi_tri": 12
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "089",
+        "vi_tri": 13
+      },
+      {
+        "stt": 10,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "225",
+        "vi_tri": 14
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "340",
+        "vi_tri": 1
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "423",
+        "vi_tri": 2
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "442",
+        "vi_tri": 3
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "862",
+        "vi_tri": 4
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "468",
+        "vi_tri": 5
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Art",
+        "ma_mau": "810",
+        "vi_tri": 6
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "370",
+        "vi_tri": 7
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Art",
+        "ma_mau": "485",
+        "vi_tri": 8
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Color",
+        "ma_mau": "713",
+        "vi_tri": 9
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "027",
+        "vi_tri": 10
+      },
+      {
+        "stt": 11,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "227",
+        "vi_tri": 11
+      },
+      {
+        "stt": 12,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "376",
+        "vi_tri": 1
+      },
+      {
+        "stt": 12,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "424",
+        "vi_tri": 2
+      },
+      {
+        "stt": 12,
+        "nguon": "220",
+        "nhom": "Economy",
+        "loai": "Wood",
+        "ma_mau": "443",
+        "vi_tri": 3
+      },
+      {
+        "stt": 12,
+        "nguon": "220",
+        "nhom": "Standard",
+        "loai": "Wood",
+        "ma_mau": "470",
+        "vi_tri": 4
+      },
+      {
+        "stt": 12,
+        "nguon": "220",
+        "nhom": "Premium",
+        "loai": "Wood",
+        "ma_mau": "387",
+        "vi_tri": 5
+      },
+      {
+        "stt": 12,
+        "nguon": "220",
+        "nhom": "Superb",
+        "loai": "Color",
+        "ma_mau": "228",
+        "vi_tri": 6
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_go_ghep",
+    "name": "GỖ GHÉP (Gỗ Trơn)",
+    "count": 5,
+    "data": [
+      {
+        "stt": 1,
+        "quy_cach": "8mm",
+        "cao_su_aa_ab": 550000,
+        "cao_su_ac": 485000,
+        "cao_su_bc": null,
+        "cao_su_cc": 360000,
+        "thong_nzl_aa": null
+      },
+      {
+        "stt": 2,
+        "quy_cach": "10mm",
+        "cao_su_aa_ab": 570000,
+        "cao_su_ac": 505000,
+        "cao_su_bc": 475000,
+        "cao_su_cc": 380000,
+        "thong_nzl_aa": null
+      },
+      {
+        "stt": 3,
+        "quy_cach": "12mm",
+        "cao_su_aa_ab": null,
+        "cao_su_ac": 530000,
+        "cao_su_bc": null,
+        "cao_su_cc": null,
+        "thong_nzl_aa": null
+      },
+      {
+        "stt": 4,
+        "quy_cach": "17mm",
+        "cao_su_aa_ab": null,
+        "cao_su_ac": null,
+        "cao_su_bc": 610000,
+        "cao_su_cc": null,
+        "thong_nzl_aa": null
+      },
+      {
+        "stt": 5,
+        "quy_cach": "18mm",
+        "cao_su_aa_ab": null,
+        "cao_su_ac": 645000,
+        "cao_su_bc": 620000,
+        "cao_su_cc": 565000,
+        "thong_nzl_aa": 740000
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_phu_veneer",
+    "name": "GỖ GHÉP (Phủ Veneer)",
+    "count": 4,
+    "data": [
+      {
+        "stt": 1,
+        "quy_cach": "8mm",
+        "xoan_1m": null,
+        "xoan_2m": 530000,
+        "soi_1m": null,
+        "soi_2m": null,
+        "soi_kt_1m": null,
+        "soi_kt_2m": null,
+        "oc_cho_kt_1m": null,
+        "oc_cho_kt_2m": null
+      },
+      {
+        "stt": 2,
+        "quy_cach": "10mm",
+        "xoan_1m": 490000,
+        "xoan_2m": 555000,
+        "soi_1m": 555000,
+        "soi_2m": 665000,
+        "soi_kt_1m": 510000,
+        "soi_kt_2m": 620000,
+        "oc_cho_kt_1m": 520000,
+        "oc_cho_kt_2m": 660000
+      },
+      {
+        "stt": 3,
+        "quy_cach": "12mm",
+        "xoan_1m": 590000,
+        "xoan_2m": null,
+        "soi_1m": null,
+        "soi_2m": 740000,
+        "soi_kt_1m": null,
+        "soi_kt_2m": null,
+        "oc_cho_kt_1m": null,
+        "oc_cho_kt_2m": null
+      },
+      {
+        "stt": 4,
+        "quy_cach": "17–18mm",
+        "xoan_1m": 650000,
+        "xoan_2m": 715000,
+        "soi_1m": 730000,
+        "soi_2m": 840000,
+        "soi_kt_1m": 675000,
+        "soi_kt_2m": 785000,
+        "oc_cho_kt_1m": null,
+        "oc_cho_kt_2m": 840000
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_van_ep",
+    "name": "VÁN ÉP (Thanh Thùy)",
+    "count": 9,
+    "data": [
+      {
+        "stt": 1,
+        "quy_cach": "4mm",
+        "kt_1000x2000": 102000,
+        "kt_1220x2440": 144000
+      },
+      {
+        "stt": 2,
+        "quy_cach": "5mm",
+        "kt_1000x2000": null,
+        "kt_1220x2440": 204000
+      },
+      {
+        "stt": 3,
+        "quy_cach": "6mm",
+        "kt_1000x2000": 149000,
+        "kt_1220x2440": 232000
+      },
+      {
+        "stt": 4,
+        "quy_cach": "8mm",
+        "kt_1000x2000": 149000,
+        "kt_1220x2440": 232000
+      },
+      {
+        "stt": 5,
+        "quy_cach": "10mm",
+        "kt_1000x2000": 176000,
+        "kt_1220x2440": 269000
+      },
+      {
+        "stt": 6,
+        "quy_cach": "12mm",
+        "kt_1000x2000": 200000,
+        "kt_1220x2440": 292000
+      },
+      {
+        "stt": 7,
+        "quy_cach": "14mm",
+        "kt_1000x2000": 223000,
+        "kt_1220x2440": 343000
+      },
+      {
+        "stt": 8,
+        "quy_cach": "16mm",
+        "kt_1000x2000": 246000,
+        "kt_1220x2440": 371000
+      },
+      {
+        "stt": 9,
+        "quy_cach": "18mm",
+        "kt_1000x2000": 269000,
+        "kt_1220x2440": 408000
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_van_ep_khac",
+    "name": "VÁN ÉP (Khác)",
+    "count": 19,
+    "data": [
+      {
+        "stt": 1,
+        "quy_cach": "3mm",
+        "loai": "POPLAR AA",
+        "gia": 190000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 2,
+        "quy_cach": "5mm",
+        "loai": "POPLAR AA",
+        "gia": 320000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 2,
+        "quy_cach": "5mm",
+        "loai": "EV/EV",
+        "gia": 450000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 3,
+        "quy_cach": "9mm",
+        "loai": "BIRCH C/D",
+        "gia": 542000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 3,
+        "quy_cach": "9mm",
+        "loai": "POPLAR AA",
+        "gia": 440000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 4,
+        "quy_cach": "12mm",
+        "loai": "BIRCH C/D",
+        "gia": 663000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 4,
+        "quy_cach": "12mm",
+        "loai": "POPLAR AA",
+        "gia": 542000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 5,
+        "quy_cach": "15mm",
+        "loai": "POPLAR AA",
+        "gia": 653000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 6,
+        "quy_cach": "18mm",
+        "loai": "BIRCH C/D",
+        "gia": 913000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 6,
+        "quy_cach": "18mm",
+        "loai": "POPLAR AA",
+        "gia": 755000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 6,
+        "quy_cach": "18mm",
+        "loai": "EV/EV",
+        "gia": 806000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 7,
+        "quy_cach": "25mm",
+        "loai": "EV/EV",
+        "gia": 1204000,
+        "nhom": "Nhập khẩu"
+      },
+      {
+        "stt": 1,
+        "quy_cach": "17–18mm",
+        "loai": "Standard",
+        "gia": 490000,
+        "nhom": "Phủ phim"
+      },
+      {
+        "stt": 1,
+        "quy_cach": "18mm",
+        "loai": "Sồi KT",
+        "gia": 825000,
+        "nhom": "Phủ veneer"
+      },
+      {
+        "stt": 1,
+        "quy_cach": "18mm",
+        "loai": "Walnut KT",
+        "gia": 875000,
+        "nhom": "Phủ veneer"
+      },
+      {
+        "stt": 2,
+        "quy_cach": "9mm",
+        "loai": "Sồi KT",
+        "gia": 600000,
+        "nhom": "Phủ veneer"
+      },
+      {
+        "stt": 2,
+        "quy_cach": "9mm",
+        "loai": "Walnut KT",
+        "gia": 650000,
+        "nhom": "Phủ veneer"
+      },
+      {
+        "stt": 1,
+        "quy_cach": "18mm",
+        "loai": "Giá lẻ",
+        "gia": 600000,
+        "nhom": "Okume/EV"
+      },
+      {
+        "stt": 2,
+        "quy_cach": "8-9mm",
+        "loai": "Giá lẻ",
+        "gia": 330000,
+        "nhom": "Okume/EV"
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_pvc_film_dura",
+    "name": "PVC FILM - DURA+",
+    "count": 32,
+    "data": [
+      {
+        "ma_mau": "NW 06",
+        "nhom": "Ưu đãi",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 07",
+        "nhom": "Ưu đãi",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 10",
+        "nhom": "Ưu đãi",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 11",
+        "nhom": "Ưu đãi",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 35",
+        "nhom": "Ưu đãi",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 39",
+        "nhom": "Ưu đãi",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "PW 21",
+        "nhom": "Ưu đãi",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 01",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 02",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 03",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 04",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 05",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 08",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 09",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 12",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 13",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 15",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 34",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 36",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NW 37",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NS 27",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NS 28",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NS 30",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NS 40",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NS 41",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "NM 38",
+        "nhom": "Standard",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "PW 20",
+        "nhom": "Premium",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "PW 24",
+        "nhom": "Premium",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "PM 33",
+        "nhom": "Premium",
+        "loai": "PVC film",
+        "thong_so": "0.14~0.16mm"
+      },
+      {
+        "ma_mau": "SS 18",
+        "nhom": "PETG",
+        "loai": "PETG",
+        "thong_so": "0.45mm"
+      },
+      {
+        "ma_mau": "SS28",
+        "nhom": "PETG",
+        "loai": "PETG",
+        "thong_so": "0.45mm"
+      },
+      {
+        "ma_mau": "SS38",
+        "nhom": "PETG",
+        "loai": "PETG",
+        "thong_so": "0.45mm"
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_van_phu_pvc_petg",
+    "name": "VÁN PHỦ PVC FILM - PETG",
+    "count": 14,
+    "data": [
+      {
+        "stt": 1,
+        "loai_van": "DURABO 0.6",
+        "do_day": "5mm",
+        "gia_uu_dai_1m": 387000,
+        "gia_uu_dai_2m": 554000,
+        "gia_standard_1m": 406000,
+        "gia_standard_2m": 592000,
+        "gia_premium_1m": 452000,
+        "gia_premium_2m": 684000,
+        "gia_petg_1m": 591000,
+        "gia_petg_2m": 962000
+      },
+      {
+        "stt": 2,
+        "loai_van": "DURABO 0.6",
+        "do_day": "8mm",
+        "gia_uu_dai_1m": 512000,
+        "gia_uu_dai_2m": 679000,
+        "gia_standard_1m": 531000,
+        "gia_standard_2m": 717000,
+        "gia_premium_1m": 577000,
+        "gia_premium_2m": 809000,
+        "gia_petg_1m": 716000,
+        "gia_petg_2m": 1087000
+      },
+      {
+        "stt": 3,
+        "loai_van": "DURABO 0.6",
+        "do_day": "12mm",
+        "gia_uu_dai_1m": 697000,
+        "gia_uu_dai_2m": 864000,
+        "gia_standard_1m": 716000,
+        "gia_standard_2m": 902000,
+        "gia_premium_1m": 762000,
+        "gia_premium_2m": 994000,
+        "gia_petg_1m": 901000,
+        "gia_petg_2m": 1272000
+      },
+      {
+        "stt": 4,
+        "loai_van": "DURABO 0.6",
+        "do_day": "17mm",
+        "gia_uu_dai_1m": 902000,
+        "gia_uu_dai_2m": 1069000,
+        "gia_standard_1m": 921000,
+        "gia_standard_2m": 1107000,
+        "gia_premium_1m": 967000,
+        "gia_premium_2m": 1199000,
+        "gia_petg_1m": 1106000,
+        "gia_petg_2m": 1477000
+      },
+      {
+        "stt": 5,
+        "loai_van": "DURABO 0.55",
+        "do_day": "5mm",
+        "gia_uu_dai_1m": 367000,
+        "gia_uu_dai_2m": 534000,
+        "gia_standard_1m": 386000,
+        "gia_standard_2m": 572000,
+        "gia_premium_1m": 432000,
+        "gia_premium_2m": 664000,
+        "gia_petg_1m": 571000,
+        "gia_petg_2m": 942000
+      },
+      {
+        "stt": 6,
+        "loai_van": "DURABO 0.55",
+        "do_day": "8mm",
+        "gia_uu_dai_1m": 487000,
+        "gia_uu_dai_2m": 654000,
+        "gia_standard_1m": 506000,
+        "gia_standard_2m": 692000,
+        "gia_premium_1m": 552000,
+        "gia_premium_2m": 784000,
+        "gia_petg_1m": 691000,
+        "gia_petg_2m": 1062000
+      },
+      {
+        "stt": 7,
+        "loai_van": "DURABO 0.55",
+        "do_day": "12mm",
+        "gia_uu_dai_1m": 647000,
+        "gia_uu_dai_2m": 814000,
+        "gia_standard_1m": 666000,
+        "gia_standard_2m": 852000,
+        "gia_premium_1m": 712000,
+        "gia_premium_2m": 944000,
+        "gia_petg_1m": 851000,
+        "gia_petg_2m": 1222000
+      },
+      {
+        "stt": 8,
+        "loai_van": "DURABO 0.5",
+        "do_day": "17mm",
+        "gia_uu_dai_1m": 837000,
+        "gia_uu_dai_2m": 1004000,
+        "gia_standard_1m": 856000,
+        "gia_standard_2m": 1042000,
+        "gia_premium_1m": 902000,
+        "gia_premium_2m": 1134000,
+        "gia_petg_1m": 1041000,
+        "gia_petg_2m": 1412000
+      },
+      {
+        "stt": 9,
+        "loai_van": "Ván nhựa than tre 0.65",
+        "do_day": "8mm",
+        "gia_uu_dai_1m": 567000,
+        "gia_uu_dai_2m": 734000,
+        "gia_standard_1m": 586000,
+        "gia_standard_2m": 772000,
+        "gia_premium_1m": 632000,
+        "gia_premium_2m": 864000,
+        "gia_petg_1m": 771000,
+        "gia_petg_2m": 1142000
+      },
+      {
+        "stt": 10,
+        "loai_van": "Ván nhựa than tre 0.65",
+        "do_day": "17mm",
+        "gia_uu_dai_1m": 857000,
+        "gia_uu_dai_2m": 1024000,
+        "gia_standard_1m": 876000,
+        "gia_standard_2m": 1062000,
+        "gia_premium_1m": 922000,
+        "gia_premium_2m": 1154000,
+        "gia_petg_1m": 1061000,
+        "gia_petg_2m": 1432000
+      },
+      {
+        "stt": 11,
+        "loai_van": "MDF thường",
+        "do_day": "8mm",
+        "gia_uu_dai_1m": 342000,
+        "gia_uu_dai_2m": 509000,
+        "gia_standard_1m": 361000,
+        "gia_standard_2m": 547000,
+        "gia_premium_1m": 407000,
+        "gia_premium_2m": 639000,
+        "gia_petg_1m": 546000,
+        "gia_petg_2m": 917000
+      },
+      {
+        "stt": 12,
+        "loai_van": "MDF thường",
+        "do_day": "17mm",
+        "gia_uu_dai_1m": 505000,
+        "gia_uu_dai_2m": 672000,
+        "gia_standard_1m": 524000,
+        "gia_standard_2m": 710000,
+        "gia_premium_1m": 570000,
+        "gia_premium_2m": 802000,
+        "gia_petg_1m": 709000,
+        "gia_petg_2m": 1080000
+      },
+      {
+        "stt": 13,
+        "loai_van": "MDF kháng ẩm VN",
+        "do_day": "8mm",
+        "gia_uu_dai_1m": 362000,
+        "gia_uu_dai_2m": 529000,
+        "gia_standard_1m": 381000,
+        "gia_standard_2m": 567000,
+        "gia_premium_1m": 427000,
+        "gia_premium_2m": 659000,
+        "gia_petg_1m": 566000,
+        "gia_petg_2m": 937000
+      },
+      {
+        "stt": 14,
+        "loai_van": "MDF kháng ẩm VN",
+        "do_day": "17mm",
+        "gia_uu_dai_1m": 535000,
+        "gia_uu_dai_2m": 702000,
+        "gia_standard_1m": 554000,
+        "gia_standard_2m": 740000,
+        "gia_premium_1m": 600000,
+        "gia_premium_2m": 832000,
+        "gia_petg_1m": 739000,
+        "gia_petg_2m": 1110000
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_durabo",
+    "name": "VÁN NHỰA DURABO",
+    "count": 36,
+    "data": [
+      {
+        "stt": 1,
+        "quy_cach": "3mm",
+        "loai": "0.32–0.37D ko BH",
+        "nhom": "DURABO ECO",
+        "gia": 93000,
+        "dong_goi": "12"
+      },
+      {
+        "stt": 2,
+        "quy_cach": "5mm",
+        "loai": "0.32–0.37D ko BH",
+        "nhom": "DURABO ECO",
+        "gia": 150000,
+        "dong_goi": "10"
+      },
+      {
+        "stt": 3,
+        "quy_cach": "8mm",
+        "loai": "0.32–0.37D ko BH",
+        "nhom": "DURABO ECO",
+        "gia": 238000,
+        "dong_goi": "5"
+      },
+      {
+        "stt": 4,
+        "quy_cach": "5mm",
+        "loai": "DURABO 0.55D",
+        "nhom": "DURABO",
+        "gia": 200000,
+        "dong_goi": null
+      },
+      {
+        "stt": 5,
+        "quy_cach": "8mm",
+        "loai": "DURABO 0.6D",
+        "nhom": "DURABO",
+        "gia": 345000,
+        "dong_goi": null
+      },
+      {
+        "stt": 6,
+        "quy_cach": "8mm",
+        "loai": "DURABO 0.55D",
+        "nhom": "DURABO",
+        "gia": 320000,
+        "dong_goi": null
+      },
+      {
+        "stt": 7,
+        "quy_cach": "8mm",
+        "loai": "Siêu bóng 2 mặt",
+        "nhom": "DURABO",
+        "gia": 520000,
+        "dong_goi": null
+      },
+      {
+        "stt": 8,
+        "quy_cach": "9mm",
+        "loai": "DURABO 0.5D ko BH",
+        "nhom": "DURABO",
+        "gia": 360000,
+        "dong_goi": null
+      },
+      {
+        "stt": 9,
+        "quy_cach": "10mm",
+        "loai": "DURABO 0.6D",
+        "nhom": "DURABO",
+        "gia": 440000,
+        "dong_goi": null
+      },
+      {
+        "stt": 10,
+        "quy_cach": "10mm",
+        "loai": "DURABO 0.55D",
+        "nhom": "DURABO",
+        "gia": 400000,
+        "dong_goi": null
+      },
+      {
+        "stt": 11,
+        "quy_cach": "12mm",
+        "loai": "DURABO 0.6D",
+        "nhom": "DURABO",
+        "gia": 530000,
+        "dong_goi": null
+      },
+      {
+        "stt": 12,
+        "quy_cach": "12mm",
+        "loai": "DURABO 0.55D",
+        "nhom": "DURABO",
+        "gia": 480000,
+        "dong_goi": null
+      },
+      {
+        "stt": 13,
+        "quy_cach": "15mm",
+        "loai": "DURABO 0.55D",
+        "nhom": "DURABO",
+        "gia": 600000,
+        "dong_goi": null
+      },
+      {
+        "stt": 14,
+        "quy_cach": "15mm",
+        "loai": "DURABO 0.5D ko BH",
+        "nhom": "DURABO",
+        "gia": 550000,
+        "dong_goi": null
+      },
+      {
+        "stt": 15,
+        "quy_cach": "17mm",
+        "loai": "DURABO 0.6D",
+        "nhom": "DURABO",
+        "gia": 735000,
+        "dong_goi": null
+      },
+      {
+        "stt": 16,
+        "quy_cach": "17mm",
+        "loai": "DURABO 0.55D",
+        "nhom": "DURABO",
+        "gia": 670000,
+        "dong_goi": null
+      },
+      {
+        "stt": 17,
+        "quy_cach": "17mm",
+        "loai": "DURABO 0.5D ko BH",
+        "nhom": "DURABO",
+        "gia": 620000,
+        "dong_goi": null
+      },
+      {
+        "stt": 18,
+        "quy_cach": "17mm",
+        "loai": "Siêu bóng 1 mặt",
+        "nhom": "DURABO",
+        "gia": 830000,
+        "dong_goi": null
+      },
+      {
+        "stt": 19,
+        "quy_cach": "17mm",
+        "loai": "Siêu bóng 2 mặt",
+        "nhom": "DURABO",
+        "gia": 880000,
+        "dong_goi": null
+      },
+      {
+        "stt": 20,
+        "quy_cach": "5mm",
+        "loai": "Celuka Trắng 0.6D",
+        "nhom": "Ván nhựa",
+        "gia": 220000,
+        "dong_goi": null
+      },
+      {
+        "stt": 21,
+        "quy_cach": "5mm",
+        "loai": "Celuka Trắng 0.55D",
+        "nhom": "Ván nhựa",
+        "gia": 200000,
+        "dong_goi": null
+      },
+      {
+        "stt": 22,
+        "quy_cach": "8mm",
+        "loai": "Celuka Trắng 0.6D",
+        "nhom": "Ván nhựa",
+        "gia": 345000,
+        "dong_goi": null
+      },
+      {
+        "stt": 23,
+        "quy_cach": "8mm",
+        "loai": "Celuka Trắng 0.55D",
+        "nhom": "Ván nhựa",
+        "gia": 320000,
+        "dong_goi": null
+      },
+      {
+        "stt": 24,
+        "quy_cach": "8mm",
+        "loai": "Co-extrusion lõi đen",
+        "nhom": "Ván nhựa",
+        "gia": 400000,
+        "dong_goi": null
+      },
+      {
+        "stt": 25,
+        "quy_cach": "10mm",
+        "loai": "Celuka Trắng 0.6D",
+        "nhom": "Ván nhựa",
+        "gia": 440000,
+        "dong_goi": null
+      },
+      {
+        "stt": 26,
+        "quy_cach": "10mm",
+        "loai": "Celuka Trắng 0.55D",
+        "nhom": "Ván nhựa",
+        "gia": 400000,
+        "dong_goi": null
+      },
+      {
+        "stt": 27,
+        "quy_cach": "12mm",
+        "loai": "Celuka Trắng 0.6D",
+        "nhom": "Ván nhựa",
+        "gia": 530000,
+        "dong_goi": null
+      },
+      {
+        "stt": 28,
+        "quy_cach": "12mm",
+        "loai": "Celuka Trắng 0.55D",
+        "nhom": "Ván nhựa",
+        "gia": 480000,
+        "dong_goi": null
+      },
+      {
+        "stt": 29,
+        "quy_cach": "15mm",
+        "loai": "Celuka Trắng 0.6D",
+        "nhom": "Ván nhựa",
+        "gia": 650000,
+        "dong_goi": null
+      },
+      {
+        "stt": 30,
+        "quy_cach": "15mm",
+        "loai": "Celuka Trắng 0.55D",
+        "nhom": "Ván nhựa",
+        "gia": 600000,
+        "dong_goi": null
+      },
+      {
+        "stt": 31,
+        "quy_cach": "17mm",
+        "loai": "Celuka Trắng 0.6D",
+        "nhom": "Ván nhựa",
+        "gia": 735000,
+        "dong_goi": null
+      },
+      {
+        "stt": 32,
+        "quy_cach": "17mm",
+        "loai": "Celuka Trắng 0.55D",
+        "nhom": "Ván nhựa",
+        "gia": 670000,
+        "dong_goi": null
+      },
+      {
+        "stt": 33,
+        "quy_cach": "17mm",
+        "loai": "Co-extrusion lõi đen",
+        "nhom": "Ván nhựa",
+        "gia": 690000,
+        "dong_goi": null
+      },
+      {
+        "stt": 34,
+        "quy_cach": "17mm",
+        "loai": "Co-extrusion lõi trắng",
+        "nhom": "Ván nhựa",
+        "gia": 834000,
+        "dong_goi": null
+      },
+      {
+        "stt": 35,
+        "quy_cach": "17mm",
+        "loai": "WPC Shield Board 0.6D",
+        "nhom": "Ván nhựa",
+        "gia": 865000,
+        "dong_goi": null
+      },
+      {
+        "stt": 36,
+        "quy_cach": "17mm",
+        "loai": "WPC Shield Board 0.6D (nhóm 2)",
+        "nhom": "Ván nhựa",
+        "gia": 902000,
+        "dong_goi": null
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_osb",
+    "name": "OSB",
+    "count": 5,
+    "data": [
+      {
+        "stt": 1,
+        "mo_ta": "OSB 2 (E2) mặt mix, nhám, sử dụng làm sàn, vách, đóng thùng bao bì, vv",
+        "do_day": "8-9mm",
+        "gia": 240000,
+        "gia_da_ck_10": 216000,
+        "gia_da_ck_15": 204000,
+        "gia_chua_ck_10": 237600,
+        "gia_chua_ck_15": 224400,
+        "tam_kien": 110
+      },
+      {
+        "stt": 0,
+        "mo_ta": "OSB 2 (E2) mặt mix, nhám, sử dụng làm sàn, vách, đóng thùng bao bì, vv",
+        "do_day": "17-18mm",
+        "gia": 410000,
+        "gia_da_ck_10": 369000,
+        "gia_da_ck_15": 348500,
+        "gia_chua_ck_10": 405900,
+        "gia_chua_ck_15": 383350,
+        "tam_kien": 55
+      },
+      {
+        "stt": 2,
+        "mo_ta": "OSB (E0) gỗ thông (Full pine)",
+        "do_day": "9mm",
+        "gia": 310000,
+        "gia_da_ck_10": 279000,
+        "gia_da_ck_15": 263500,
+        "gia_chua_ck_10": 306900,
+        "gia_chua_ck_15": 289850,
+        "tam_kien": 110
+      },
+      {
+        "stt": 0,
+        "mo_ta": "OSB (E0) gỗ thông (Full pine)",
+        "do_day": "12mm",
+        "gia": 450000,
+        "gia_da_ck_10": 405000,
+        "gia_da_ck_15": 382500,
+        "gia_chua_ck_10": 445500,
+        "gia_chua_ck_15": 420750,
+        "tam_kien": 80
+      },
+      {
+        "stt": 0,
+        "mo_ta": "OSB (E0) gỗ thông (Full pine)",
+        "do_day": "18mm",
+        "gia": 570000,
+        "gia_da_ck_10": 513000,
+        "gia_da_ck_15": 484500,
+        "gia_chua_ck_10": 564300,
+        "gia_chua_ck_15": 532950,
+        "tam_kien": 50
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_mau_melamine_2",
+    "name": "BẢNG NHÓM MÀU MELAMINE",
+    "count": 216,
+    "data": [
+      {
+        "ma_mau": "184",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "421",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "D3",
+        "nhom": "SÁNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "0029",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "380",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "439",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "474",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "609",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "742",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "D1",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "711",
+        "nhom": "TRUNG",
+        "phan_nhom": "ART"
+      },
+      {
+        "ma_mau": "D2",
+        "nhom": "TRUNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "0446",
+        "nhom": "TRUNG",
+        "phan_nhom": "VẢI"
+      },
+      {
+        "ma_mau": "132",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "414",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "D4",
+        "nhom": "TỐI",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "702",
+        "nhom": "TỐI",
+        "phan_nhom": "VẢI"
+      },
+      {
+        "ma_mau": "021",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "200",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "217",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "424",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "D5",
+        "nhom": "SÁNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "142",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "385",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "440",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "484",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "612",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "750",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "4028",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "713",
+        "nhom": "TRUNG",
+        "phan_nhom": "ART"
+      },
+      {
+        "ma_mau": "D7",
+        "nhom": "TRUNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "701",
+        "nhom": "TRUNG",
+        "phan_nhom": "VẢI"
+      },
+      {
+        "ma_mau": "136",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "423",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "D8",
+        "nhom": "TỐI",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "041",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "025",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "240",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "429",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "D6",
+        "nhom": "SÁNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "145",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "386",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "443",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "485",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "642",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "757",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "4029",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "901",
+        "nhom": "TRUNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "703",
+        "nhom": "TRUNG",
+        "phan_nhom": "VẢI"
+      },
+      {
+        "ma_mau": "139",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "442",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "030",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "0212",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "301",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "452",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "D9",
+        "nhom": "SÁNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "201",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "387",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "444",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "502",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "668",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "776",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "4030",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "D10",
+        "nhom": "TRUNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "704",
+        "nhom": "TRUNG",
+        "phan_nhom": "VẢI"
+      },
+      {
+        "ma_mau": "161",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "530",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "220",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "213",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "311",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "468",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "D11",
+        "nhom": "SÁNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "209",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "404",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "445",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "503",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "682",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "783",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "4457",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "430",
+        "nhom": "TRUNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "998",
+        "nhom": "TRUNG",
+        "phan_nhom": "VẢI"
+      },
+      {
+        "ma_mau": "268",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "556",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "073",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "215",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "319",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "501",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "212",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "405",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "446",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "521",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "683",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "786",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "0439",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "431",
+        "nhom": "TRUNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "303",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "590",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "051",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "216",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "320",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "504",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "23015",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "407",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "447",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "524",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "684",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "787",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "0330",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "458",
+        "nhom": "TRUNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "312",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "601",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "050",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "219",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "321",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "610",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "330",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "416",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "448",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "533",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "686",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "789",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "984",
+        "nhom": "TRUNG",
+        "phan_nhom": "ĐÁ"
+      },
+      {
+        "ma_mau": "302",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "613",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "052",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "104",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "325",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "611",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "331",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "425",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "460",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "541",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "689",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "809",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "322",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "614",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "026",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "106",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "388",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "621",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "332",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "426",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "463",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "545",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "714",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "810",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "329",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "719",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "089",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "033",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "389",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "622",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "335",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "427",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "464",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "551",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "722",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "862",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "333",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "725",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "027",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "034",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "402",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "681",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "337",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "428",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "467",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "571",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "728",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "902",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "336",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "735",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "203",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "222",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "403",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "708",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "340",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "432",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "469",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "572",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "736",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "960",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "338",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "743",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "100",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "224",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "410",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "740",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "350",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "434",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "470",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "577",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "737",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "370",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "744",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "230",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "226",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "412",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "759",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "351",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "435",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "471",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "581",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "741",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "376",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "803",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "204",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "227",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      },
+      {
+        "ma_mau": "413",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "771",
+        "nhom": "SÁNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "360",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "436",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "473",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "585",
+        "nhom": "TRUNG",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "861",
+        "nhom": "TỐI",
+        "phan_nhom": "VÂN GỖ"
+      },
+      {
+        "ma_mau": "228",
+        "nhom": "ĐƠN SẮC",
+        "phan_nhom": "ĐƠN SẮC"
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_melamine_plywood",
+    "name": "MELAMINE PLYWOOD",
+    "count": 12,
+    "data": [
+      {
+        "stt": 1,
+        "do_day": "5mm",
+        "gia_sang_trung": 520000,
+        "gia_toi": 620000,
+        "gia_don_sac_101": 520000,
+        "gia_don_sac_khac_da": 620000,
+        "gia_don_sac_106": 720000,
+        "loai_cot": "EV"
+      },
+      {
+        "stt": 1,
+        "do_day": "5mm",
+        "gia_sang_trung": 520000,
+        "gia_toi": 620000,
+        "gia_don_sac_101": 520000,
+        "gia_don_sac_khac_da": 620000,
+        "gia_don_sac_106": 720000,
+        "loai_cot": "SW Plywood keo Cp2"
+      },
+      {
+        "stt": 1,
+        "do_day": "5mm",
+        "gia_sang_trung": 520000,
+        "gia_toi": 620000,
+        "gia_don_sac_101": 520000,
+        "gia_don_sac_khac_da": 620000,
+        "gia_don_sac_106": 720000,
+        "loai_cot": "E0"
+      },
+      {
+        "stt": 2,
+        "do_day": "9mm",
+        "gia_sang_trung": 540000,
+        "gia_toi": 640000,
+        "gia_don_sac_101": 540000,
+        "gia_don_sac_khac_da": 640000,
+        "gia_don_sac_106": 740000,
+        "loai_cot": "EV"
+      },
+      {
+        "stt": 2,
+        "do_day": "9mm",
+        "gia_sang_trung": 540000,
+        "gia_toi": 640000,
+        "gia_don_sac_101": 540000,
+        "gia_don_sac_khac_da": 640000,
+        "gia_don_sac_106": 740000,
+        "loai_cot": "SW Plywood keo Cp2"
+      },
+      {
+        "stt": 2,
+        "do_day": "9mm",
+        "gia_sang_trung": 540000,
+        "gia_toi": 640000,
+        "gia_don_sac_101": 540000,
+        "gia_don_sac_khac_da": 640000,
+        "gia_don_sac_106": 740000,
+        "loai_cot": "E0"
+      },
+      {
+        "stt": 3,
+        "do_day": "18mm",
+        "gia_sang_trung": 860000,
+        "gia_toi": 960000,
+        "gia_don_sac_101": 880000,
+        "gia_don_sac_khac_da": 960000,
+        "gia_don_sac_106": 1060000,
+        "loai_cot": "EV"
+      },
+      {
+        "stt": 3,
+        "do_day": "18mm",
+        "gia_sang_trung": 860000,
+        "gia_toi": 960000,
+        "gia_don_sac_101": 880000,
+        "gia_don_sac_khac_da": 960000,
+        "gia_don_sac_106": 1060000,
+        "loai_cot": "SW Plywood keo Cp2"
+      },
+      {
+        "stt": 3,
+        "do_day": "18mm",
+        "gia_sang_trung": 860000,
+        "gia_toi": 960000,
+        "gia_don_sac_101": 880000,
+        "gia_don_sac_khac_da": 960000,
+        "gia_don_sac_106": 1060000,
+        "loai_cot": "E0"
+      },
+      {
+        "stt": 4,
+        "do_day": "25mm",
+        "gia_sang_trung": 1330000,
+        "gia_toi": 1430000,
+        "gia_don_sac_101": 1330000,
+        "gia_don_sac_khac_da": 1430000,
+        "gia_don_sac_106": 1530000,
+        "loai_cot": "EV"
+      },
+      {
+        "stt": 4,
+        "do_day": "25mm",
+        "gia_sang_trung": 1330000,
+        "gia_toi": 1430000,
+        "gia_don_sac_101": 1330000,
+        "gia_don_sac_khac_da": 1430000,
+        "gia_don_sac_106": 1530000,
+        "loai_cot": "SW Plywood keo Cp2"
+      },
+      {
+        "stt": 4,
+        "do_day": "25mm",
+        "gia_sang_trung": 1330000,
+        "gia_toi": 1430000,
+        "gia_don_sac_101": 1330000,
+        "gia_don_sac_khac_da": 1430000,
+        "gia_don_sac_106": 1530000,
+        "loai_cot": "E0"
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_melamine_nhua_osb_ghep",
+    "name": "VÁN NHỰA-OSB-GGHÉP PHỦ MELAMINE",
+    "count": 18,
+    "data": [
+      {
+        "stt": 1,
+        "loai_cot": "DURABO 0.6",
+        "do_day": "5mm",
+        "gia_sang_trung": 660000,
+        "gia_toi_don_sac": 860000,
+        "gia_chum_104_106": 960000
+      },
+      {
+        "stt": 2,
+        "loai_cot": "DURABO 0.6",
+        "do_day": "8mm",
+        "gia_sang_trung": 785000,
+        "gia_toi_don_sac": 985000,
+        "gia_chum_104_106": 1085000
+      },
+      {
+        "stt": 3,
+        "loai_cot": "DURABO 0.6",
+        "do_day": "10mm",
+        "gia_sang_trung": 880000,
+        "gia_toi_don_sac": 1080000,
+        "gia_chum_104_106": 1180000
+      },
+      {
+        "stt": 4,
+        "loai_cot": "DURABO 0.6",
+        "do_day": "12mm",
+        "gia_sang_trung": 970000,
+        "gia_toi_don_sac": 1170000,
+        "gia_chum_104_106": 1270000
+      },
+      {
+        "stt": 5,
+        "loai_cot": "DURABO 0.6",
+        "do_day": "15mm",
+        "gia_sang_trung": 1090000,
+        "gia_toi_don_sac": 1290000,
+        "gia_chum_104_106": 1390000
+      },
+      {
+        "stt": 6,
+        "loai_cot": "DURABO 0.6",
+        "do_day": "17mm",
+        "gia_sang_trung": 1175000,
+        "gia_toi_don_sac": 1375000,
+        "gia_chum_104_106": 1475000
+      },
+      {
+        "stt": 7,
+        "loai_cot": "DURABO 0.5-0.55",
+        "do_day": "8mm",
+        "gia_sang_trung": 760000,
+        "gia_toi_don_sac": 960000,
+        "gia_chum_104_106": 1060000
+      },
+      {
+        "stt": 8,
+        "loai_cot": "DURABO 0.5-0.55",
+        "do_day": "9mm",
+        "gia_sang_trung": 800000,
+        "gia_toi_don_sac": 1000000,
+        "gia_chum_104_106": 1100000
+      },
+      {
+        "stt": 9,
+        "loai_cot": "DURABO 0.5-0.55",
+        "do_day": "15mm",
+        "gia_sang_trung": 1040000,
+        "gia_toi_don_sac": 1240000,
+        "gia_chum_104_106": 1340000
+      },
+      {
+        "stt": 10,
+        "loai_cot": "DURABO 0.5-0.55",
+        "do_day": "17mm",
+        "gia_sang_trung": 1110000,
+        "gia_toi_don_sac": 1310000,
+        "gia_chum_104_106": 1410000
+      },
+      {
+        "stt": 11,
+        "loai_cot": "Ván nhựa lõi đen 0.65",
+        "do_day": "8mm",
+        "gia_sang_trung": 840000,
+        "gia_toi_don_sac": 1040000,
+        "gia_chum_104_106": 1140000
+      },
+      {
+        "stt": 12,
+        "loai_cot": "Ván nhựa lõi đen 0.65",
+        "do_day": "17mm",
+        "gia_sang_trung": 1130000,
+        "gia_toi_don_sac": 1330000,
+        "gia_chum_104_106": 1430000
+      },
+      {
+        "stt": 13,
+        "loai_cot": "OSB Pine",
+        "do_day": "9mm",
+        "gia_sang_trung": 750000,
+        "gia_toi_don_sac": 950000,
+        "gia_chum_104_106": 1050000
+      },
+      {
+        "stt": 14,
+        "loai_cot": "OSB Pine",
+        "do_day": "12mm",
+        "gia_sang_trung": 890000,
+        "gia_toi_don_sac": 1090000,
+        "gia_chum_104_106": 1190000
+      },
+      {
+        "stt": 15,
+        "loai_cot": "OSB Pine",
+        "do_day": "18mm",
+        "gia_sang_trung": 1010000,
+        "gia_toi_don_sac": 1210000,
+        "gia_chum_104_106": 1310000
+      },
+      {
+        "stt": 16,
+        "loai_cot": "Gỗ ghép Cao su",
+        "do_day": "8mm",
+        "gia_sang_trung": 990000,
+        "gia_toi_don_sac": 1190000,
+        "gia_chum_104_106": 1290000
+      },
+      {
+        "stt": 17,
+        "loai_cot": "Gỗ ghép Cao su",
+        "do_day": "18mm",
+        "gia_sang_trung": 1180000,
+        "gia_toi_don_sac": 1380000,
+        "gia_chum_104_106": 1480000
+      },
+      {
+        "stt": 99,
+        "loai_cot": "Phủ 1 mặt giảm trừ",
+        "do_day": "",
+        "gia_sang_trung": null,
+        "gia_toi_don_sac": null,
+        "gia_chum_104_106": null,
+        "giam_tru_sang_trung": 220000,
+        "giam_tru_toi_don_sac": 320000,
+        "giam_tru_chum_104_106": 370000
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_veneer",
+    "name": "VENEER",
+    "count": 4,
+    "data": [
+      {
+        "stt": 1,
+        "loai": "Tự nhiên",
+        "be_mat": "Xoan",
+        "gia_1m_a": 90000,
+        "gia_1m_b": 80000,
+        "gia_2m": 185000
+      },
+      {
+        "stt": 2,
+        "loai": "Tự nhiên",
+        "be_mat": "Sồi",
+        "gia_1m_a": 150000,
+        "gia_1m_b": 140000,
+        "gia_2m": 320000
+      },
+      {
+        "stt": 1,
+        "loai": "Kỹ thuật",
+        "be_mat": "Sồi kỹ thuật",
+        "gia_1m_a": 150000,
+        "gia_1m_b": null,
+        "gia_2m": 300000
+      },
+      {
+        "stt": 2,
+        "loai": "Kỹ thuật",
+        "be_mat": "Walnut kỹ thuật",
+        "gia_1m_a": 170000,
+        "gia_1m_b": null,
+        "gia_2m": 340000
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_mat_phu_khac",
+    "name": "MẶT PHỦ KHÁC",
+    "count": 4,
+    "data": [
+      {
+        "stt": 1,
+        "ten": "Keo trong (trên mặt veneer hoặc gỗ)",
+        "gia_1m": 40000,
+        "gia_2m": 80000,
+        "ghi_chu": "tối thiểu 20 tấm/ đơn"
+      },
+      {
+        "stt": 2,
+        "ten": "Giấy PU/ Giấy vân gỗ",
+        "gia_1m": 25000,
+        "gia_2m": 50000,
+        "ghi_chu": "tối thiểu 20 tấm/ màu/ độ dày"
+      },
+      {
+        "stt": 3,
+        "ten": "Bảo hộ trên melamine > 50 mặt",
+        "gia_1m": 20000,
+        "gia_2m": 40000,
+        "ghi_chu": "tối thiểu 10 tấm/loại"
+      },
+      {
+        "stt": 4,
+        "ten": "Bảo hộ trên melamine < 50 mặt",
+        "gia_1m": 40000,
+        "gia_2m": 80000,
+        "ghi_chu": "tối thiểu 10 tấm/loại"
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_chi_nep",
+    "name": "CHỈ NẸP",
+    "count": 9,
+    "data": [
+      {
+        "stt": 1,
+        "nhom": "PVC",
+        "cuon": "101, 100, 104 (T/SH)",
+        "gia_a": 140000,
+        "gia_b": 340000,
+        "gia_c": 200000,
+        "gia_d": null
+      },
+      {
+        "stt": 2,
+        "nhom": "PVC",
+        "cuon": "Chỉ PVC vân gỗ, Đơn sắc còn lại",
+        "gia_a": 170000,
+        "gia_b": 370000,
+        "gia_c": 260000,
+        "gia_d": null
+      },
+      {
+        "stt": 1,
+        "nhom": "VENEER",
+        "cuon": "Xoan",
+        "gia_a": 145000,
+        "gia_b": 290000,
+        "gia_c": 85000,
+        "gia_d": 170000
+      },
+      {
+        "stt": 2,
+        "nhom": "VENEER",
+        "cuon": "Sồi",
+        "gia_a": 155000,
+        "gia_b": 310000,
+        "gia_c": 90000,
+        "gia_d": 180000
+      },
+      {
+        "stt": 3,
+        "nhom": "VENEER",
+        "cuon": "Walnut kỹ thuật",
+        "gia_a": 250000,
+        "gia_b": 500000,
+        "gia_c": 180000,
+        "gia_d": 360000
+      },
+      {
+        "stt": 1,
+        "nhom": "ACRYLIC",
+        "cuon": "Chỉ Acrylic mã AS và AM",
+        "gia_a": 450000,
+        "gia_b": 414000,
+        "gia_c": null,
+        "gia_d": null
+      },
+      {
+        "stt": 1,
+        "nhom": "ABS_PVC",
+        "cuon": "Chỉ ABS màu SS18-28-38-903",
+        "gia_a": 360000,
+        "gia_b": null,
+        "gia_c": null,
+        "gia_d": null
+      },
+      {
+        "stt": 2,
+        "nhom": "ABS_PVC",
+        "cuon": "Chỉ DOLLKEN US 101-102-103-104-105-106, Chỉ DOLLKEN UM 107",
+        "gia_a": null,
+        "gia_b": 500000,
+        "gia_c": null,
+        "gia_d": null
+      },
+      {
+        "stt": 3,
+        "nhom": "ABS_PVC",
+        "cuon": "Chỉ PVC SB 001-009",
+        "gia_a": null,
+        "gia_b": 100000,
+        "gia_c": null,
+        "gia_d": null
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_keo_hat",
+    "name": "KEO HẠT",
+    "count": 9,
+    "data": [
+      {
+        "stt": 1,
+        "ma": "BOSTIK 9338",
+        "nhiet_do": "145-165",
+        "mau": "Kem",
+        "gia_1kg": 80000,
+        "gia_25kg": 2000000
+      },
+      {
+        "stt": 2,
+        "ma": "BOSTIK 7523",
+        "nhiet_do": "160-180",
+        "mau": "Trắng sữa",
+        "gia_1kg": 70000,
+        "gia_25kg": 1750000
+      },
+      {
+        "stt": 3,
+        "ma": "BOSTIK 7680",
+        "nhiet_do": "175-195",
+        "mau": "Trắng",
+        "gia_1kg": 70000,
+        "gia_25kg": 1750000
+      },
+      {
+        "stt": 4,
+        "ma": "BOSTIK 7681",
+        "nhiet_do": "175-195",
+        "mau": "Be",
+        "gia_1kg": 70000,
+        "gia_25kg": 2000000
+      },
+      {
+        "stt": 5,
+        "ma": "JOWAT 282.15",
+        "nhiet_do": "145-165",
+        "mau": "Kem",
+        "gia_1kg": 80000,
+        "gia_25kg": 2000000
+      },
+      {
+        "stt": 6,
+        "ma": "JOWAT 288.60",
+        "nhiet_do": "180-200",
+        "mau": "Kem",
+        "gia_1kg": 90000,
+        "gia_25kg": 2250000
+      },
+      {
+        "stt": 7,
+        "ma": "JOWAT 288.61",
+        "nhiet_do": "180-200",
+        "mau": "Trắng",
+        "gia_1kg": 90000,
+        "gia_25kg": 2250000
+      },
+      {
+        "stt": 8,
+        "ma": "JOWAT 296.80",
+        "nhiet_do": "190-200",
+        "mau": "Kem",
+        "gia_1kg": 80000,
+        "gia_25kg": 2000000
+      },
+      {
+        "stt": 9,
+        "ma": "JOWAT 280.58",
+        "nhiet_do": "180-210",
+        "mau": "Trong",
+        "gia_1kg": 123000,
+        "gia_25kg": 3075000
+      }
+    ]
+  },
+  {
+    "table": "bang_gia_chuan_98_mau",
+    "name": "NHÓM 98 MÀU MELAMINE PHỔ THÔNG",
+    "count": 12,
+    "data": [
+      {
+        "stt": 1,
+        "wood_1": 29,
+        "wood_2": 330,
+        "wood_3": 389,
+        "wood_4": 425,
+        "wood_5": 444,
+        "wood_6": 503,
+        "wood_7": 725,
+        "art": "D5",
+        "color_code": 430,
+        "color_name": "White Dove 109"
+      },
+      {
+        "stt": 2,
+        "wood_1": 439,
+        "wood_2": 331,
+        "wood_3": 402,
+        "wood_4": 426,
+        "wood_5": 445,
+        "wood_6": 530,
+        "wood_7": 737,
+        "art": "D8",
+        "color_code": 431,
+        "color_name": "Basic White 108"
+      },
+      {
+        "stt": 3,
+        "wood_1": 161,
+        "wood_2": 332,
+        "wood_3": 403,
+        "wood_4": 427,
+        "wood_5": 447,
+        "wood_6": 577,
+        "wood_7": 740,
+        "art": 901,
+        "color_code": null,
+        "color_name": "Tortilla 203"
+      },
+      {
+        "stt": 4,
+        "wood_1": 184,
+        "wood_2": 333,
+        "wood_3": 404,
+        "wood_4": 428,
+        "wood_5": 448,
+        "wood_6": 601,
+        "wood_7": 741,
+        "art": null,
+        "color_code": null,
+        "color_name": "Flamingo Pink 021"
+      },
+      {
+        "stt": 5,
+        "wood_1": 201,
+        "wood_2": 335,
+        "wood_3": 405,
+        "wood_4": 429,
+        "wood_5": 460,
+        "wood_6": 609,
+        "wood_7": 750,
+        "art": null,
+        "color_code": null,
+        "color_name": "Sky Blue 050"
+      },
+      {
+        "stt": 6,
+        "wood_1": 209,
+        "wood_2": 337,
+        "wood_3": 407,
+        "wood_4": 432,
+        "wood_5": 467,
+        "wood_6": 611,
+        "wood_7": 786,
+        "art": null,
+        "color_code": null,
+        "color_name": "Frosted Blue 052"
+      },
+      {
+        "stt": 7,
+        "wood_1": 212,
+        "wood_2": 338,
+        "wood_3": 412,
+        "wood_4": 434,
+        "wood_5": 469,
+        "wood_6": 612,
+        "wood_7": 803,
+        "art": null,
+        "color_code": null,
+        "color_name": "Greenery 073"
+      },
+      {
+        "stt": 8,
+        "wood_1": 217,
+        "wood_2": 340,
+        "wood_3": 413,
+        "wood_4": 435,
+        "wood_5": 471,
+        "wood_6": 613,
+        "wood_7": 771,
+        "art": null,
+        "color_code": null,
+        "color_name": "Simply White 101"
+      },
+      {
+        "stt": 9,
+        "wood_1": 240,
+        "wood_2": 376,
+        "wood_3": 414,
+        "wood_4": 436,
+        "wood_5": 473,
+        "wood_6": 614,
+        "wood_7": 809,
+        "art": null,
+        "color_code": null,
+        "color_name": "Jet Black 230"
+      },
+      {
+        "stt": 10,
+        "wood_1": 303,
+        "wood_2": 385,
+        "wood_3": 421,
+        "wood_4": 440,
+        "wood_5": 474,
+        "wood_6": 622,
+        "wood_7": 861,
+        "art": null,
+        "color_code": null,
+        "color_name": "Iron Grey 204"
+      },
+      {
+        "stt": 11,
+        "wood_1": 320,
+        "wood_2": 386,
+        "wood_3": 423,
+        "wood_4": 442,
+        "wood_5": 501,
+        "wood_6": 642,
+        "wood_7": 862,
+        "art": null,
+        "color_code": null,
+        "color_name": null
+      },
+      {
+        "stt": 12,
+        "wood_1": 325,
+        "wood_2": 388,
+        "wood_3": 424,
+        "wood_4": 443,
+        "wood_5": 502,
+        "wood_6": 668,
+        "wood_7": null,
+        "art": null,
+        "color_code": null,
+        "color_name": null
+      }
+    ]
+  }
+]

@@ -3,6 +3,9 @@ import { apiGet, apiPost } from '../../lib/api'
 import { colors, shadow, radius, input, pageContainer, pageTitle, btn, spinner } from '../../theme'
 import { formatNum } from '../../lib/format'
 import AssignMisaCode from '../../components/AssignMisaCode'
+import PaginationBar, { DEFAULT_PAGE_SIZE } from '../../components/PaginationBar'
+import GuideTabs from '../../components/GuideTabs'
+import { ggGuideTabs } from '../../guides/gg'
 
 const inputStyle: React.CSSProperties = { ...input, width: '100%', boxSizing: 'border-box' }
 
@@ -14,6 +17,7 @@ export default function TinhGiaGGPage() {
   const [search, setSearch] = useState('')
   const [filterNhom, setFilterNhom] = useState('')
   const [filterLoai, setFilterLoai] = useState('')
+  const [page, setPage] = useState(0)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -59,6 +63,10 @@ export default function TinhGiaGGPage() {
   const nhomList = [...new Set(data.map(r => r.nhom))] as string[]
   const loaiList = [...new Set(data.filter(r => !filterNhom || r.nhom === filterNhom).map(r => r.loai))] as string[]
   const totalDisplay = filtered.length
+  const pageCount = Math.ceil(filtered.length / DEFAULT_PAGE_SIZE)
+  const pageRows = filtered.slice(page * DEFAULT_PAGE_SIZE, (page + 1) * DEFAULT_PAGE_SIZE)
+
+  useEffect(() => { setPage(0) }, [search, filterNhom, filterLoai])
 
   return (
     <div style={pageContainer}>
@@ -108,7 +116,7 @@ export default function TinhGiaGGPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r, i) => (
+                {pageRows.map((r, i) => (
                   <tr key={r.id || i} style={{ background: i % 2 === 0 ? colors.card : colors.surfaceSecondary }}>
                     <td style={{ padding: '8px 14px', borderBottom: `1px solid ${colors.borderLight}`, color: r.ma_sp ? colors.primary : colors.textMuted, fontWeight: 600, fontFamily: 'monospace', fontSize: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -126,11 +134,11 @@ export default function TinhGiaGGPage() {
               </tbody>
             </table>
           </div>
-          <div style={{ padding: '10px 14px', fontSize: 12, color: colors.textMuted, borderTop: `1px solid ${colors.borderLight}` }}>
-            Tổng số: {totalDisplay} / {data.length} dòng
-          </div>
+          <PaginationBar page={page} pageCount={pageCount} total={totalDisplay} onPageChange={setPage} />
         </div>
       )}
+
+      <GuideTabs title="Hướng dẫn" tabs={ggGuideTabs} />
     </div>
   )
 }

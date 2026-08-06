@@ -3,6 +3,9 @@ import { apiGet, apiPost } from '../../lib/api'
 import { colors, shadow, radius, input, pageContainer, pageTitle, btn, spinner } from '../../theme'
 import { formatNum } from '../../lib/format'
 import AssignMisaCode from '../../components/AssignMisaCode'
+import PaginationBar, { DEFAULT_PAGE_SIZE } from '../../components/PaginationBar'
+import GuideTabs from '../../components/GuideTabs'
+import { veneerGuideTabs, matPhuKhacGuideTabs } from '../../guides/veneer'
 
 const inputStyle: React.CSSProperties = { ...input, width: '100%', boxSizing: 'border-box' }
 
@@ -30,13 +33,15 @@ export default function TinhGiaVeneerMatPhuKhacPage() {
   const [matPhuKhac, setMatPhuKhac] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [assigning, setAssigning] = useState(false)
+  const [veneerPage, setVeneerPage] = useState(0)
+  const [mpkPage, setMpkPage] = useState(0)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const [v, m] = await Promise.all([
-        apiGet('/gia-chuan/veneer?limit=100'),
-        apiGet('/gia-chuan/mat-phu-khac?limit=100'),
+        apiGet('/gia-chuan/veneer?limit=200'),
+        apiGet('/gia-chuan/mat-phu-khac?limit=200'),
       ])
       setVeneer(v.data || [])
       setMatPhuKhac(m.data || [])
@@ -45,6 +50,15 @@ export default function TinhGiaVeneerMatPhuKhacPage() {
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  const veneerRows = (veneer.length > DEFAULT_PAGE_SIZE)
+    ? veneer.slice(veneerPage * DEFAULT_PAGE_SIZE, (veneerPage + 1) * DEFAULT_PAGE_SIZE)
+    : veneer
+  const veneerPageCount = Math.ceil(veneer.length / DEFAULT_PAGE_SIZE)
+  const mpkRows = (matPhuKhac.length > DEFAULT_PAGE_SIZE)
+    ? matPhuKhac.slice(mpkPage * DEFAULT_PAGE_SIZE, (mpkPage + 1) * DEFAULT_PAGE_SIZE)
+    : matPhuKhac
+  const mpkPageCount = Math.ceil(matPhuKhac.length / DEFAULT_PAGE_SIZE)
 
   const handleAutoAssignVeneer = async () => {
     setAssigning(true)
@@ -84,7 +98,7 @@ export default function TinhGiaVeneerMatPhuKhacPage() {
               </tr>
             </thead>
             <tbody>
-              {veneer.map((r, i) => (
+              {veneerRows.map((r, i) => (
                 <tr key={r.id} style={{ background: i % 2 === 0 ? colors.card : colors.surfaceSecondary }}>
                   <td style={{ ...cell(), color: r.ma_sp ? colors.primary : colors.textMuted, fontWeight: 600, fontFamily: 'monospace', fontSize: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -103,9 +117,7 @@ export default function TinhGiaVeneerMatPhuKhacPage() {
             </tbody>
           </table>
         </div>
-        <div style={{ padding: '10px 14px', fontSize: 12, color: colors.textMuted, borderTop: `1px solid ${colors.borderLight}` }}>
-          {veneer.length} dòng
-        </div>
+        <PaginationBar page={veneerPage} pageCount={veneerPageCount} total={veneer.length} onPageChange={setVeneerPage} />
       </div>
 
       {/* === MẶT PHỦ KHÁC === */}
@@ -124,8 +136,7 @@ export default function TinhGiaVeneerMatPhuKhacPage() {
               </tr>
             </thead>
             <tbody>
-              {matPhuKhac.map((r, i) => (
-                <tr key={r.id} style={{ background: i % 2 === 0 ? colors.card : colors.surfaceSecondary }}>
+              {mpkRows.map((r, i) => (                <tr key={r.id} style={{ background: i % 2 === 0 ? colors.card : colors.surfaceSecondary }}>
                   <td style={{ ...cell(), color: r.ma_sp ? colors.primary : colors.textMuted, fontWeight: 600, fontFamily: 'monospace', fontSize: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ whiteSpace: 'nowrap' }}>{r.ma_sp || '—'}</span>
@@ -142,10 +153,11 @@ export default function TinhGiaVeneerMatPhuKhacPage() {
             </tbody>
           </table>
         </div>
-        <div style={{ padding: '10px 14px', fontSize: 12, color: colors.textMuted, borderTop: `1px solid ${colors.borderLight}` }}>
-          {matPhuKhac.length} dòng
-        </div>
+        <PaginationBar page={mpkPage} pageCount={mpkPageCount} total={matPhuKhac.length} onPageChange={setMpkPage} />
       </div>
+
+      <GuideTabs title="Hướng dẫn - VENEER" tabs={veneerGuideTabs} />
+      <GuideTabs title="Hướng dẫn - MẶT PHỦ KHÁC" tabs={matPhuKhacGuideTabs} />
     </div>
   )
 }

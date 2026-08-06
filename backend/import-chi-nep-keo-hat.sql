@@ -1,0 +1,18 @@
+﻿INSERT INTO bang_gia_chuan_chi_nep (stt, nhom, cuon, gia_a, gia_b, gia_c, gia_d) VALUES (1, 'PVC', '101, 100, 104 (T/SH)', 140000, 340000, 200000, NULL);
+INSERT INTO bang_gia_chuan_chi_nep (stt, nhom, cuon, gia_a, gia_b, gia_c, gia_d) VALUES (2, 'PVC', 'Chá»‰ PVC vÃ¢n gá»—, ÄÆ¡n sáº¯c cÃ²n láº¡i', 170000, 370000, 260000, NULL);
+INSERT INTO bang_gia_chuan_chi_nep (stt, nhom, cuon, gia_a, gia_b, gia_c, gia_d) VALUES (1, 'VENEER', 'Xoan', 145000, 290000, 85000, 170000);
+INSERT INTO bang_gia_chuan_chi_nep (stt, nhom, cuon, gia_a, gia_b, gia_c, gia_d) VALUES (2, 'VENEER', 'Sá»“i', 155000, 310000, 90000, 180000);
+INSERT INTO bang_gia_chuan_chi_nep (stt, nhom, cuon, gia_a, gia_b, gia_c, gia_d) VALUES (3, 'VENEER', 'Walnut ká»¹ thuáº­t', 250000, 500000, 180000, 360000);
+INSERT INTO bang_gia_chuan_chi_nep (stt, nhom, cuon, gia_a, gia_b, gia_c, gia_d) VALUES (1, 'ACRYLIC', 'Chá»‰ Acrylic mÃ£ AS vÃ  AM', 450000, 414000, NULL, NULL);
+INSERT INTO bang_gia_chuan_chi_nep (stt, nhom, cuon, gia_a, gia_b, gia_c, gia_d) VALUES (1, 'ABS_PVC', 'Chá»‰ ABS mÃ u SS18-28-38-903', 360000, NULL, NULL, NULL);
+INSERT INTO bang_gia_chuan_chi_nep (stt, nhom, cuon, gia_a, gia_b, gia_c, gia_d) VALUES (2, 'ABS_PVC', 'Chá»‰ DOLLKEN US 101-102-103-104-105-106, Chá»‰ DOLLKEN UM 107', NULL, 500000, NULL, NULL);
+INSERT INTO bang_gia_chuan_chi_nep (stt, nhom, cuon, gia_a, gia_b, gia_c, gia_d) VALUES (3, 'ABS_PVC', 'Chá»‰ PVC SB 001-009', NULL, 100000, NULL, NULL);
+INSERT INTO bang_gia_chuan_keo_hat (stt, ma, nhiet_do, mau, gia_1kg, gia_25kg) VALUES (1, 'BOSTIK 9338', '145-165', 'Kem', 80000, 2000000);
+INSERT INTO bang_gia_chuan_keo_hat (stt, ma, nhiet_do, mau, gia_1kg, gia_25kg) VALUES (2, 'BOSTIK 7523', '160-180', 'Tráº¯ng sá»¯a', 70000, 1750000);
+INSERT INTO bang_gia_chuan_keo_hat (stt, ma, nhiet_do, mau, gia_1kg, gia_25kg) VALUES (3, 'BOSTIK 7680', '175-195', 'Tráº¯ng', 70000, 1750000);
+INSERT INTO bang_gia_chuan_keo_hat (stt, ma, nhiet_do, mau, gia_1kg, gia_25kg) VALUES (4, 'BOSTIK 7681', '175-195', 'Be', 70000, 2000000);
+INSERT INTO bang_gia_chuan_keo_hat (stt, ma, nhiet_do, mau, gia_1kg, gia_25kg) VALUES (5, 'JOWAT 282.15', '145-165', 'Kem', 80000, 2000000);
+INSERT INTO bang_gia_chuan_keo_hat (stt, ma, nhiet_do, mau, gia_1kg, gia_25kg) VALUES (6, 'JOWAT 288.60', '180-200', 'Kem', 90000, 2250000);
+INSERT INTO bang_gia_chuan_keo_hat (stt, ma, nhiet_do, mau, gia_1kg, gia_25kg) VALUES (7, 'JOWAT 288.61', '180-200', 'Tráº¯ng', 90000, 2250000);
+INSERT INTO bang_gia_chuan_keo_hat (stt, ma, nhiet_do, mau, gia_1kg, gia_25kg) VALUES (8, 'JOWAT 296.80', '190-200', 'Kem', 80000, 2000000);
+INSERT INTO bang_gia_chuan_keo_hat (stt, ma, nhiet_do, mau, gia_1kg, gia_25kg) VALUES (9, 'JOWAT 280.58', '180-210', 'Trong', 123000, 3075000);

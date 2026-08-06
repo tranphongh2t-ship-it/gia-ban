@@ -3,6 +3,8 @@ import { apiGet, apiPost } from '../../lib/api'
 import { colors, shadow, radius, pageContainer, pageTitle, spinner, btn } from '../../theme'
 import { formatNum } from '../../lib/format'
 import AssignMisaCode from '../../components/AssignMisaCode'
+import GuideTabs from '../../components/GuideTabs'
+import { chiNepKeoHatGuideTabs } from '../../guides/chiNepKeoHat'
 
 const tableWrap: React.CSSProperties = {
   background: colors.card, borderRadius: radius.lg, overflow: 'hidden',
@@ -153,6 +155,8 @@ export default function TinhGiaChiNepKeoHatPage() {
           {keoHat.length} dòng
         </div>
       </div>
+
+      <GuideTabs title="Hướng dẫn" tabs={chiNepKeoHatGuideTabs} />
     </div>
   )
 }

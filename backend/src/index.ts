@@ -19,6 +19,9 @@ import donHangExcelRouter from './routes/don-hang-excel'
 import { router as giaVanTronRouter } from './routes/gia-van-tron'
 
 import phanQuyenRouter from './routes/phan-quyen'
+import syncRouter from './routes/sync'
+import giaChuanRouter from './routes/gia-chuan'
+import userPrefsRouter from './routes/user-prefs'
 
 type Bindings = { DB: D1Database }
 
@@ -55,6 +58,9 @@ app.route('/api/so-chi-tiet-ban-hang', soChiTietBanHangRouter)
 app.route('/api/don-hang-excel', donHangExcelRouter)
 app.route('/api/gia-van-tron', giaVanTronRouter)
 app.route('/api/auth', phanQuyenRouter)
+app.route('/api/sync', syncRouter)
+app.route('/api/gia-chuan', giaChuanRouter)
+app.route('/api/user-prefs', userPrefsRouter)
 
 export default app
 

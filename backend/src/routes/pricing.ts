@@ -579,10 +579,10 @@ router.get('/tim-gia-goc/text', async (c) => {
   }
 })
 
-// POST /api/pricing/cap-nhat-gia-goc — Copy don_gia từ sổ chi tiết → gia_ban.gia_goc
+// POST /api/pricing/cap-nhat-gia-goc — Đồng bộ đơn giá từ sổ chi tiết → ma_misa + gia_ban
 router.post('/cap-nhat-gia-goc', async (c) => {
   try {
-    // Step 1: find most common don_gia per product
+    // Step 1: find most common don_gia per product (and latest ten_hang)
     const modeResult = await c.env.DB.prepare(
       `SELECT s.ma_hang, s.don_gia, COUNT(*) as cnt
        FROM so_chi_tiet_ban_hang s
@@ -591,44 +591,65 @@ router.post('/cap-nhat-gia-goc', async (c) => {
        ORDER BY s.ma_hang, cnt DESC`
     ).all()
 
-    // Step 2: keep only the top frequency row per product
-    const bestMap = new Map<string, number>()
+    const bestPrice = new Map<string, number>()
     for (const row of modeResult.results as any[]) {
-      if (!bestMap.has(row.ma_hang)) {
-        bestMap.set(row.ma_hang, row.don_gia)
+      if (!bestPrice.has(row.ma_hang)) {
+        bestPrice.set(row.ma_hang, row.don_gia)
       }
     }
 
-    // Step 3: update gia_ban
-    let updated = 0
-    let skipped = 0
-    let errors = 0
+    let updatedGiaBan = 0, updatedMaMisa = 0, skipped = 0, errors = 0
 
-    for (const [ma_hang, don_gia] of bestMap) {
-      try {
-        const existing = await c.env.DB.prepare(
-          `SELECT id, gia_goc FROM gia_ban WHERE ma_sp = ? LIMIT 1`
-        ).bind(ma_hang).first() as any
+    // Step 3: batch update
+    const stmtsGiaBan: D1PreparedStatement[] = []
+    const stmtsMaMisa: D1PreparedStatement[] = []
 
-        if (!existing) { skipped++; continue }
-        if (existing.gia_goc === don_gia) { skipped++; continue }
+    for (const [ma_hang, don_gia] of bestPrice) {
+      // Update all gia_ban rows for this product
+      const gbRows = await c.env.DB.prepare(
+        `SELECT id, gia_goc FROM gia_ban WHERE ma_sp = ?`
+      ).bind(ma_hang).all()
 
-        await c.env.DB.prepare(
-          `UPDATE gia_ban SET gia_goc = ? WHERE id = ?`
-        ).bind(don_gia, existing.id).run()
-        updated++
-      } catch {
-        errors++
+      for (const row of gbRows.results as any[]) {
+        if (row.gia_goc === don_gia) { skipped++; continue }
+        stmtsGiaBan.push(
+          c.env.DB.prepare(`UPDATE gia_ban SET gia_goc = ? WHERE id = ?`).bind(don_gia, row.id)
+        )
+        updatedGiaBan++
       }
+
+      // Update ma_misa
+      const mm = await c.env.DB.prepare(
+        `SELECT id, gia_goc, ten_sp FROM ma_misa WHERE ma_sp = ? LIMIT 1`
+      ).bind(ma_hang).first() as any
+
+      if (mm) {
+        if (mm.gia_goc !== don_gia) {
+          stmtsMaMisa.push(
+            c.env.DB.prepare(`UPDATE ma_misa SET gia_goc = ? WHERE id = ?`).bind(don_gia, mm.id)
+          )
+          updatedMaMisa++
+        }
+      }
+    }
+
+    // Execute batch
+    const BATCH = 100
+    for (let i = 0; i < stmtsGiaBan.length; i += BATCH) {
+      await c.env.DB.batch(stmtsGiaBan.slice(i, i + BATCH))
+    }
+    for (let i = 0; i < stmtsMaMisa.length; i += BATCH) {
+      await c.env.DB.batch(stmtsMaMisa.slice(i, i + BATCH))
     }
 
     return c.json({
       success: true,
-      total_products: bestMap.size,
-      updated,
+      total_products: bestPrice.size,
+      updated_gia_ban: updatedGiaBan,
+      updated_ma_misa: updatedMaMisa,
       skipped,
       errors,
-      message: `Đã cập nhật ${updated} sản phẩm, bỏ qua ${skipped}, lỗi ${errors}`,
+      message: `Đã cập nhật ${updatedGiaBan} dòng Giá bán + ${updatedMaMisa} dòng Mã MISA`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -641,26 +662,29 @@ router.get('/them-ma-thieu-8-nhom', async (c) => {
     const groups = [
       { name: 'Veneer', table: 'bang_gia_veneers', keywords: ['VENEER', 'VEN'], prefixes: ['VNGG', 'GG'] },
       { name: 'Chỉ', table: 'bang_gia_chi', keywords: ['CHI'], prefixes: ['CHI'] },
-      { name: 'Keo nóng', table: 'bang_gia_keo_nong', keywords: ['KEODC', 'KEO'], prefixes: ['ZKEODC'] },
+      { name: 'Keo dán chỉ', table: 'bang_gia_keo_nong', keywords: ['KEODC', 'KEO'], prefixes: ['ZKEODC'] },
       { name: 'Ván phủ Acrylic', table: 'bang_gia_van_phu_acrylic', keywords: ['ACRYLIC', 'FOIL'], prefixes: [] },
       { name: 'Ván phủ PVC', table: 'bang_gia_van_phu_pvc', keywords: ['PVC', 'PETG'], prefixes: [] },
-      { name: 'Nhựa phủ màu', table: 'bang_gia_nhua_phu_mau', keywords: ['NHUA', 'PLASTIC'], prefixes: [] },
-      { name: 'Nhựa Laminate', table: 'bang_gia_nhua_laminate', keywords: ['LAMINATE', 'LAMINE'], prefixes: [] },
-      { name: 'Mirror', table: 'bang_gia_mirror', keywords: ['MIRROR', 'GUONG', 'SIEU BONG'], prefixes: [] },
+      { name: 'Melamine', table: 'bang_gia_nhua_phu_mau', keywords: ['NHUA', 'PLASTIC'], prefixes: [] },
+      { name: 'Ván phủ Laminate', table: 'bang_gia_nhua_laminate', keywords: ['LAMINATE', 'LAMINE'], prefixes: [] },
+
     ]
 
-    // 1. Xây dựng prefix pattern từ hard-coded + auto-detect
+    // 1. Xây dựng prefix pattern từ hard-coded + auto-detect (batch all group queries)
     const patterns: { name: string; table: string; prefix: string }[] = []
     const allGroupMaSP = new Set<string>()
 
-    for (const g of groups) {
-      const rows = await c.env.DB.prepare(
-        `SELECT DISTINCT ma_sp FROM ${g.table} WHERE ma_sp IS NOT NULL AND ma_sp != ''`
-      ).all()
+    const groupStmts = groups.map(g =>
+      c.env.DB.prepare(`SELECT DISTINCT ma_sp FROM ${g.table} WHERE ma_sp IS NOT NULL AND ma_sp != ''`)
+    )
+    const groupResults = await c.env.DB.batch(groupStmts)
+
+    for (let gi = 0; gi < groups.length; gi++) {
+      const g = groups[gi]
+      const rows = groupResults[gi] as any
       const codes = (rows.results || []).map((r: any) => r.ma_sp)
       codes.forEach((c: string) => allGroupMaSP.add(c))
 
-      // Dùng hard-coded prefix nếu có, fallback auto-detect threshold thấp
       const hardPrefix = g.prefixes.length > 0 ? g.prefixes[0] : null
       if (hardPrefix) {
         patterns.push({ name: g.name, table: g.table, prefix: hardPrefix })
@@ -749,26 +773,30 @@ router.post('/them-ma-thieu-8-nhom', async (c) => {
     const groups = [
       { name: 'Veneer', table: 'bang_gia_veneers', keywords: ['VENEER', 'VEN'], prefixes: ['VNGG', 'GG'] },
       { name: 'Chỉ', table: 'bang_gia_chi', keywords: ['CHI'], prefixes: ['CHI'] },
-      { name: 'Keo nóng', table: 'bang_gia_keo_nong', keywords: ['KEODC', 'KEO'], prefixes: ['ZKEODC'] },
+      { name: 'Keo dán chỉ', table: 'bang_gia_keo_nong', keywords: ['KEODC', 'KEO'], prefixes: ['ZKEODC'] },
       { name: 'Ván phủ Acrylic', table: 'bang_gia_van_phu_acrylic', keywords: ['ACRYLIC', 'FOIL'], prefixes: [] },
       { name: 'Ván phủ PVC', table: 'bang_gia_van_phu_pvc', keywords: ['PVC', 'PETG'], prefixes: [] },
-      { name: 'Nhựa phủ màu', table: 'bang_gia_nhua_phu_mau', keywords: ['NHUA', 'PLASTIC'], prefixes: [] },
-      { name: 'Nhựa Laminate', table: 'bang_gia_nhua_laminate', keywords: ['LAMINATE', 'LAMINE'], prefixes: [] },
-      { name: 'Mirror', table: 'bang_gia_mirror', keywords: ['MIRROR', 'GUONG', 'SIEU BONG'], prefixes: [] },
+      { name: 'Melamine', table: 'bang_gia_nhua_phu_mau', keywords: ['NHUA', 'PLASTIC'], prefixes: [] },
+      { name: 'Ván phủ Laminate', table: 'bang_gia_nhua_laminate', keywords: ['LAMINATE', 'LAMINE'], prefixes: [] },
+
     ]
 
-    // Xây pattern từ dữ liệu có sẵn, kết hợp với hard-coded prefixes
+    // Xây pattern từ dữ liệu có sẵn (batch all group queries)
     const patterns: { name: string; table: string; prefix: string }[] = []
     const allGroupMaSP = new Set<string>()
 
-    for (const g of groups) {
-      const rows = await c.env.DB.prepare(
-        `SELECT DISTINCT ma_sp FROM ${g.table} WHERE ma_sp IS NOT NULL AND ma_sp != ''`
-      ).all()
+    const groupStmts = groups.map(g =>
+      c.env.DB.prepare(`SELECT DISTINCT ma_sp FROM ${g.table} WHERE ma_sp IS NOT NULL AND ma_sp != ''`)
+    )
+    const groupResults = await c.env.DB.batch(groupStmts)
+
+    for (let gi = 0; gi < groups.length; gi++) {
+      const g = groups[gi]
+      const rows = groupResults[gi] as any
       const codes = (rows.results || []).map((r: any) => r.ma_sp)
       codes.forEach((c: string) => allGroupMaSP.add(c))
 
-      // Auto-detect prefix từ dữ liệu gốc (chỉ xét mã có độ dài >=4 để tránh nhiễu)
+      // Auto-detect prefix
       const prefixCounts: Record<string, number> = {}
       for (const code of codes) {
         if (code.length < 4) continue
@@ -779,7 +807,6 @@ router.post('/them-ma-thieu-8-nhom', async (c) => {
         }
       }
       const sorted = Object.entries(prefixCounts).sort((a, b) => b[0].length - a[0].length || b[1] - a[1])
-      // Dùng hard-coded nếu có, nếu không auto-detect với threshold thấp hơn
       const hardPrefix = g.prefixes.length > 0 ? g.prefixes[0] : null
       if (hardPrefix) {
         patterns.push({ name: g.name, table: g.table, prefix: hardPrefix })
@@ -830,46 +857,57 @@ router.post('/them-ma-thieu-8-nhom', async (c) => {
       return c.json({ total_to_insert: toInsert.length, items: toInsert })
     }
 
-    // Insert
+    // Insert (batch)
     let added = 0
+    // Pre-fetch all gia_goc from ma_misa in one query
+    const allGiaGocRows = await c.env.DB.prepare(
+      `SELECT ma_sp, gia_goc FROM ma_misa WHERE gia_goc IS NOT NULL`
+    ).all() as any
+    const giaGocMap = new Map<string, number>()
+    for (const row of (allGiaGocRows.results || [])) {
+      giaGocMap.set(row.ma_sp, row.gia_goc)
+    }
+
+    // Filter out already-existing items using the per-table sets we already have
+    const batchSize = 100
+    let batch: { sql: string; params: any[] }[] = []
     for (const item of toInsert) {
-      const existing = await c.env.DB.prepare(`SELECT 1 FROM ${item.table} WHERE ma_sp = ? LIMIT 1`).bind(item.ma_sp).first()
-      if (existing) continue
-
-      // Lấy gia_goc từ ma_misa nếu có
-      const maInfo = await c.env.DB.prepare(`SELECT gia_goc FROM ma_misa WHERE ma_sp = ?`).bind(item.ma_sp).first() as any
-
-      // Mỗi bảng có NOT NULL khác nhau, cần default values
       let sql: string
       let params: any[]
+      const gia = giaGocMap.get(item.ma_sp) || null
       if (item.table === 'bang_gia_chi') {
-        sql = `INSERT INTO bang_gia_chi (ma_sp, loai, ten, gia) VALUES (?, '', '', ?)`
-        params = [item.ma_sp, maInfo?.gia_goc || null]
-      } else if (item.table === 'bang_gia_mirror') {
-        sql = `INSERT INTO bang_gia_mirror (ma_sp, loai, gia) VALUES (?, '', ?)`
-        params = [item.ma_sp, maInfo?.gia_goc || null]
+        sql = `INSERT OR IGNORE INTO bang_gia_chi (ma_sp, loai, ten, gia) VALUES (?, '', '', ?)`
+        params = [item.ma_sp, gia]
       } else if (item.table === 'bang_gia_veneers') {
-        sql = `INSERT INTO bang_gia_veneers (ma_sp, loai, ten) VALUES (?, '', ?)`
+        sql = `INSERT OR IGNORE INTO bang_gia_veneers (ma_sp, loai, ten) VALUES (?, '', ?)`
         params = [item.ma_sp, item.ma_sp]
       } else if (item.table === 'bang_gia_keo_nong') {
-        sql = `INSERT INTO bang_gia_keo_nong (ma_sp, ma) VALUES (?, '')`
+        sql = `INSERT OR IGNORE INTO bang_gia_keo_nong (ma_sp, ma) VALUES (?, '')`
         params = [item.ma_sp]
       } else if (item.table === 'bang_gia_van_phu_acrylic') {
-        sql = `INSERT INTO bang_gia_van_phu_acrylic (ma_sp, series, phu) VALUES (?, '', '')`
+        sql = `INSERT OR IGNORE INTO bang_gia_van_phu_acrylic (ma_sp, series, phu) VALUES (?, '', '')`
         params = [item.ma_sp]
       } else if (item.table === 'bang_gia_van_phu_pvc') {
-        sql = `INSERT INTO bang_gia_van_phu_pvc (ma_sp, loai_cot) VALUES (?, '')`
+        sql = `INSERT OR IGNORE INTO bang_gia_van_phu_pvc (ma_sp, loai_cot) VALUES (?, '')`
         params = [item.ma_sp]
       } else if (item.table === 'bang_gia_nhua_phu_mau') {
-        sql = `INSERT INTO bang_gia_nhua_phu_mau (ma_sp, loai_cot) VALUES (?, '')`
+        sql = `INSERT OR IGNORE INTO bang_gia_nhua_phu_mau (ma_sp, loai_cot) VALUES (?, '')`
         params = [item.ma_sp]
       } else if (item.table === 'bang_gia_nhua_laminate') {
-        sql = `INSERT INTO bang_gia_nhua_laminate (ma_sp, loai_cot) VALUES (?, '')`
+        sql = `INSERT OR IGNORE INTO bang_gia_nhua_laminate (ma_sp, loai_cot) VALUES (?, '')`
         params = [item.ma_sp]
       } else continue
 
-      await c.env.DB.prepare(sql).bind(...params).run()
-      added++
+      batch.push({ sql, params })
+      if (batch.length >= batchSize) {
+        const results = await c.env.DB.batch(batch.map(b => c.env.DB.prepare(b.sql).bind(...b.params)))
+        if (Array.isArray(results)) added += results.filter(r => r.meta?.changes > 0).length
+        batch = []
+      }
+    }
+    if (batch.length > 0) {
+      const results = await c.env.DB.batch(batch.map(b => c.env.DB.prepare(b.sql).bind(...b.params)))
+      if (Array.isArray(results)) added += results.filter(r => r.meta?.changes > 0).length
     }
 
     return c.json({ success: true, added, total_found: toInsert.length })
@@ -1228,6 +1266,18 @@ router.get('/dashboard', async (c) => {
       daily: (dailyRows.results || [])
         .sort((a: any, b: any) => a.ngay.localeCompare(b.ngay)),
     })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// GET /api/pricing/tat-ca-gia-goc — Get all prices from gia_ban (Giá bán MISA) for lookup
+router.get('/tat-ca-gia-goc', async (c) => {
+  try {
+    const rows = await c.env.DB.prepare(
+      `SELECT ma_sp, gia_goc FROM gia_ban WHERE ma_sp IS NOT NULL AND ma_sp != '' AND gia_goc IS NOT NULL AND gia_goc > 0`
+    ).all()
+    return c.json({ data: rows.results || [] })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }

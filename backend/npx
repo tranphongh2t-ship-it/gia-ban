@@ -1,0 +1,12 @@
+
+ ⛅️ wrangler 4.114.0 (update available 4.118.0)
+───────────────────────────────────────────────
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+Your Worker has access to the following bindings:
+Binding                  Resource         Mode
+env.DB (gia-ban-db)      D1 Database      local
+
+❓ Your types might be out of date. Re-run `wrangler types` to ensure your types are correct.
+⎔ Starting local server...
+[wrangler:info] Ready on http://127.0.0.1:8787

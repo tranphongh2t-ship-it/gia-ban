@@ -9,6 +9,21 @@ interface CrudOptions {
   orderBy?: string
   listQuery?: string
   extraFilterMap?: Record<string, string>
+  defaultFilters?: Record<string, string>
+  priceHistory?: {
+    historyTable: string
+    priceCol: string
+    refCol: string
+  }
+  numericHistory?: {
+    historyTable: string
+    bang: string
+  }
+}
+
+function currentThang(): string {
+  const d = new Date(Date.now() + 7 * 3600 * 1000)
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
 export function crudRoutes(opts: CrudOptions) {
@@ -23,7 +38,7 @@ export function crudRoutes(opts: CrudOptions) {
       const offsetNum = parseInt(offset) || 0
 
       let dataSql = listQuery || `SELECT * FROM ${table}`
-      const countFrom = listQuery ? listQuery.replace(/^SELECT\s+.*?\s+FROM\s+/i, '') : table
+      const countFrom = listQuery ? listQuery.replace(/^SELECT\b[\s\S]*?\bFROM\b\s+/i, '') : table
       let countSql = `SELECT COUNT(*) as total FROM ${countFrom}`
       const params: any[] = []
       const conditions: string[] = []
@@ -44,16 +59,32 @@ export function crudRoutes(opts: CrudOptions) {
           } else if (val === '__empty') {
             conditions.push(`(${col} IS NULL OR ${col} = 0 OR ${col} = '')`)
           } else {
-            conditions.push(`${col} LIKE ?`)
-            params.push(`%${val}%`)
+            conditions.push(`INSTR(${col}, ?) > 0`)
+            params.push(val)
+          }
+        }
+      }
+
+      // Default filters (always applied)
+      // Supports: { ma_sp: 'VN%' } → AND; { ma_sp: 'LP%|LE%' } → OR (pipe = OR)
+      const defaultFilters = (opts as any).defaultFilters
+      if (defaultFilters) {
+        for (const [col, val] of Object.entries(defaultFilters)) {
+          const vals = String(val).split('|')
+          if (vals.length === 1) {
+            conditions.push(`${pfx(col)} LIKE ?`)
+            params.push(vals[0])
+          } else {
+            conditions.push(`(${vals.map(() => `${pfx(col)} LIKE ?`).join(' OR ')})`)
+            params.push(...vals)
           }
         }
       }
 
       if (search && searchFields.length > 0) {
-        const searchConds = searchFields.map(f => `${pfx(f)} LIKE ?`)
+        const searchConds = searchFields.map(f => `INSTR(${pfx(f)}, ?) > 0`)
         conditions.push(`(${searchConds.join(' OR ')})`)
-        searchFields.forEach(() => params.push(`%${search}%`))
+        searchFields.forEach(() => params.push(search))
       }
 
       if (conditions.length > 0) {
@@ -112,6 +143,43 @@ export function crudRoutes(opts: CrudOptions) {
       const keys = Object.keys(body)
       if (keys.length === 0) return c.json({ error: 'No fields to update' }, 400)
       const values = Object.values(body)
+
+      const ph = opts.priceHistory
+      if (ph && body[ph.priceCol] !== undefined) {
+        const oldRow = await c.env.DB.prepare(`SELECT ${ph.refCol}, ${ph.priceCol} FROM ${table} WHERE ${idField} = ?`).bind(id).first()
+        if (oldRow) {
+          const oldVal = (oldRow as any)[ph.priceCol]
+          const newVal = Number(body[ph.priceCol])
+          const refVal = (oldRow as any)[ph.refCol]
+          if (refVal != null && Number(oldVal) !== newVal) {
+            await c.env.DB.prepare(
+              `INSERT INTO ${ph.historyTable} (${ph.refCol}, thang, gia_cu, gia_goc, nguon, updated_by) VALUES (?, ?, ?, ?, ?, ?)`
+            ).bind(refVal, currentThang(), oldVal, newVal, 'manual', body.updated_by || null).run()
+          }
+        }
+      }
+
+      const nh = opts.numericHistory
+      if (nh) {
+        const oldRow = await c.env.DB.prepare(`SELECT * FROM ${table} WHERE ${idField} = ?`).bind(id).first()
+        if (oldRow) {
+          for (const [col, newVal] of Object.entries(body)) {
+            if (col === idField || col === 'updated_by') continue
+            const oldVal = (oldRow as any)[col]
+            const isNum = (v: any) => v !== null && v !== undefined && v !== '' && !isNaN(Number(v))
+            if (isNum(oldVal) || isNum(newVal)) {
+              const oldNum = isNum(oldVal) ? Number(oldVal) : null
+              const newNum = isNum(newVal) ? Number(newVal) : null
+              if (oldNum !== newNum) {
+                await c.env.DB.prepare(
+                  `INSERT INTO ${nh.historyTable} (bang, ref_id, cot, thang, gia_cu, gia_moi, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)`
+                ).bind(nh.bang, Number(id), col, currentThang(), oldNum, newNum, body.updated_by || null).run()
+              }
+            }
+          }
+        }
+      }
+
       const setClause = keys.map(k => `${k} = ?`).join(', ')
       const result = await c.env.DB.prepare(`UPDATE ${table} SET ${setClause} WHERE ${idField} = ?`).bind(...values, id).run()
       if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)

@@ -14,7 +14,20 @@ const MODULES = [
   { key: 'pvc_petg', label: 'PVC/PETG' },
   { key: 'acrylic', label: 'Acrylic' },
   { key: 'one_laminate', label: 'One Laminate' },
+  { key: 'veneer', label: 'VENEER' },
+  { key: 'mat_phu_khac', label: 'Mặt phủ khác' },
+  { key: 'chi_nep', label: 'Chỉ nẹp' },
+  { key: 'keo_hat', label: 'Keo hạt' },
+  { key: 'mirror', label: 'Mirror' },
 ]
+
+// Nhãn cho các cột giá phụ (dành cho module có nhiều cột giá)
+const PRICE_LABELS: Record<string, Record<string, string>> = {
+  veneer: { p_gia_2m: '2 mặt', p_gia_1m_a: '1 mặt A', p_gia_1m_b: '1 mặt B' },
+  mat_phu_khac: { p_gia_2m: '2 mặt', p_gia_1m: '1 mặt' },
+  keo_hat: { p_gia_25kg: 'Bao 25kg', p_gia_1kg: 'Giá 1kg' },
+  mirror: { p_gia_2m: '2 mặt', p_gia_1m: '1 mặt' },
+}
 
 const inp: React.CSSProperties = { ...input, width: '100%', boxSizing: 'border-box' }
 
@@ -147,6 +160,9 @@ export default function KiemTraBangTinhGiaPage() {
                     <th style={{ padding: '8px 10px', textAlign: 'right', color: colors.textMuted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', borderBottom: `1px solid ${colors.border}` }}>
                       {tab === 'misa' ? 'Tính giá' : 'Tính giá'}
                     </th>
+                    {tab === 'orders' && PRICE_LABELS[module] && Object.entries(PRICE_LABELS[module]).map(([key, label]) => (
+                      <th key={key} style={{ padding: '8px 10px', textAlign: 'right', color: colors.textMuted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', borderBottom: `1px solid ${colors.border}` }}>{label}</th>
+                    ))}
                     <th style={{ padding: '8px 10px', textAlign: 'right', color: colors.textMuted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', borderBottom: `1px solid ${colors.border}` }}>
                       {tab === 'misa' ? 'Giá gốc MISA' : 'Đơn giá thực tế'}
                     </th>
@@ -172,6 +188,11 @@ export default function KiemTraBangTinhGiaPage() {
                           </>
                         )}
                         <td style={{ padding: '6px 10px', borderBottom: `1px solid ${colors.borderLight}`, textAlign: 'right', color: colors.text, fontWeight: 600 }}>{r.tinh_gia || r.tong_gia ? formatNum(r.tinh_gia || r.tong_gia) : '—'}</td>
+                        {tab === 'orders' && PRICE_LABELS[module] && Object.keys(PRICE_LABELS[module]).map(key => (
+                          <td key={key} style={{ padding: '6px 10px', borderBottom: `1px solid ${colors.borderLight}`, textAlign: 'right', color: r[key] != null ? colors.textSecondary : colors.textMuted, fontSize: 12 }}>
+                            {r[key] != null ? formatNum(r[key]) : '—'}
+                          </td>
+                        ))}
                         <td style={{ padding: '6px 10px', borderBottom: `1px solid ${colors.borderLight}`, textAlign: 'right', color: refVal != null ? colors.text : colors.textMuted }}>
                           {refVal != null ? formatNum(refVal) : '—'}
                         </td>

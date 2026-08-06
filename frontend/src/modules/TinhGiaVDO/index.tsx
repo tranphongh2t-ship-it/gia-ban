@@ -3,6 +3,9 @@ import { apiGet, apiPost } from '../../lib/api'
 import { colors, shadow, radius, input, pageContainer, pageTitle, btn, spinner } from '../../theme'
 import { formatNum } from '../../lib/format'
 import AssignMisaCode from '../../components/AssignMisaCode'
+import PaginationBar, { DEFAULT_PAGE_SIZE } from '../../components/PaginationBar'
+import GuideTabs from '../../components/GuideTabs'
+import { vdoGuideTabs } from '../../guides/vdo'
 
 const inputStyle: React.CSSProperties = { ...input, width: '100%', boxSizing: 'border-box' }
 
@@ -41,7 +44,7 @@ export default function TinhGiaBoardPage({ boardType: bt }: Props) {
   const [filterMat, setFilterMat] = useState<'' | '1' | '2'>('')
   const [filterAssigned, setFilterAssigned] = useState('')
   const [page, setPage] = useState(0)
-  const PAGE_SIZE = 500
+  const PAGE_SIZE = DEFAULT_PAGE_SIZE
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -184,18 +187,11 @@ export default function TinhGiaBoardPage({ boardType: bt }: Props) {
               </tbody>
             </table>
           </div>
-          <div style={{ padding: '10px 14px', fontSize: 12, color: colors.textMuted, borderTop: `1px solid ${colors.borderLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-            <span>Tổng số: {totalDisplay} / {data.length} dòng</span>
-            {pageCount > 1 && (
-              <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <button style={{ ...btn(colors.surfaceSecondary, colors.text), padding: '3px 10px' }} disabled={page === 0} onClick={() => setPage(p => p - 1)}>‹</button>
-                <span>Trang {page + 1}/{pageCount} ({PAGE_SIZE} dòng/trang)</span>
-                <button style={{ ...btn(colors.surfaceSecondary, colors.text), padding: '3px 10px' }} disabled={page >= pageCount - 1} onClick={() => setPage(p => p + 1)}>›</button>
-              </span>
-            )}
-          </div>
+          <PaginationBar page={page} pageCount={pageCount} total={totalDisplay} onPageChange={setPage} />
         </div>
       )}
+
+      <GuideTabs title="Hướng dẫn" tabs={vdoGuideTabs(boardType as 'vdo' | 'vmh')} />
     </div>
   )
 }

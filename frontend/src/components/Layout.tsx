@@ -177,7 +177,7 @@ export default function Layout() {
         { label: 'Tính giá Mirror', path: '/tinh-gia-mirror', perm: 'menu:/bang-tinh-gia' },
       ]},
     ]},
-    { label: 'Đối chiếu MISA', items: [
+    { section: 'Đối chiếu MISA', items: [
       { label: 'Giá gốc tổng hợp', path: '/gia-goc-tong-hop', perm: 'menu:/bang-tinh-gia' },
       { label: 'Kiểm tra Bảng Tính Giá', path: '/kiem-tra-bang-tinh-gia', perm: 'menu:/bang-tinh-gia' },
     ]},

@@ -7,11 +7,18 @@ const router = new Hono<Env>()
 // Get distinct values for filter dropdowns
 router.get('/distinct', async (c) => {
   try {
-    const { table, field } = c.req.query()
+    const { table, field, filter_field, filter_value } = c.req.query()
     if (!table || !field) return c.json({ error: 'Missing table or field' }, 400)
     const allowed = ['bang_gia_cot_go', 'bang_gia_nhom_mau', 'bang_gia_ma_mau']
     if (!allowed.includes(table)) return c.json({ error: 'Invalid table' }, 400)
-    const result = await c.env.DB.prepare(`SELECT DISTINCT ${field} FROM ${table} WHERE ${field} IS NOT NULL AND ${field} != '' ORDER BY ${field}`).all()
+    let sql = `SELECT DISTINCT ${field} FROM ${table} WHERE ${field} IS NOT NULL AND ${field} != ''`
+    const params: any[] = []
+    if (filter_field && filter_value) {
+      sql += ` AND ${filter_field} = ?`
+      params.push(filter_value)
+    }
+    sql += ` ORDER BY ${field}`
+    const result = await c.env.DB.prepare(sql).bind(...params).all()
     return c.json({ data: result.results.map((r: any) => r[field]) })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
