@@ -374,7 +374,7 @@ router.get('/so-sanh', async (c) => {
     let where = "WHERE s.ma_hang IS NOT NULL AND s.ma_hang != ''"
     const params: any[] = []
     if (loai) { where += ' AND s.ma_hang LIKE ?'; params.push(`${loai}%`) }
-    if (q) { where += ' AND (s.ma_hang LIKE ? OR s.ten_hang LIKE ?)'; params.push(`%${q}%`, `%${q}%`) }
+    if (q) { where += ' AND (s.ma_hang LIKE ? OR s.ten_hang LIKE ? OR s.so_ct LIKE ?)'; params.push(`%${q}%`, `%${q}%`, `%${q}%`) }
     if (diffFilter === 'bang') { where += ' AND g.gia_goc IS NOT NULL AND g.gia_goc > 0 AND s.don_gia = g.gia_goc' }
     else if (diffFilter === 'thap') { where += ' AND g.gia_goc IS NOT NULL AND g.gia_goc > 0 AND s.don_gia > g.gia_goc' }
     else if (diffFilter === 'cao') { where += ' AND g.gia_goc IS NOT NULL AND g.gia_goc > 0 AND s.don_gia < g.gia_goc' }
