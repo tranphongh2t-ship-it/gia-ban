@@ -582,74 +582,39 @@ router.get('/tim-gia-goc/text', async (c) => {
 // POST /api/pricing/cap-nhat-gia-goc — Đồng bộ đơn giá từ sổ chi tiết → ma_misa + gia_ban
 router.post('/cap-nhat-gia-goc', async (c) => {
   try {
-    // Step 1: find most common don_gia per product (and latest ten_hang)
-    const modeResult = await c.env.DB.prepare(
-      `SELECT s.ma_hang, s.don_gia, COUNT(*) as cnt
-       FROM so_chi_tiet_ban_hang s
-       WHERE s.ma_hang IS NOT NULL AND s.ma_hang != '' AND s.don_gia > 0
-       GROUP BY s.ma_hang, s.don_gia
-       ORDER BY s.ma_hang, cnt DESC`
-    ).all()
+    const db = c.env.DB
 
-    const bestPrice = new Map<string, number>()
-    for (const row of modeResult.results as any[]) {
-      if (!bestPrice.has(row.ma_hang)) {
-        bestPrice.set(row.ma_hang, row.don_gia)
-      }
-    }
+    // Bước 1: upsert gia_goc_by_ma theo đơn giá mode từ Sổ chi tiết (giữ nguyên mã không bán)
+    const byMaResult = await db.prepare(`
+      INSERT INTO gia_goc_by_ma (ma_sp, gia_goc, updated_at)
+      SELECT ma_hang, don_gia, datetime('now') FROM (
+        SELECT s.ma_hang, s.don_gia, COUNT(*) cnt,
+               ROW_NUMBER() OVER (PARTITION BY s.ma_hang ORDER BY COUNT(*) DESC, s.don_gia ASC) rn
+        FROM so_chi_tiet_ban_hang s
+        WHERE s.ma_hang IS NOT NULL AND s.ma_hang != '' AND s.don_gia > 0
+        GROUP BY s.ma_hang, s.don_gia
+      ) WHERE rn = 1
+      ON CONFLICT(ma_sp) DO UPDATE SET gia_goc=excluded.gia_goc, updated_at=excluded.updated_at
+    `).run()
 
-    let updatedGiaBan = 0, updatedMaMisa = 0, skipped = 0, errors = 0
+    // Bước 2: đồng bộ gia_ban theo gia_goc_by_ma
+    await db.prepare(
+      `UPDATE gia_ban SET gia_goc = (SELECT g.gia_goc FROM gia_goc_by_ma g WHERE g.ma_sp=gia_ban.ma_sp)
+       WHERE ma_sp IN (SELECT ma_sp FROM gia_goc_by_ma)`
+    ).run()
 
-    // Step 3: batch update
-    const stmtsGiaBan: D1PreparedStatement[] = []
-    const stmtsMaMisa: D1PreparedStatement[] = []
+    // Bước 3: đồng bộ ma_misa
+    await db.prepare(
+      `UPDATE ma_misa SET gia_goc = (SELECT g.gia_goc FROM gia_goc_by_ma g WHERE g.ma_sp=ma_misa.ma_sp)
+       WHERE ma_sp IN (SELECT ma_sp FROM gia_goc_by_ma)`
+    ).run()
 
-    for (const [ma_hang, don_gia] of bestPrice) {
-      // Update all gia_ban rows for this product
-      const gbRows = await c.env.DB.prepare(
-        `SELECT id, gia_goc FROM gia_ban WHERE ma_sp = ?`
-      ).bind(ma_hang).all()
-
-      for (const row of gbRows.results as any[]) {
-        if (row.gia_goc === don_gia) { skipped++; continue }
-        stmtsGiaBan.push(
-          c.env.DB.prepare(`UPDATE gia_ban SET gia_goc = ? WHERE id = ?`).bind(don_gia, row.id)
-        )
-        updatedGiaBan++
-      }
-
-      // Update ma_misa
-      const mm = await c.env.DB.prepare(
-        `SELECT id, gia_goc, ten_sp FROM ma_misa WHERE ma_sp = ? LIMIT 1`
-      ).bind(ma_hang).first() as any
-
-      if (mm) {
-        if (mm.gia_goc !== don_gia) {
-          stmtsMaMisa.push(
-            c.env.DB.prepare(`UPDATE ma_misa SET gia_goc = ? WHERE id = ?`).bind(don_gia, mm.id)
-          )
-          updatedMaMisa++
-        }
-      }
-    }
-
-    // Execute batch
-    const BATCH = 100
-    for (let i = 0; i < stmtsGiaBan.length; i += BATCH) {
-      await c.env.DB.batch(stmtsGiaBan.slice(i, i + BATCH))
-    }
-    for (let i = 0; i < stmtsMaMisa.length; i += BATCH) {
-      await c.env.DB.batch(stmtsMaMisa.slice(i, i + BATCH))
-    }
+    const total = await db.prepare(`SELECT COUNT(*) n FROM so_chi_tiet_ban_hang WHERE ma_hang!='' AND don_gia>0`).first() as any
 
     return c.json({
       success: true,
-      total_products: bestPrice.size,
-      updated_gia_ban: updatedGiaBan,
-      updated_ma_misa: updatedMaMisa,
-      skipped,
-      errors,
-      message: `Đã cập nhật ${updatedGiaBan} dòng Giá bán + ${updatedMaMisa} dòng Mã MISA`,
+      total_products: total?.n || 0,
+      message: `Đã đồng bộ giá gốc theo đơn giá thực tế (gia_ban + ma_misa + gia_goc_by_ma)`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
