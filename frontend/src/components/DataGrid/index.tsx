@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api'
+import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from '../../lib/api'
 import Modal from '../Modal'
 import ConfirmDialog from '../ConfirmDialog'
 import { colors, shadow, radius, btn, input, tableStyle, pageContainer, pageTitle, spinner } from '../../theme'
@@ -28,6 +28,12 @@ interface DataGridProps {
   exportable?: boolean
   defaultLimit?: number
   extraFilters?: Record<string, string>
+  rowActionLabel?: string
+  onRowAction?: (row: any) => void
+  historyInForm?: {
+    get: (row: any) => Promise<any[]>
+    format: (h: any) => string
+  }
 }
 
 const AUTO_FIELDS = ['id', 'created_at', 'updated_at', 'updated_by', 'created_at', 'ngay_bat_dau', 'ngay_nghi_viec']
@@ -97,7 +103,7 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
   )
 }
 
-export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters }: DataGridProps) {
+export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, rowActionLabel, onRowAction, historyInForm }: DataGridProps) {
   const [data, setData] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [limit] = useState(defaultLimit)
@@ -112,6 +118,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const [formData, setFormData] = useState<any>({})
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [formHistory, setFormHistory] = useState<any[] | null>(null)
   const [exporting, setExporting] = useState(false)
 
   const [confirmDelete, setConfirmDelete] = useState<any | null>(null)
@@ -123,7 +130,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const [editMode, setEditMode] = useState(false)
   const inlineRef = useRef<HTMLInputElement | HTMLSelectElement>(null)
 
-  // Column widths + row height (saved to localStorage)
+  // Column widths + row height (saved to localStorage, sync lên D1 theo user_id)
   const [colWidths, setColWidths] = useState<Record<string, number>>(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_COL(apiPath)) || '{}') } catch { return {} }
   })
@@ -131,8 +138,58 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     try { return localStorage.getItem(STORAGE_ROW(apiPath)) || 'md' } catch { return 'md' }
   })
 
+  const userId: number | null = (() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('auth_user') || 'null')
+      return u?.id ? Number(u.id) : null
+    } catch { return null }
+  })()
+
+  const saveRef = useRef<Record<string, number>>({})
+
   useEffect(() => { localStorage.setItem(STORAGE_COL(apiPath), JSON.stringify(colWidths)) }, [colWidths, apiPath])
   useEffect(() => { localStorage.setItem(STORAGE_ROW(apiPath), rowHeight) }, [rowHeight, apiPath])
+
+  // Nạp co dãn cột: default (admin/global) + riêng user từ D1 (nếu đăng nhập)
+  useEffect(() => {
+    if (!userId) return
+    let active = true
+    ;(async () => {
+      try {
+        const res = await apiGet(`/user-prefs/cols?user_id=${userId}&page=${encodeURIComponent(apiPath)}`)
+        if (!active) return
+        const merged: Record<string, number> = { ...(res.default || {}), ...(res.data || {}) }
+        setColWidths(merged)
+      } catch { /* fallback localStorage */ }
+    })()
+    return () => { active = false }
+  }, [userId, apiPath])
+
+  // Upsert co dãn cột lên D1 (debounce ~800ms)
+  useEffect(() => {
+    if (!userId) return
+    const timer = setTimeout(() => {
+      const dirty = colWidths
+      if (JSON.stringify(saveRef.current) === JSON.stringify(dirty)) return
+      saveRef.current = dirty
+      apiPut(`/user-prefs/cols`, { user_id: userId, page: apiPath, data: dirty }).catch(() => {})
+    }, 800)
+    return () => clearTimeout(timer)
+  }, [colWidths, userId, apiPath])
+
+  const isAdmin: boolean = (() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('auth_user') || 'null')
+      return !!u?.is_admin
+    } catch { return false }
+  })()
+
+  const saveAsDefault = async () => {
+    try {
+      await apiPut(`/user-prefs/cols`, { user_id: userId, page: apiPath, data: colWidths, is_default: true })
+      alert('Đã lưu co dãn cột làm mặc định toàn cục.')
+    } catch (e: any) { alert(`Lỗi: ${e.message}`) }
+  }
 
 
 
@@ -232,7 +289,10 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const openEdit = (item: any) => {
     const form: any = {}
     columns.forEach(c => { if (!AUTO_FIELDS.includes(c.key)) form[c.key] = item[c.key] ?? '' })
-    setEditItem(item); setFormData(form); setFormError(null); setModalOpen(true)
+    setEditItem(item); setFormData(form); setFormError(null); setFormHistory(null); setModalOpen(true)
+    if (historyInForm) {
+      historyInForm.get(item).then(hs => setFormHistory(hs)).catch(() => setFormHistory([]))
+    }
   }
 
   const handleSave = async () => {
@@ -322,6 +382,14 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
           }} onClick={() => setEditMode(v => !v)} title="Bật/tắt chế độ sửa nhanh">
             {editMode ? '✎ Đang sửa' : '✎ Sửa'}
           </button>
+          {isAdmin && (
+            <button style={{
+              padding: '4px 12px', border: `1px solid ${colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: 12, fontWeight: 500,
+              background: 'transparent', color: colors.textMuted, transition: 'all 0.12s ease', whiteSpace: 'nowrap',
+            }} onClick={saveAsDefault} title="Lưu co dãn cột hiện tại làm mặc định cho mọi người dùng">
+              🎯 Lưu mặc định
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' } as React.CSSProperties}>
           {searchable && (
@@ -411,6 +479,9 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                     )})}
                     <td style={{ ...tCellLast, ...tdPad, whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                        {onRowAction && rowActionLabel && (
+                          <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.infoLight, color: colors.infoDark, transition: 'background 120ms, color 120ms' }} onClick={() => onRowAction(row)}>{rowActionLabel}</button>
+                        )}
                         <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.primaryLight, color: colors.primaryDark, transition: 'background 120ms, color 120ms' }} onClick={() => openEdit(row)}>Sửa</button>
                         <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.dangerLight, color: colors.dangerDark, transition: 'background 120ms, color 120ms' }} onClick={() => setConfirmDelete(row)}>Xoá</button>
                       </div>
@@ -445,25 +516,50 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
         </>
       )}
 
-      <Modal open={modalOpen} title={editItem ? `Sửa ${title}` : `Thêm ${title}`} onClose={() => setModalOpen(false)}>
+      <Modal open={modalOpen} title={editItem ? `Sửa ${title}` : `Thêm ${title}`} onClose={() => setModalOpen(false)} wide>
         {formError && <div style={{ padding: 14, background: colors.dangerLight, color: colors.danger, borderRadius: radius.md, marginBottom: 16, border: `1px solid ${colors.danger}22` }}>{formError}</div>}
-        {columns.filter(c => !AUTO_FIELDS.includes(c.key) && !c.hidden).map(c => (
-          <div key={c.key} style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', marginBottom: 5, fontSize: 12, fontWeight: 500, color: colors.textSecondary }}>
-              {c.label}{c.required ? <span style={{ color: colors.danger }}> *</span> : null}
-            </label>
-            {c.renderForm ? (
-              c.renderForm(formData[c.key], (v) => updateFormField(c.key, v))
-            ) : c.type === 'select' && c.options ? (
-              <select style={{ ...input, background: '#fff' }} value={formData[c.key] ?? ''} onChange={(e) => updateFormField(c.key, e.target.value)}>
-                <option value="">-- Chọn --</option>
-                {c.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '14px 16px' }}>
+          {columns.filter(c => !AUTO_FIELDS.includes(c.key) && !c.hidden).map(c => (
+            <div key={c.key}>
+              <label style={{ display: 'block', marginBottom: 5, fontSize: 12, fontWeight: 500, color: colors.textSecondary }}>
+                {c.label}{c.required ? <span style={{ color: colors.danger }}> *</span> : null}
+              </label>
+              {c.renderForm ? (
+                c.renderForm(formData[c.key], (v) => updateFormField(c.key, v))
+              ) : c.type === 'select' && c.options ? (
+                <select style={{ ...input, width: '100%', boxSizing: 'border-box', background: '#fff' }} value={formData[c.key] ?? ''} onChange={(e) => updateFormField(c.key, e.target.value)}>
+                  <option value="">-- Chọn --</option>
+                  {c.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              ) : (
+                <input style={{ ...input, width: '100%', boxSizing: 'border-box' }} type={c.type === 'number' ? 'number' : 'text'} value={formData[c.key] ?? ''} onChange={(e) => updateFormField(c.key, c.type === 'number' ? Number(e.target.value) : e.target.value)} />
+              )}
+            </div>
+          ))}
+        </div>
+        {historyInForm && editItem && (
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${colors.borderLight}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase' }}>Lịch sử giá</span>
+              {formHistory && (
+                <span style={{ fontSize: 12, color: colors.textMuted }}>{formHistory.length} lần thay đổi</span>
+              )}
+            </div>
+            {formHistory === null ? (
+              <div style={{ fontSize: 13, color: colors.textMuted, padding: '6px 0' }}>Đang tải...</div>
+            ) : formHistory.length === 0 ? (
+              <div style={{ fontSize: 13, color: colors.textMuted, padding: '6px 0' }}>Chưa có lịch sử thay đổi giá.</div>
             ) : (
-              <input style={input} type={c.type === 'number' ? 'number' : 'text'} value={formData[c.key] ?? ''} onChange={(e) => updateFormField(c.key, c.type === 'number' ? Number(e.target.value) : e.target.value)} />
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', maxHeight: 160, overflowY: 'auto' }}>
+                {formHistory.map((h, i) => (
+                  <li key={i} style={{ padding: '5px 0', borderBottom: i < formHistory.length - 1 ? `1px solid ${colors.borderLight}` : 'none', fontSize: 12.5, color: colors.text }}>
+                    {historyInForm.format(h)}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-        ))}
+        )}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 14, borderTop: `1px solid ${colors.borderLight}` }}>
           <button style={{ height: 32, padding: '0 12px', background: colors.card, color: colors.textSecondary, border: `1px solid ${colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: 12.5, fontWeight: 500, transition: 'background 100ms, color 100ms' }} onClick={() => setModalOpen(false)} disabled={saving}>Huỷ</button>
           <button style={{ height: 32, padding: '0 12px', background: colors.primary, color: '#fff', border: 'none', borderRadius: radius.sm, cursor: 'pointer', fontSize: 12.5, fontWeight: 600, transition: 'background 120ms' }} onClick={handleSave} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>

@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth'
 import LoginOverlay from './LoginOverlay'
 
 const sidebarW = 252
-const sectionIcons: Record<string, string> = { 'Tổng quan': '◈', 'Danh mục': '◈', 'Chiết khấu': '◈', 'Bảng Tính Giá Chi Tiết': '◈', 'Dữ liệu': '◈', 'Công cụ': '◈' }
+const sectionIcons: Record<string, string> = { 'Tổng quan': '◈', 'Danh mục': '◈', 'Chiết khấu': '◈', 'Bảng Tính Giá Chi Tiết': '◈', 'Bảng Tính Giá': '◈', 'Dữ liệu': '◈', 'Công cụ': '◈' }
 
 const sidebarStyle: React.CSSProperties = {
   width: sidebarW, background: colors.sidebar, color: '#fff',
@@ -104,13 +104,82 @@ export default function Layout() {
       { label: 'Tính Giá 8 Nhóm Nhỏ', items: [
         { label: 'Veneer', path: '/tinh-gia-8-nhom-nho/veneer', perm: 'menu:/veneer' },
         { label: 'Chỉ', path: '/tinh-gia-8-nhom-nho/chi', perm: 'menu:/chi' },
-        { label: 'Keo nóng', path: '/tinh-gia-8-nhom-nho/keo-nong', perm: 'menu:/keo-nong' },
+        { label: 'Keo dán chỉ', path: '/tinh-gia-8-nhom-nho/keo-nong', perm: 'menu:/keo-nong' },
         { label: 'Ván phủ Acrylic', path: '/tinh-gia-8-nhom-nho/van-phu-acrylic', perm: 'menu:/van-phu-acrylic' },
         { label: 'Ván phủ PVC', path: '/tinh-gia-8-nhom-nho/van-phu-pvc', perm: 'menu:/van-phu-pvc' },
-        { label: 'Nhựa phủ màu', path: '/tinh-gia-8-nhom-nho/nhua-phu-mau', perm: 'menu:/nhua-phu-mau' },
-        { label: 'Nhựa Laminate', path: '/tinh-gia-8-nhom-nho/nhua-laminate', perm: 'menu:/nhua-laminate' },
-        { label: 'Mirror/Siêu bóng gương', path: '/tinh-gia-8-nhom-nho/mirror', perm: 'menu:/mirror' },
+        { label: 'Ván phủ Melamine', path: '/tinh-gia-8-nhom-nho/nhua-phu-mau', perm: 'menu:/nhua-phu-mau' },
+        { label: 'Ván phủ Laminate', path: '/tinh-gia-8-nhom-nho/nhua-laminate', perm: 'menu:/nhua-laminate' },
+
       ]},
+    ]},
+    { section: 'Bảng Tính Giá', subGroups: [
+      { label: 'Tính Giá OSB', items: [
+        { label: 'OSB', path: '/bang-tinh-gia/osb', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc OSB', path: '/tinh-gia-osb', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá Ván Phủ PVC FILM - PETG', items: [
+        { label: 'PVC FILM - DURA+', path: '/bang-tinh-gia/pvc-film-dura', perm: 'menu:/bang-tinh-gia' },
+        { label: 'VÁN PHỦ PVC FILM - PETG', path: '/bang-tinh-gia/van-phu-pvc-petg', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc PVC FILM - PETG', path: '/tinh-gia-pvc-petg', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá Ván Nhựa DURABO', items: [
+        { label: 'Ván nhựa DURABO', path: '/bang-tinh-gia/durabo', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc Ván nhựa DURABO', path: '/tinh-gia-dr', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá VÁN NHỰA- PLYWOOD-OSB- GỖ GHÉP', items: [
+        { label: 'Bảng màu Melamine (mới)', path: '/bang-tinh-gia/mau-melamine-2', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Melamine Plywood', path: '/bang-tinh-gia/melamine-plywood', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Ván nhựa/OSB/Gỗ ghép phủ Melamine', path: '/bang-tinh-gia/melamine-nhua-osb-ghep', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc Melamine tổng hợp', path: '/tinh-gia-melamine-tonghop', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá Ván Ép', items: [
+        { label: 'Ván Ép Thanh Thùy', path: '/bang-tinh-gia/van-ep', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Ván Ép Khác', path: '/bang-tinh-gia/van-ep-khac', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc Ván Ép', path: '/tinh-gia-ve', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá Gỗ Ghép', items: [
+        { label: 'Gỗ Trơn', path: '/bang-tinh-gia/go-ghep', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Phủ Veneer', path: '/bang-tinh-gia/phu-veneer', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc Gỗ Ghép', path: '/tinh-gia-gg', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá Ván Trơn', items: [
+        { label: 'VÁN DĂM OKAL', path: '/bang-tinh-gia/van-dam-okal', perm: 'menu:/bang-tinh-gia' },
+        { label: 'VÁN MDF HDF', path: '/bang-tinh-gia/van-mdf-hdf', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Phụ thu Melamine', path: '/bang-tinh-gia/phu-thu-melamine', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Nhóm màu Melamine 220', path: '/bang-tinh-gia/mau-melamine', perm: 'menu:/bang-tinh-gia' },
+        { label: '98 Màu Melamine', path: '/bang-tinh-gia/98-mau-melamine', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc VÁN DĂM OKAL', path: '/tinh-gia-vdo', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc VÁN MDF HDF', path: '/tinh-gia-vmh', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá VENEER & MẶT PHỦ KHÁC', items: [
+        { label: 'VENEER', path: '/bang-tinh-gia/veneer', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Mặt phủ khác', path: '/bang-tinh-gia/mat-phu-khac', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc VENEER & Mặt phủ khác', path: '/tinh-gia-veneer-mat-phu-khac', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá CHỈ NẸP & KEO HẠT', items: [
+        { label: 'Chỉ Nẹp', path: '/bang-tinh-gia/chi-nep', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Keo Hạt', path: '/bang-tinh-gia/keo-hat', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Giá gốc CHỈ NẸP & KEO HẠT', path: '/tinh-gia-chi-nep-keo-hat', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá VÁN NHỰA-MDF MR PHỦ ACRYLIC', items: [
+        { label: 'Acrylic Mã màu', path: '/bang-tinh-gia/acrylic', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Ván phủ Acrylic', path: '/bang-tinh-gia/van-phu-acrylic', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Tính giá Acrylic', path: '/tinh-gia-acrylic', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá ONE LAMINATE', items: [
+        { label: 'One Laminate Mã màu', path: '/bang-tinh-gia/one-laminate', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Ván nhựa phủ HPL', path: '/bang-tinh-gia/van-nhua-phu-hpl', perm: 'menu:/bang-tinh-gia' },
+        { label: 'OSB/Gỗ ghép/Ván ép phủ HPL', path: '/bang-tinh-gia/osb-ghep-ep-phu-hpl', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Tính giá One Laminate', path: '/tinh-gia-one-laminate', perm: 'menu:/bang-tinh-gia' },
+      ]},
+      { label: 'Tính Giá MIRROR', items: [
+        { label: 'Mirror', path: '/bang-tinh-gia/mirror', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Tính giá Mirror', path: '/tinh-gia-mirror', perm: 'menu:/bang-tinh-gia' },
+      ]},
+    ]},
+    { label: 'Đối chiếu MISA', items: [
+      { label: 'Giá gốc tổng hợp', path: '/gia-goc-tong-hop', perm: 'menu:/bang-tinh-gia' },
+      { label: 'Kiểm tra Bảng Tính Giá', path: '/kiem-tra-bang-tinh-gia', perm: 'menu:/bang-tinh-gia' },
     ]},
     { section: 'Chiết khấu', items: [
       { label: 'Bảng giá CK', path: '/bang-gia-ck', perm: 'menu:/bang-gia-ck' },
@@ -120,6 +189,9 @@ export default function Layout() {
       { label: 'So sánh giá gốc', path: '/so-sanh-gia-goc', perm: 'menu:/so-sanh-gia-goc' },
       { label: 'Sổ chi tiết bán hàng', path: '/so-chi-tiet-ban-hang', perm: 'menu:/so-chi-tiet-ban-hang' },
       { label: 'Đơn hàng', path: '/don-hang-excel', perm: 'menu:/don-hang-excel' },
+    ]},
+    { section: 'Tính Tồn Kho', items: [
+      { label: 'Tính tồn kho', path: '/tinh-ton-kho', perm: 'menu:/tinh-ton-kho' },
     ]},
     { section: 'Công cụ', items: [
       { label: 'Tính giá/CK', path: '/tinh-gia', perm: 'menu:/tinh-gia' },
@@ -149,6 +221,13 @@ export default function Layout() {
   if (!currentPerm && currentPath.startsWith('/tinh-gia-8-nhom-nho/')) {
     const slug = currentPath.replace('/tinh-gia-8-nhom-nho/', '')
     currentPerm = `menu:/${slug}`
+  }
+  // Dynamic route: /bang-tinh-gia/van-dam-okal → use parent perm
+  if (!currentPerm && currentPath.startsWith('/bang-tinh-gia/')) {
+    currentPerm = 'menu:/bang-tinh-gia'
+  }
+  if (!currentPerm && (currentPath === '/tinh-gia-vdo' || currentPath === '/tinh-gia-vmh' || currentPath === '/tinh-gia-dr' || currentPath === '/tinh-gia-pvc-petg' || currentPath === '/tinh-gia-melamine-tonghop' || currentPath === '/tinh-gia-veneer-mat-phu-khac' || currentPath === '/tinh-gia-chi-nep-keo-hat' || currentPath === '/tinh-gia-acrylic' || currentPath === '/tinh-gia-one-laminate' || currentPath === '/tinh-gia-mirror')) {
+    currentPerm = 'menu:/bang-tinh-gia'
   }
   const canAccess = !currentPerm || hasPermission(currentPerm)
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import DataGrid, { Column } from '../../components/DataGrid'
 import { apiGet, apiPost } from '../../lib/api'
 import { colors, pageContainer, pageTitle, input, section, sectionTitle, btn, radius, shadow } from '../../theme'
@@ -43,62 +43,48 @@ export default function GiaVanTronPage() {
   })
   const [calcResult, setCalcResult] = useState<{ core: number | null; surface: number | null; total: number } | null>(null)
   const [distinct, setDistinct] = useState<Record<string, string[]>>({})
+  const [filteredNhom, setFilteredNhom] = useState<string[]>([])
   const [calcLoading, setCalcLoading] = useState(false)
 
-  // Core price for Bề mặt tab calculated columns
-  const [beMatCore, setBeMatCore] = useState<{ loai: string; do_day: string; cap: string; tier: string }>({ loai: '', do_day: '', cap: '', tier: '' })
-  const [beMatCorePrice, setBeMatCorePrice] = useState<number | null>(null)
-
-  const beMatCols: Column[] = useMemo(() => {
-    const cols: Column[] = [
-      { key: 'bang', label: 'Bảng', filterable: true },
-      { key: 'tier', label: 'Tier', type: 'select', options: [
-        { value: 'PREMIUM', label: 'PREMIUM' },
-        { value: 'BBG PREMIER', label: 'BBG PREMIER' },
-      ]},
-      { key: 'nhom', label: 'Nhóm', filterable: true },
-      { key: 'loai_mau', label: 'Loại màu' },
-      { key: 'gia_1_mat', label: 'Giá 1 mặt', type: 'number' },
-      { key: 'gia_2_mat', label: 'Giá 2 mặt', type: 'number' },
-    ]
-    if (beMatCorePrice !== null) {
-      cols.push({
-        key: '_tong_1m', label: `Ván 1 mặt (${formatNum(beMatCore)}+)`, type: 'number',
-        render: (v: any, row: any) => formatNum((beMatCorePrice || 0) + (row.gia_1_mat || 0)),
-      })
-      cols.push({
-        key: '_tong_2m', label: `Ván 2 mặt (${formatNum(beMatCore)}+)`, type: 'number',
-        render: (v: any, row: any) => formatNum((beMatCorePrice || 0) + (row.gia_2_mat || 0)),
-      })
-    }
-    return cols
-  }, [beMatCorePrice])
+  const beMatCols: Column[] = [
+    { key: 'bang', label: 'Bảng', filterable: true },
+    { key: 'tier', label: 'Tier', type: 'select', options: [
+      { value: 'PREMIUM', label: 'PREMIUM' },
+      { value: 'BBG PREMIER', label: 'BBG PREMIER' },
+    ]},
+    { key: 'nhom', label: 'Nhóm', filterable: true },
+    { key: 'loai_mau', label: 'Loại màu' },
+    { key: 'gia_1_mat', label: 'Giá 1 mặt', type: 'number' },
+    { key: 'gia_2_mat', label: 'Giá 2 mặt', type: 'number' },
+  ]
 
   useEffect(() => {
     Promise.all([
-      fetchDistinct('bang_gia_cot_go', 'loai'),
-      fetchDistinct('bang_gia_cot_go', 'tier'),
-      fetchDistinct('bang_gia_cot_go', 'do_day'),
-      fetchDistinct('bang_gia_cot_go', 'cap'),
-      fetchDistinct('bang_gia_nhom_mau', 'bang'),
-      fetchDistinct('bang_gia_nhom_mau', 'nhom'),
+      fetchDistinct('bang_gia_cot_go', 'loai').then(d => setDistinct(p => ({ ...p, bang_gia_cot_go_loai: d }))),
+      fetchDistinct('bang_gia_cot_go', 'tier').then(d => setDistinct(p => ({ ...p, bang_gia_cot_go_tier: d }))),
+      fetchDistinct('bang_gia_cot_go', 'do_day').then(d => setDistinct(p => ({ ...p, bang_gia_cot_go_do_day: d }))),
+      fetchDistinct('bang_gia_cot_go', 'cap').then(d => setDistinct(p => ({ ...p, bang_gia_cot_go_cap: d }))),
+      fetchDistinct('bang_gia_nhom_mau', 'bang').then(d => setDistinct(p => ({ ...p, bang_gia_nhom_mau_bang: d }))),
+      fetchDistinct('bang_gia_nhom_mau', 'nhom').then(d => { setDistinct(p => ({ ...p, bang_gia_nhom_mau_nhom: d })); setFilteredNhom(d) }),
     ])
   }, [])
 
-  const fetchDistinct = async (table: string, field: string) => {
+  const fetchDistinct = async (table: string, field: string, filter_field?: string, filter_value?: string) => {
     try {
-      const res = await apiGet(`/gia-van-tron/distinct?table=${table}&field=${field}`)
-      setDistinct(prev => ({ ...prev, [`${table}_${field}`]: res.data }))
-    } catch {}
+      let url = `/gia-van-tron/distinct?table=${table}&field=${field}`
+      if (filter_field && filter_value) url += `&filter_field=${encodeURIComponent(filter_field)}&filter_value=${encodeURIComponent(filter_value)}`
+      const res = await apiGet(url)
+      return res.data
+    } catch { return [] }
   }
 
-  const fetchBeMatCorePrice = async (loai: string, do_day: string, cap: string, tier: string) => {
-    if (!loai || !do_day || !cap || !tier) { setBeMatCorePrice(null); return }
-    try {
-      const res = await apiGet(`/gia-van-tron/calc?loai=${encodeURIComponent(loai)}&do_day=${encodeURIComponent(do_day)}&cap=${encodeURIComponent(cap)}&tier=${encodeURIComponent(tier)}&bang=dummy&nhom=dummy&so_mat=1`)
-      setBeMatCorePrice(res.core)
-    } catch { setBeMatCorePrice(null) }
-  }
+  useEffect(() => {
+    if (calc.bang) {
+      fetchDistinct('bang_gia_nhom_mau', 'nhom', 'bang', calc.bang).then(setFilteredNhom)
+    } else {
+      setFilteredNhom(distinct['bang_gia_nhom_mau_nhom'] || [])
+    }
+  }, [calc.bang])
 
   const handleCalc = async () => {
     const { loai, do_day, cap, tier, bang, nhom, so_mat } = calc
@@ -135,52 +121,8 @@ export default function GiaVanTronPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, marginBottom: 0, borderBottom: `1px solid ${colors.border}` }}>
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: '10px 20px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t.key ? 600 : 400,
-            background: tab === t.key ? 'transparent' : 'transparent',
-            color: tab === t.key ? colors.primary : colors.textMuted,
-            borderBottom: tab === t.key ? `2px solid ${colors.primary}` : '2px solid transparent',
-            transition: 'color 120ms, border-color 120ms',
-          }}>{t.label}</button>
-        ))}
-      </div>
-
-      {/* Tab content */}
-      <div style={{ marginTop: 16 }}>
-        {tab === 'cot-go' && <DataGrid title="" columns={cotGoCols} apiPath="/bang-gia-cot-go" searchable={true} />}
-        {tab === 'be-mat' && (
-          <>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12, padding: 12, background: colors.surfaceSecondary, borderRadius: radius.md }}>
-              <span style={{ fontSize: 12, color: colors.textMuted, fontWeight: 500 }}>Chọn cốt để tính ván phủ:</span>
-              <select style={{ ...inputS, width: 140 }} value={beMatCore.loai} onChange={e => { const v = e.target.value; const n = { ...beMatCore, loai: v }; setBeMatCore(n); fetchBeMatCorePrice(n.loai, n.do_day, n.cap, n.tier) }}>
-                <option value="">Loại cốt</option>
-                {(distinct['bang_gia_cot_go_loai'] || []).map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-              <select style={{ ...inputS, width: 100 }} value={beMatCore.do_day} onChange={e => { const v = e.target.value; const n = { ...beMatCore, do_day: v }; setBeMatCore(n); fetchBeMatCorePrice(n.loai, n.do_day, n.cap, n.tier) }}>
-                <option value="">Dày</option>
-                {(distinct['bang_gia_cot_go_do_day'] || []).map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-              <select style={{ ...inputS, width: 140 }} value={beMatCore.cap} onChange={e => { const v = e.target.value; const n = { ...beMatCore, cap: v }; setBeMatCore(n); fetchBeMatCorePrice(n.loai, n.do_day, n.cap, n.tier) }}>
-                <option value="">Cấp</option>
-                {(distinct['bang_gia_cot_go_cap'] || []).map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-              <select style={{ ...inputS, width: 130 }} value={beMatCore.tier} onChange={e => { const v = e.target.value; const n = { ...beMatCore, tier: v }; setBeMatCore(n); fetchBeMatCorePrice(n.loai, n.do_day, n.cap, n.tier) }}>
-                <option value="">Tier</option>
-                {(distinct['bang_gia_cot_go_tier'] || []).map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-              {beMatCorePrice !== null && <span style={{ fontSize: 12, color: colors.primary, fontWeight: 600 }}>Cốt = {formatNum(beMatCorePrice)}</span>}
-            </div>
-            <DataGrid title="" columns={beMatCols} apiPath="/bang-gia-nhom-mau" searchable={true} />
-          </>
-        )}
-        {tab === 'ma-mau' && <DataGrid title="" columns={maMauCols} apiPath="/bang-gia-ma-mau" searchable={true} />}
-      </div>
-
       {/* Calculator */}
-      <div style={{ ...section, marginTop: 24 }}>
+      <div style={{ ...section, marginBottom: 16 }}>
         <div style={sectionTitle}>Tính thử — ghép mã và xem tổng giá</div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <select style={inputS} value={calc.loai} onChange={e => setCalc(p => ({ ...p, loai: e.target.value }))}>
@@ -204,7 +146,7 @@ export default function GiaVanTronPage() {
           </select>
           <select style={inputS} value={calc.nhom} onChange={e => setCalc(p => ({ ...p, nhom: e.target.value }))}>
             <option value="">Nhóm bề mặt</option>
-            {(distinct['bang_gia_nhom_mau_nhom'] || []).map(o => <option key={o} value={o}>{o}</option>)}
+            {filteredNhom.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
           <select style={inputS} value={calc.so_mat} onChange={e => setCalc(p => ({ ...p, so_mat: e.target.value }))}>
             <option value="1">1 mặt</option>
@@ -217,12 +159,39 @@ export default function GiaVanTronPage() {
 
         {calcResult && (
           <div style={{ display: 'flex', gap: 24, marginTop: 16, padding: 14, background: colors.surfaceSecondary, borderRadius: radius.md }}>
-            <div><span style={{ color: colors.textMuted }}>Cốt gỗ:</span> <strong style={{ color: colors.text }}>{formatNum(calcResult.core)}</strong></div>
-            <div><span style={{ color: colors.textMuted }}>Bề mặt:</span> <strong style={{ color: colors.text }}>{formatNum(calcResult.surface)}</strong></div>
-            <div><span style={{ color: colors.textMuted }}>Tổng:</span> <strong style={{ color: colors.primary, fontSize: 16 }}>{formatNum(calcResult.total)}</strong></div>
+            {calcResult.core === null && calcResult.surface === null ? (
+              <span style={{ color: colors.danger }}>Không tìm thấy dữ liệu cho tổ hợp đã chọn</span>
+            ) : (
+              <>
+                <div><span style={{ color: colors.textMuted }}>Cốt gỗ:</span> <strong style={{ color: colors.text }}>{calcResult.core !== null ? formatNum(calcResult.core) : 'N/A'}</strong></div>
+                <div><span style={{ color: colors.textMuted }}>Bề mặt:</span> <strong style={{ color: colors.text }}>{calcResult.surface !== null ? formatNum(calcResult.surface) : 'N/A'}</strong></div>
+                <div><span style={{ color: colors.textMuted }}>Tổng:</span> <strong style={{ color: colors.primary, fontSize: 16 }}>{formatNum(calcResult.total)}</strong></div>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 0, borderBottom: `1px solid ${colors.border}` }}>
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} style={{
+            padding: '10px 20px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === t.key ? 600 : 400,
+            background: tab === t.key ? 'transparent' : 'transparent',
+            color: tab === t.key ? colors.primary : colors.textMuted,
+            borderBottom: tab === t.key ? `2px solid ${colors.primary}` : '2px solid transparent',
+            transition: 'color 120ms, border-color 120ms',
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div style={{ marginTop: 16 }}>
+        {tab === 'cot-go' && <DataGrid title="" columns={cotGoCols} apiPath="/bang-gia-cot-go" searchable={true} />}
+        {tab === 'be-mat' && <DataGrid title="" columns={beMatCols} apiPath="/bang-gia-nhom-mau" searchable={true} />}
+        {tab === 'ma-mau' && <DataGrid title="" columns={maMauCols} apiPath="/bang-gia-ma-mau" searchable={true} />}
+      </div>
+
     </div>
   )
 }

@@ -135,7 +135,7 @@ const categories: CategoryConfig[] = [
     ],
   },
   {
-    slug: 'nhua-phu-mau', label: 'Nhựa phủ màu',
+    slug: 'nhua-phu-mau', label: 'Ván phủ Melamine',
     fields: [
       ...commonFields,
       { key: 'filter_loai_cot', label: 'Loại cốt' },
@@ -153,7 +153,7 @@ const categories: CategoryConfig[] = [
     ],
   },
   {
-    slug: 'nhua-laminate', label: 'Nhựa Laminate',
+    slug: 'nhua-laminate', label: 'Ván phủ Laminate',
     fields: [
       ...commonFields,
       { key: 'filter_loai_cot', label: 'Loại cốt' },
@@ -171,22 +171,6 @@ const categories: CategoryConfig[] = [
       { key: 'le1_2mat', label: 'LE1 2 mặt', type: 'number' },
       { key: 'le2_2mat', label: 'LE2 2 mặt', type: 'number' },
       { key: 'lp1_2mat', label: 'LP1 2 mặt', type: 'number' },
-    ],
-  },
- 
-  {
-    slug: 'mirror', label: 'Mirror/Siêu bóng gương',
-    fields: [
-      ...commonFields,
-      { key: 'search', label: 'Tên' },
-    ],
-    columns: [
-      { key: 'ma_sp', label: 'Mã SP' },
-      { key: 'ma_ten_sp', label: 'Tên SP (MISA)' },
-      { key: 'gia_goc', label: 'Giá gốc', type: 'number', readOnly: true },
-      { key: 'loai', label: 'Loại' },
-      { key: 'ten', label: 'Tên' },
-      { key: 'gia', label: 'Giá', type: 'number' },
     ],
   },
 ]
@@ -266,7 +250,7 @@ export default function TraCuuGiaGocPage() {
     }
   }, [cat.slug, buildParams])
 
-  useEffect(() => { handleSearch() }, [cat.slug, filterVals])
+  useEffect(() => { handleSearch() }, [handleSearch])
 
   const updateFilter = (key: string, val: string) => {
     setFilterVals(prev => ({ ...prev, [key]: val }))

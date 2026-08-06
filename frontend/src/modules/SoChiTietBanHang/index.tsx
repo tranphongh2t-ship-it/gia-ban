@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import DataGrid, { Column } from '../../components/DataGrid'
+import { apiDelete, apiPost } from '../../lib/api'
 import { colors, radius, btn, pageContainer } from '../../theme'
 
 const columns: Column[] = [
@@ -27,6 +28,7 @@ export default function SoChiTietBanHangPage() {
   const [error, setError] = useState<string | null>(null)
   const [gridKey, setGridKey] = useState(0)
   const [noPrice, setNoPrice] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   const handleImport = async () => {
     const file = fileRef.current?.files?.[0]
@@ -50,7 +52,7 @@ export default function SoChiTietBanHangPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '0 24px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: '0 24px', marginBottom: 12 }}>
         <div style={{ fontSize: 13, color: colors.textMuted }}>Import từ file "Sổ chi tiết bán hàng.xlsx":</div>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ fontSize: 13 }} />
         <button style={{ ...btn(colors.primary), fontSize: 12, height: 32 }} onClick={handleImport} disabled={importing}>
@@ -62,6 +64,31 @@ export default function SoChiTietBanHangPage() {
           style={{ ...btn(noPrice ? colors.warning : colors.textMuted, '#fff'), fontSize: 12, height: 32 }}
           onClick={() => { setNoPrice(v => !v); setGridKey(k => k + 1) }}
         >{noPrice ? '✓ Đơn giá = 0' : 'Lọc Đơn giá = 0'}</button>
+        <button
+          style={{ ...btn(colors.warning, '#fff'), fontSize: 12, height: 32 }}
+          disabled={syncing}
+          onClick={async () => {
+            if (!confirm('Cập nhật giá gốc (Mã MISA + Giá bán) theo đơn giá mới nhất từ Sổ chi tiết?')) return
+            setSyncing(true)
+            try {
+              const d = await apiPost('/pricing/cap-nhat-gia-goc', {})
+              setResult(d.message || 'OK')
+            } catch (e: any) { setResult('Lỗi: ' + e.message) }
+            finally { setSyncing(false) }
+          }}
+        >{syncing ? 'Đang đồng bộ...' : 'ĐB giá gốc ← Đơn giá'}</button>
+        <span style={{ flex: 1 }} />
+        <button
+          style={{ ...btn(colors.danger, '#fff'), fontSize: 12, height: 32 }}
+          onClick={async () => {
+            if (!confirm('Xóa toàn bộ dữ liệu Sổ chi tiết bán hàng?')) return
+            try {
+              const d = await apiDelete('/so-chi-tiet-ban-hang/clear')
+              if (d.success) { setResult(d.message); setGridKey(k => k + 1) }
+              else alert('Lỗi: ' + d.error)
+            } catch (e: any) { alert('Lỗi: ' + e.message) }
+          }}
+        >Xóa hết dữ liệu</button>
       </div>
       <DataGrid
         key={gridKey}

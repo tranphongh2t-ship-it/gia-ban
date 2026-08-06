@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './modules/Dashboard'
 import Welcome from './modules/Welcome'
@@ -24,12 +24,32 @@ import QuanLyThangPage from './modules/QuanLyThang'
 import GiaVanTronPage from './modules/GiaVanTron'
 import GiaBanMisaPage from './modules/GiaBanMisa'
 import PhanQuyenPage from './modules/PhanQuyen'
+import TinhTonKhoPage from './modules/TinhTonKho'
+import BangTinhGiaPage from './modules/BangTinhGia'
+import TinhGiaVDOPage from './modules/TinhGiaVDO'
+import TinhGiaVMHPage from './modules/TinhGiaVMH'
+import TinhGiaGGPage from './modules/TinhGiaGG'
+import TinhGiaVEPage from './modules/TinhGiaVE'
+import TinhGiaOSBPage from './modules/TinhGiaOSB'
+import TinhGiaDRPage from './modules/TinhGiaDR'
+import TinhGiaPvcPetgPage from './modules/TinhGiaPvcPetg'
+import TinhGiaMelamineTonghopPage from './modules/TinhGiaMelamineTonghop'
+import TinhGiaVeneerMatPhuKhacPage from './modules/TinhGiaVeneerMatPhuKhac'
+import TinhGiaChiNepKeoHatPage from './modules/TinhGiaChiNepKeoHat'
+import TinhGiaAcrylicPage from './modules/TinhGiaAcrylic'
+import TinhGiaOneLaminatePage from './modules/TinhGiaOneLaminate'
+import TinhGiaMirrorPage from './modules/TinhGiaMirror'
+import GiaGocTongHopPage from './modules/GiaGocTongHop'
+import KiemTraBangTinhGiaPage from './modules/KiemTraBangTinhGia'
 import { AuthProvider } from './lib/auth'
+
+const isElectron = navigator.userAgent.includes('Electron')
+const Router = isElectron ? HashRouter : BrowserRouter
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <Router>
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Welcome />} />
@@ -69,9 +89,26 @@ function App() {
             <Route path="/bang-gia-nhom-mau" element={<BangGiaNhomMauPage />} />
             <Route path="/bang-gia-ma-mau" element={<BangGiaMaMauPage />} />
             <Route path="/gia-van-tron" element={<GiaVanTronPage />} />
+            <Route path="/tinh-ton-kho" element={<TinhTonKhoPage />} />
+            <Route path="/bang-tinh-gia/:slug" element={<BangTinhGiaPage />} />
+            <Route path="/tinh-gia-vdo" element={<TinhGiaVDOPage />} />
+            <Route path="/tinh-gia-vmh" element={<TinhGiaVMHPage />} />
+            <Route path="/tinh-gia-gg" element={<TinhGiaGGPage />} />
+            <Route path="/tinh-gia-ve" element={<TinhGiaVEPage />} />
+            <Route path="/tinh-gia-osb" element={<TinhGiaOSBPage />} />
+            <Route path="/tinh-gia-dr" element={<TinhGiaDRPage />} />
+            <Route path="/tinh-gia-pvc-petg" element={<TinhGiaPvcPetgPage />} />
+            <Route path="/tinh-gia-melamine-tonghop" element={<TinhGiaMelamineTonghopPage />} />
+            <Route path="/tinh-gia-veneer-mat-phu-khac" element={<TinhGiaVeneerMatPhuKhacPage />} />
+            <Route path="/tinh-gia-chi-nep-keo-hat" element={<TinhGiaChiNepKeoHatPage />} />
+            <Route path="/tinh-gia-acrylic" element={<TinhGiaAcrylicPage />} />
+            <Route path="/tinh-gia-one-laminate" element={<TinhGiaOneLaminatePage />} />
+            <Route path="/tinh-gia-mirror" element={<TinhGiaMirrorPage />} />
+            <Route path="/gia-goc-tong-hop" element={<GiaGocTongHopPage />} />
+            <Route path="/kiem-tra-bang-tinh-gia" element={<KiemTraBangTinhGiaPage />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </Router>
     </AuthProvider>
   )
 }

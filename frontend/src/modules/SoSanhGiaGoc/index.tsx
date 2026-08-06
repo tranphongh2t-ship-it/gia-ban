@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { apiGet, apiPost } from '../../lib/api'
 import { colors, radius, shadow, input as inp, pageContainer } from '../../theme'
 import { formatNum } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
+import * as XLSX from 'xlsx'
 
 const toDateInput = (v: string) => v ? v.split('/').reverse().join('-') : ''
 const fromDateInput = (v: string) => v ? v.split('-').reverse().join('/') : ''
@@ -97,6 +98,45 @@ export default function SoSanhGiaGocPage() {
   const limit = 500
   const { widths, onMouseDown } = useColumnResize()
 
+  const exportingRef = useRef(false)
+
+  const exportExcel = useCallback(async () => {
+    if (exportingRef.current) return
+    exportingRef.current = true
+    try {
+      const p = `page=1&limit=100000&loai=${encodeURIComponent(loai)}&q=${encodeURIComponent(search)}&diff=${encodeURIComponent(filterDiff)}&filters=${encodeURIComponent(JSON.stringify(filters))}`
+      const r: any = await apiGet(`/pricing/so-sanh?${p}`)
+      const allData = r.data || []
+      if (allData.length === 0) { alert('Không có dữ liệu để xuất'); return }
+      const rows = allData.map((d: any) => ({
+        'Ngày': d.ngay || '',
+        'Số CT': d.so_ct || '',
+        'Mã hàng': d.ma_hang || '',
+        'Tên hàng': d.ten_hang || '',
+        'SL': d.sl_ban || 0,
+        'Đơn giá (I)': d.don_gia_thuc_te ?? '',
+        'Giá gốc tính': d.gia_goc_tinh ?? '',
+        'Chênh lệch': d.chech_lech !== null ? d.chech_lech : '',
+        'Cốt gỗ': d.cot_go_match || '',
+        'Bề mặt': d.be_mat_match || '',
+        'Parse': d.parse_info ? `${d.parse_info.do_day || ''} / ${d.parse_info.colorCode || ''} / ${d.parse_info.tier || ''}` : d.loai_sp || '',
+      }))
+      const ws = XLSX.utils.json_to_sheet(rows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'So sánh giá gốc')
+      const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([out], { type: 'application/octet-stream' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `SoSanhGiaGoc_${new Date().toISOString().slice(0, 10)}.xlsx`
+      a.click(); URL.revokeObjectURL(url)
+    } catch (e: any) {
+      alert('Lỗi xuất Excel: ' + e.message)
+    } finally {
+      exportingRef.current = false
+    }
+  }, [loai, search, filterDiff, filters])
+
   const handleSync = async () => {
     if (!confirm('Cập nhật giá gốc (Giá bán MISA) theo đơn giá thực tế từ Sổ chi tiết bán hàng?')) return
     setSyncing(true); setSyncResult(null)
@@ -159,6 +199,10 @@ export default function SoSanhGiaGocPage() {
           <p style={st.subtitle}>Giá gốc vs Đơn giá thực tế (SỔ CHI TIẾT BÁN HÀNG)</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            style={{ height: 34, padding: '0 16px', fontSize: 12, fontWeight: 600, background: colors.success, color: '#fff', border: 'none', borderRadius: radius.md, cursor: 'pointer' }}
+            onClick={exportExcel}
+          >Xuất Excel</button>
           {syncResult && <span style={{ fontSize: 13, color: syncResult.startsWith('Lỗi') ? colors.danger : colors.success }}>{syncResult}</span>}
           {hasPermission('feature:dong-bo-gia-goc') && (
             <button
