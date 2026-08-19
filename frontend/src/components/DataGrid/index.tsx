@@ -42,6 +42,8 @@ interface DataGridProps {
     get: (row: any) => Promise<any[]>
     format: (h: any) => string
   }
+  // Dữ liệu mẫu hiển thị trực tiếp, không gọi API backend (dùng khi chưa có backend).
+  demoRows?: any[]
 }
 
 const AUTO_FIELDS = ['id', 'created_at', 'updated_at', 'updated_by', 'created_at', 'ngay_bat_dau', 'ngay_nghi_viec']
@@ -124,9 +126,9 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
   )
 }
 
-export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, rowActions, logBang, historyInForm }: DataGridProps) {
+export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, rowActions, logBang, historyInForm, demoRows }: DataGridProps) {
   const { hasPermission, user } = useAuth()
-  const canEdit = hasPermission('feature:edit-data')
+  const canEdit = hasPermission('feature:edit-data') && !demoRows
   const [data, setData] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [limit] = useState(defaultLimit)
@@ -260,6 +262,32 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   }
 
   const fetchData = useCallback(async () => {
+    if (demoRows) {
+      // Chế độ demo: lọc + phân trang ngay trên dữ liệu mẫu, không gọi backend
+      setLoading(false); setError(null)
+      let rows = demoRows.slice()
+      if (search) {
+        const q = search.toLowerCase()
+        rows = rows.filter(r => Object.values(r).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(q)))
+      }
+      for (const [key, val] of Object.entries(filters)) {
+        if (!val.trim()) continue
+        rows = rows.filter(r => {
+          const rv = r[key]
+          if (val.includes('|')) {
+            const [from, to] = val.split('|')
+            const n = Number(rv)
+            if (from !== '' && (isNaN(n) || n < Number(from))) return false
+            if (to !== '' && (isNaN(n) || n > Number(to))) return false
+            return true
+          }
+          return String(rv ?? '').toLowerCase().includes(val.trim().toLowerCase())
+        })
+      }
+      setTotal(rows.length)
+      setData(rows.slice(offset, offset + fetchLimit))
+      return
+    }
     setLoading(true); setError(null)
     try {
       const params = new URLSearchParams()
@@ -279,7 +307,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       setData(res.data || []); setTotal(res.total || 0)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
-  }, [apiPath, search, limit, offset, filters, extraFilters])
+  }, [apiPath, search, limit, offset, filters, extraFilters, demoRows])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -289,6 +317,28 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     setExporting(true)
     try {
       const exportFormat = format === 'excel' ? 'excel' : 'json'
+      if (demoRows) {
+        // Chế độ demo: xuất file từ dữ liệu hiện có, không gọi backend
+        const rows: any[] = data
+        if (rows.length === 0) throw new Error('Không có dữ liệu để xuất')
+        const headers = Object.keys(rows[0])
+        const escape = (v: any) => {
+          const s = v === null || v === undefined ? '' : String(v)
+          return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+        }
+        const body = exportFormat === 'json'
+          ? JSON.stringify(rows, null, 2)
+          : [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n')
+        const blob = new Blob([exportFormat === 'json' ? body : '\ufeff' + body], { type: exportFormat === 'json' ? 'application/json' : 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const prefix = exportName || apiPath.replace(/\//g, '_')
+        a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.${exportFormat === 'json' ? 'json' : 'csv'}`
+        a.click()
+        URL.revokeObjectURL(url)
+        return
+      }
       const res = await fetch(`${API_BASE}/export/${exportFormat}${apiPath}`)
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
       const blob = await res.blob()
@@ -307,10 +357,15 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const handleExportCsv = async () => {
     setExportingCsv(true)
     try {
-      const res = await fetch(`${API_BASE}/export/json${apiPath}`)
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
-      const payload = await res.json()
-      const rows: any[] = payload.data || []
+      let rows: any[]
+      if (demoRows) {
+        rows = data
+      } else {
+        const res = await fetch(`${API_BASE}/export/json${apiPath}`)
+        if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
+        const payload = await res.json()
+        rows = payload.data || []
+      }
       if (rows.length === 0) throw new Error('Không có dữ liệu để xuất CSV')
       const headers = Object.keys(rows[0])
       const escape = (v: any) => {

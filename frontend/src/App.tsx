@@ -31,6 +31,7 @@ import LogThayDoiPage from './modules/LogThayDoi'
 import BangKhachThangPage from './modules/BangKhachThang'
 import QuanLyThangPage from './modules/QuanLyThang'
 import CheckChietKhauPage from './modules/CheckChietKhau'
+import SoDoiChieuPage from './modules/SoDoiChieu'
 import TinhGiaVDOPage from './modules/TinhGiaVDO'
 import TinhGiaVMHPage from './modules/TinhGiaVMH'
 import TinhGiaGGPage from './modules/TinhGiaGG'
@@ -73,6 +74,7 @@ function App() {
               
               <Route path="/so-chi-tiet-ban-hang" element={<SoChiTietBanHangPage />} />
               <Route path="/audit-gia-ck" element={<AuditGiaCKPage />} />
+              <Route path="/so-doi-chieu" element={<SoDoiChieuPage />} />
               <Route path="/check-chiet-khau" element={<CheckChietKhauPage />} />
               <Route path="/bang-khach-thang" element={<BangKhachThangPage />} />
               <Route path="/don-hang-excel" element={<DonHangExcelPage />} />
