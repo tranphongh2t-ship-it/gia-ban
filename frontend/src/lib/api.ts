@@ -5,9 +5,9 @@ declare global {
     electronAPI?: {
       isElectron: boolean
       apiGet: (url: string, headers?: Record<string, string>) => Promise<any>
-      apiPost: (url: string, body?: any) => Promise<any>
-      apiPatch: (url: string, body?: any) => Promise<any>
-      apiDelete: (url: string) => Promise<any>
+      apiPost: (url: string, body?: any, headers?: Record<string, string>) => Promise<any>
+      apiPatch: (url: string, body?: any, headers?: Record<string, string>) => Promise<any>
+      apiDelete: (url: string, headers?: Record<string, string>) => Promise<any>
       dbQuery: (sql: string, params?: any[]) => Promise<any>
       dbExec: (sql: string, params?: any[]) => Promise<any>
       dbRun: (sql: string, params?: any[]) => Promise<any>
@@ -88,13 +88,13 @@ export async function apiPatch(path: string, body: unknown) {
   return res.json()
 }
 
-export async function apiDelete(path: string) {
+export async function apiDelete(path: string, headers?: Record<string, string>) {
   if (isElectron) {
-    const r = await window.electronAPI!.apiDelete(path)
+    const r = await window.electronAPI!.apiDelete(path, headers)
     if (!r.ok) throw new Error(r.data?.error || `HTTP ${r.status}`)
     return r.data
   }
-  const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' })
+  const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE', headers })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
     throw new Error(err.error || `HTTP ${res.status}`)

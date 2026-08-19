@@ -43,7 +43,7 @@ export default function LogThayDoiPage() {
     if (!confirm(`Xóa log #${id}?`)) return
     setDeleting(true)
     try {
-      await apiDelete(`/chiet-khau/log?id=${id}`)
+      await apiDelete(`/chiet-khau/log?id=${id}`, { 'x-user-id': String(user?.id) })
       fetchData()
     } catch (e: any) { alert('Lỗi: ' + e.message) }
     finally { setDeleting(false) }
@@ -57,7 +57,7 @@ export default function LogThayDoiPage() {
       if (userFilter) params.set('user', userFilter)
       if (bang) params.set('bang', bang)
       if (thang) params.set('thang', thang)
-      const res = await apiDelete(`/chiet-khau/log?${params}`)
+      const res = await apiDelete(`/chiet-khau/log?${params}`, { 'x-user-id': String(user?.id) })
       setOffset(0)
       fetchData()
       alert(res.message ? res.message : `Đã xóa ${res.deleted} log.`)

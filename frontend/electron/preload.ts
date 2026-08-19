@@ -11,9 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // API proxy (online-first, fallback to local)
   apiGet: (url: string, headers?: Record<string, string>) => ipcRenderer.invoke('api:get', url, headers),
-  apiPost: (url: string, body?: any) => ipcRenderer.invoke('api:post', url, body),
-  apiPatch: (url: string, body?: any) => ipcRenderer.invoke('api:patch', url, body),
-  apiDelete: (url: string) => ipcRenderer.invoke('api:delete', url),
+  apiPost: (url: string, body?: any, headers?: Record<string, string>) => ipcRenderer.invoke('api:post', url, body, headers),
+  apiPatch: (url: string, body?: any, headers?: Record<string, string>) => ipcRenderer.invoke('api:patch', url, body, headers),
+  apiDelete: (url: string, headers?: Record<string, string>) => ipcRenderer.invoke('api:delete', url, headers),
 
   // Sync control
   syncStatus: () => ipcRenderer.invoke('sync:status'),

@@ -129,8 +129,8 @@ function setupIpc() {
     return apiFetch('GET', url, undefined, headers)
   })
 
-  ipcMain.handle('api:post', async (_e, url: string, body?: any) => {
-    const result = await apiFetch('POST', url, body)
+  ipcMain.handle('api:post', async (_e, url: string, body?: any, headers?: Record<string, string>) => {
+    const result = await apiFetch('POST', url, body, headers)
     if (result.offline && win) {
       addToQueue(url, 'create', null, body || {})
       win.webContents.send('sync:queued', { url, body })
@@ -138,8 +138,8 @@ function setupIpc() {
     return result
   })
 
-  ipcMain.handle('api:patch', async (_e, url: string, body?: any) => {
-    const result = await apiFetch('PATCH', url, body)
+  ipcMain.handle('api:patch', async (_e, url: string, body?: any, headers?: Record<string, string>) => {
+    const result = await apiFetch('PATCH', url, body, headers)
     if (result.offline && win) {
       addToQueue(url, 'update', null, body || {})
       win.webContents.send('sync:queued', { url, body })
@@ -147,8 +147,8 @@ function setupIpc() {
     return result
   })
 
-  ipcMain.handle('api:delete', async (_e, url: string) => {
-    return apiFetch('DELETE', url)
+  ipcMain.handle('api:delete', async (_e, url: string, headers?: Record<string, string>) => {
+    return apiFetch('DELETE', url, undefined, headers)
   })
 
   // Cập nhật phần mềm
