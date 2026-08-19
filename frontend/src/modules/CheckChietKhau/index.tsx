@@ -122,9 +122,12 @@ const columns: Column[] = [
       return <span style={{ fontWeight: 700, color: ok ? '#16a34a' : '#dc2626' }}>{ok ? 'Đúng' : 'Sai'}</span>
     },
   },
-  { key: 'nhom_mau', label: 'Nhóm màu Mel' },
   { key: 'dieu_kien', label: 'Điều kiện CK' },
-  { key: 'giai_thich', label: 'Giải thích' },
+  {
+    key: 'sua_ghichu', label: 'Ghi chú sửa', type: 'text',
+    render: (v) => v ? <span style={{ color: '#b45309' }}>{v}</span> : '—',
+  },
+  { key: 'updated_by', label: 'Người sửa', type: 'text' },
 ]
 
 export default function CheckChietKhauPage() {
