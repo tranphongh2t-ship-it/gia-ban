@@ -236,18 +236,18 @@ function TinhToanTab({ thang, onMsg }: { thang: string; onMsg: (m: { type: 'ok' 
 
   const chotThang = () => run('chot', async () => {
     const res = await apiPost('/chiet-khau/chot-thang', { thang })
-    return `Đã chốt doanh số Mel tháng ${thang} cho ${res.so_khach || res.so_dong || '?'} khách`
+    return `Đã chốt doanh số Mel tháng ${thang} cho ${res.so_khach || res.so_dong || '?'} khách (${res.nguon === 'file' ? 'theo file Check chiết khấu' : 'theo sổ bán hàng'})`
   })
 
   const tinhHet = () => run('tinhHet', async () => {
     const res = await apiPost('/chiet-khau/tinh-het', {})
-    return `Đã tính lại chiết khấu cho toàn bộ ${res.so_dong} dòng bán hàng`
+    return `Đã tính lại chiết khấu cho toàn bộ ${res.so_dong} dòng bán hàng (${res.nguon === 'file' ? 'theo file Check chiết khấu' : 'theo sổ bán hàng'})`
   })
 
   const xemThongKe = () => run('thongKe', async () => {
     const res = await apiGet('/chiet-khau/thong-ke')
     setThongKe(res)
-    return `Đối chiếu: ${res.dung}/${res.tong} dòng đúng (${res.pass_pct}%)`
+    return `Đối chiếu: ${res.dung}/${res.tong} dòng đúng (${res.pass_pct}%) — ${res.nguon === 'file' ? 'theo file Check chiết khấu' : 'theo sổ bán hàng'}`
   })
 
   const steps: { key: string; num: string; title: string; desc: string; label: string; fn: () => void }[] = [
@@ -277,7 +277,13 @@ function TinhToanTab({ thang, onMsg }: { thang: string; onMsg: (m: { type: 'ok' 
       ))}
 
       {thongKe && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 4 }}>
+        <div style={{ display: 'grid', gap: 10, marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: colors.textMuted, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontWeight: 700 }}>Nguồn dữ liệu:</span>
+            <span style={{ padding: '2px 8px', borderRadius: 999, background: thongKe.nguon === 'file' ? colors.infoLight || '#e3f2fd' : colors.surfaceSecondary, color: colors.textSecondary, fontSize: 11.5 }}>{thongKe.nguon === 'file' ? 'File Check chiết khấu' : 'Sổ bán hàng thật'}</span>
+            {thongKe.nguon === 'file' && <span>— dữ liệu từ file vừa tải lên (tự xóa sau 6h), thấp nhất = file; không có file sẽ fallback về sổ</span>}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
           {[
             { label: 'Dòng khớp', value: formatNum(thongKe.dung), color: colors.success, bg: colors.successLight },
             { label: 'Dòng lệch', value: formatNum(thongKe.sai), color: colors.danger, bg: colors.dangerLight },
@@ -289,6 +295,7 @@ function TinhToanTab({ thang, onMsg }: { thang: string; onMsg: (m: { type: 'ok' 
               <div style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 4 }}>{c.label} (tổng {formatNum(thongKe.tong)} dòng)</div>
             </div>
           ))}
+          </div>
         </div>
       )}
     </div>

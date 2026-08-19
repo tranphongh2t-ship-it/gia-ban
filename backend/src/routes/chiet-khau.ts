@@ -37,6 +37,17 @@ function normPct(v: any): number | null {
   return n > 1 ? n / 100 : n
 }
 
+// Chọn bảng số liệu cho "Tính toán & chốt" của quan-ly-thang:
+// ưu tiên file vừa upload ở Check chiết khấu (check_chiet_khau_test, TTL 6h) nếu có dòng,
+// otherwise fallback về sổ bán hàng thật (so_chi_tiet_ban_hang).
+async function pickBangSo(db: D1Database): Promise<'check_chiet_khau_test' | 'so_chi_tiet_ban_hang'> {
+  const { results } = await db.prepare(
+    `SELECT COUNT(*) AS n FROM check_chiet_khau_test`
+  ).all()
+  const n = Number((results as any)?.[0]?.n) || 0
+  return n > 0 ? 'check_chiet_khau_test' : 'so_chi_tiet_ban_hang'
+}
+
 // Trích độ dày (mm) từ mã hàng — dùng quy đổi ngưỡng "1 kiện" (Lớp 2).
 // Chuẩn 1 kiện ≈ 65 tấm @ 17mm → nguong = 65 * 17 / doDay.
 function doDayTuMaHang(maHang: string): number | null {
@@ -244,20 +255,24 @@ router.get('/doi-chieu', async (c) => {
 router.get('/thong-ke', async (c) => {
   try {
     const db = c.env.DB
+    const bang = await pickBangSo(db)
+    const isTest = bang === 'check_chiet_khau_test'
+    // check_chiet_khau_test có cột sua_ck_tinh (người dùng sửa tay), sổ thật không có → COALESCE linh hoạt
+    const ckTinhExpr = isTest ? 'COALESCE(t.sua_ck_tinh, t.ck_tinh)' : 'COALESCE(t.ck_tinh,0)'
     const where = `WHERE (t.ma_hang NOT LIKE 'Z%' OR t.ma_hang LIKE 'ZKEO%')
                    AND COALESCE(t.la_khuyen_mai,0) = 0 AND COALESCE(t.la_thanh_ly,0) = 0`
     const { results: rows } = await db.prepare(
       `SELECT COUNT(*) AS tong,
-              SUM(CASE WHEN ABS(t.ck - COALESCE(t.ck_tinh,0)) <= 1 THEN 1 ELSE 0 END) AS dung,
-              SUM(CASE WHEN ABS(t.ck - COALESCE(t.ck_tinh,0)) > 1 THEN 1 ELSE 0 END) AS sai,
-              SUM(ABS(t.ck - COALESCE(t.ck_tinh,0))) AS sai_lech
-       FROM so_chi_tiet_ban_hang t ${where}`
+              SUM(CASE WHEN ABS(t.ck - ${ckTinhExpr}) <= 1 THEN 1 ELSE 0 END) AS dung,
+              SUM(CASE WHEN ABS(t.ck - ${ckTinhExpr}) > 1 THEN 1 ELSE 0 END) AS sai,
+              SUM(ABS(t.ck - ${ckTinhExpr})) AS sai_lech
+       FROM ${bang} t ${where}`
     ).all()
     const r = (rows as any)?.[0] || {}
     const tong = Number(r.tong) || 0
     const dung = Number(r.dung) || 0
     const sai = Number(r.sai) || 0
-    return c.json({ tong, dung, sai, sai_lech: Number(r.sai_lech) || 0, pass_pct: tong > 0 ? Math.round(dung / tong * 10000) / 100 : 0 })
+    return c.json({ tong, dung, sai, sai_lech: Number(r.sai_lech) || 0, pass_pct: tong > 0 ? Math.round(dung / tong * 10000) / 100 : 0, nguon: isTest ? 'file' : 'so' })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -339,31 +354,54 @@ router.post('/tinh-luy-tien', async (c) => {
 
 // POST /api/chiet-khau/tinh-het — tính & ghi ck_tinh / ck_tinh_pct / ck_tinh_detail cho MỌI dòng
 // (cần để bộ lọc đúng/sai ở /doi-chieu dùng kết quả engine mới nhất, không phải cột cũ)
+// Nếu đang có dữ liệu file Check chiết khấu (check_chiet_khau_test) thì tính trên file đó,
+// ngược lại tính trên sổ bán hàng thật.
 router.post('/tinh-het', async (c) => {
   try {
     const db = c.env.DB
+    const bang = await pickBangSo(db)
+    const isTest = bang === 'check_chiet_khau_test'
     const { results: rows } = await db.prepare(
       `SELECT id, so_ct, ma_kh, ngay, ma_hang, sl_ban, don_gia, doanh_so, ck, hinh_thuc_giao, la_khuyen_mai, la_thanh_ly, ds_mel_running
-       FROM so_chi_tiet_ban_hang`
+       FROM ${bang}`
     ).all()
     const ctx = await buildLop2Ctx(db)
     const stmts: D1PreparedStatement[] = []
     for (const r of (rows as any[])) {
       const tinh = await tinhCKChoDong(db, r, ctx)
-      stmts.push(db.prepare(
-        `UPDATE so_chi_tiet_ban_hang SET ck_tinh = ?, ck_tinh_pct = ?, ck_tinh_detail = ? WHERE id = ?`
-      ).bind(
-        tinh.ck_tinh ?? 0,
-        tinh.pct_tinh ?? 0,
-        JSON.stringify({ loai_tru: tinh.loai_tru || null, nhom_sp: tinh.nhom_sp || null, dieu_kien: tinh.dieu_kien || null, nhom_mau: tinh.nhom_mau || null, ck1: tinh.ck1, ck2: tinh.ck2, ck3: tinh.ck3, tong_pct: tinh.tong_pct, giai_thich: tinh.giai_thich || null }),
-        r.id
-      ))
+      if (isTest) {
+        stmts.push(db.prepare(
+          `UPDATE ${bang} SET
+             ck1_pct = ?, ck2_pct = ?, ck3_pct = ?, tong_pct = ?, ck_tinh = ?,
+             nhom_mau = ?, dieu_kien = ?, giai_thich = ?, updated_at = datetime('now','+7 hours')
+           WHERE id = ?`
+        ).bind(
+          tinh.ck1_pct ?? 0,
+          tinh.ck2_pct ?? 0,
+          tinh.ck3_pct ?? 0,
+          tinh.tong_pct ?? 0,
+          tinh.ck_tinh ?? 0,
+          tinh.nhom_mau || null,
+          tinh.dieu_kien || null,
+          tinh.giai_thich || null,
+          r.id
+        ))
+      } else {
+        stmts.push(db.prepare(
+          `UPDATE ${bang} SET ck_tinh = ?, ck_tinh_pct = ?, ck_tinh_detail = ? WHERE id = ?`
+        ).bind(
+          tinh.ck_tinh ?? 0,
+          tinh.pct_tinh ?? 0,
+          JSON.stringify({ loai_tru: tinh.loai_tru || null, nhom_sp: tinh.nhom_sp || null, dieu_kien: tinh.dieu_kien || null, nhom_mau: tinh.nhom_mau || null, ck1: tinh.ck1, ck2: tinh.ck2, ck3: tinh.ck3, tong_pct: tinh.tong_pct, giai_thich: tinh.giai_thich || null }),
+          r.id
+        ))
+      }
     }
     const BATCH = 100
     for (let i = 0; i < stmts.length; i += BATCH) {
       await db.batch(stmts.slice(i, i + BATCH))
     }
-    return c.json({ success: true, so_dong: stmts.length })
+    return c.json({ success: true, so_dong: stmts.length, nguon: isTest ? 'file' : 'so' })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -860,6 +898,8 @@ function traL3(ctx: Lop2Ctx | undefined, vung: string, hang: string, maKh: strin
 
 // ============ TỔNG HỢP DOANH SỐ THEO THÁNG (Lớp 4 + 5) ============
 // POST /api/chiet-khau/chot-thang — tính monthly_summary cho 1 tháng
+// Nếu có dữ liệu file Check chiết khấu (check_chiet_khau_test) thì chốt theo file đó,
+// ngược lại chốt theo sổ bán hàng thật.
 router.post('/chot-thang', async (c) => {
   try {
     const db = c.env.DB
@@ -867,12 +907,14 @@ router.post('/chot-thang', async (c) => {
     if (!/^\d{4}-\d{2}$/.test(thang)) return c.json({ error: 'thang phải YYYY-MM' }, 400)
     const nam = parseInt(thang.slice(0, 4))
     const thangSo = parseInt(thang.slice(5, 7))
+    const bang = await pickBangSo(db)
+    const isTest = bang === 'check_chiet_khau_test'
 
     // Doanh số Mel phủ theo tháng/khách (loại trừ phụ phí, hàng trả/giam giá, khuyến mãi/thanh lý)
     const { results: rows } = await db.prepare(
       `SELECT t.ma_kh,
               SUM(t.doanh_so - t.gt_tra - t.gt_giam) AS ds_mel
-       FROM so_chi_tiet_ban_hang t
+       FROM ${bang} t
        WHERE t.ma_hang LIKE 'ME%' AND t.ma_hang NOT LIKE 'MEVE%'
          AND t.ma_hang NOT LIKE 'MEOK%' AND t.ma_hang NOT LIKE 'MEGG%'
          AND COALESCE(t.la_khuyen_mai,0) = 0 AND COALESCE(t.la_thanh_ly,0) = 0
@@ -890,7 +932,7 @@ router.post('/chot-thang', async (c) => {
       const yyyymm = thang.replace('-', '')
       const { results: luyKe } = await db.prepare(
         `SELECT SUM(doanh_so - gt_tra - gt_giam) AS lk
-         FROM so_chi_tiet_ban_hang
+         FROM ${bang}
          WHERE ma_kh = ? AND ma_hang LIKE 'ME%' AND ma_hang NOT LIKE 'MEVE%'
            AND ma_hang NOT LIKE 'MEOK%' AND ma_hang NOT LIKE 'MEGG%'
            AND COALESCE(la_khuyen_mai,0) = 0 AND COALESCE(la_thanh_ly,0) = 0
@@ -920,7 +962,7 @@ router.post('/chot-thang', async (c) => {
       await db.batch(stmts.slice(i, i + 100))
     }
 
-    return c.json({ success: true, thang, so_khach: stmts.length })
+    return c.json({ success: true, thang, so_khach: stmts.length, nguon: isTest ? 'file' : 'so' })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }

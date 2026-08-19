@@ -22,3 +22,9 @@ backend/src/_tmp_*
 backend/src/inspect-*
 backend/src/seed-*
 backend/src/recalculate-*
+backend/tbl.json
+backend/tmpl.xlsx
+backend/vk.json
+frontend/release-new/
+frontend/scan.js
+scripts/
