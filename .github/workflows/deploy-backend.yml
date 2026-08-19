@@ -25,7 +25,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: backend
-          command: d1 migrations apply gia-ban-db
+          command: d1 migrations apply gia-ban-db --remote
 
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
