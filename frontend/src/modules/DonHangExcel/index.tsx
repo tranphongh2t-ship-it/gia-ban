@@ -26,6 +26,7 @@ export default function DonHangExcelPage() {
       defaultSort="id"
       exportable
       defaultLimit={500}
+      logBang="don_hang_excel"
     />
   )
 }

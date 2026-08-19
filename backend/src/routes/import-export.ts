@@ -176,6 +176,10 @@ const DB_TABLES: TableMeta[] = [
       FROM check_gia_goc_ck t
       LEFT JOIN ma_misa m ON m.ma_sp = t.ma_hang`,
     keyFields: ['id'] },
+  { table: 'check_chiet_khau_test', label: 'Check chiết khấu', group: 'Dữ liệu',
+    columns: ['ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'dieu_kien', 'updated_by'],
+    allColumns: ['id', 'ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'updated_by', 'created_at', 'updated_at'],
+    keyFields: ['id'] },
   { table: 'don_hang', label: 'Đơn hàng', group: 'Dữ liệu',
     columns: ['nv_sale', 'dh', 'kho', 'ngay', 'tinh_hinh', 'ma_kh', 'khach', 'ma_hang', 'dien_giai', 'sl_dat', 'tien_ck', 'dso', 'ty_le_ck', 'don_gia_ban', 'nhom_gia', 'es', 'hang_khach', 'giay', 'phim', 'mau', 'sl_mat', 'van_tron_chi', 'con_lai', 'gia_dung_kiem_lai', 'cl_sai_tam', 'tong_cl', 'dh_chieu', 'ck_dung', 'pt', 'cl_ck', 'hk', 'n', 'ck_vc', 'khach_text', 'kln', 'cl_ck2', 'gia_dh', 'cl', 'ghi_chu', 'mau_sang_trung_toi', 'vt', 'sai_ma', 'ten_hang', 'dd_chung', 'so_ct', 'dvt', 'sl_tra', 'gt_tra', 'gt_giam'],
     allColumns: ['id', 'nv_sale', 'dh', 'kho', 'ngay', 'tinh_hinh', 'ma_kh', 'khach', 'ma_hang', 'dien_giai', 'sl_dat', 'tien_ck', 'dso', 'ty_le_ck', 'don_gia_ban', 'nhom_gia', 'es', 'hang_khach', 'giay', 'phim', 'mau', 'sl_mat', 'van_tron_chi', 'con_lai', 'gia_dung_kiem_lai', 'cl_sai_tam', 'tong_cl', 'dh_chieu', 'ck_dung', 'pt', 'cl_ck', 'hk', 'n', 'ck_vc', 'khach_text', 'kln', 'cl_ck2', 'gia_dh', 'cl', 'ghi_chu', 'mau_sang_trung_toi', 'vt', 'sai_ma', 'ten_hang', 'dd_chung', 'so_ct', 'dvt', 'sl_tra', 'gt_tra', 'gt_giam', 'sales_id', 'created_at', 'updated_at', 'updated_by'],
@@ -187,6 +191,10 @@ const DB_TABLES: TableMeta[] = [
 ]
 
 const TABLE_META = Object.fromEntries(DB_TABLES.map(t => [t.table.replaceAll('_', '-'), t]))
+
+// URL tiền tuyến dùng apiPath="/check-chiet-khau" nhưng bảng thật named "check_chiet_khau_test"
+const checkCkMeta = TABLE_META['check-chiet-khau-test']
+if (checkCkMeta) TABLE_META['check-chiet-khau'] = checkCkMeta
 
 // Resolve sales name → sales_id
 async function resolveSalesId(db: D1Database, salesName: string): Promise<number | null> {

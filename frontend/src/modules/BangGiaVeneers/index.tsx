@@ -13,5 +13,5 @@ const columns: Column[] = [
 ]
 
 export default function BangGiaVeneersPage() {
-  return <DataGrid title="Bảng giá Veneer & Acrylic" columns={columns} apiPath="/bang-gia-veneers" />
+  return <DataGrid title="Bảng giá Veneer & Acrylic" columns={columns} apiPath="/bang-gia-veneers" logBang="bang_gia_veneers" />
 }

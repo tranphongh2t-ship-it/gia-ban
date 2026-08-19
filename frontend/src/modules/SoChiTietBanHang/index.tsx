@@ -205,6 +205,7 @@ export default function SoChiTietBanHangPage() {
         exportable
         defaultLimit={500}
         extraFilters={noPrice ? { don_gia: '__empty' } : undefined}
+        logBang="so_chi_tiet_ban_hang"
       />
     </div>
   )

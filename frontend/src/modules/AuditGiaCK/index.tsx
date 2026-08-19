@@ -319,6 +319,7 @@ export default function AuditGiaCKPage() {
         exportName="CheckGiaGoc_CK"
         defaultLimit={500}
         extraFilters={noPrice ? { don_gia: '__empty' } : undefined}
+        logBang="check_gia_goc_ck"
       />
     </div>
   )

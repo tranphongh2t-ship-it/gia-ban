@@ -53,7 +53,7 @@ export default function GiaBanMisaPage() {
         >{noPrice ? '✓ Không giá' : 'Lọc không giá'}</button>
         {result && <span style={{ fontSize: 13, color: result.startsWith('Lỗi') ? colors.danger : colors.success }}>{result}</span>}
       </div>
-      <DataGrid key={key} title="Giá bán (MISA)" columns={columns} apiPath="/bang-gia-new/gia-ban" extraFilters={noPrice ? { gia_goc: '__empty' } : undefined} />
+      <DataGrid key={key} title="Giá bán (MISA)" columns={columns} apiPath="/bang-gia-new/gia-ban" extraFilters={noPrice ? { gia_goc: '__empty' } : undefined} logBang="gia_ban" />
     </div>
   )
 }

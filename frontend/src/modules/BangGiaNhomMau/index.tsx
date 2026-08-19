@@ -13,5 +13,5 @@ const columns: Column[] = [
 ]
 
 export default function BangGiaNhomMauPage() {
-  return <DataGrid title="Bảng giá nhóm màu" columns={columns} apiPath="/bang-gia-nhom-mau" />
+  return <DataGrid title="Bảng giá nhóm màu" columns={columns} apiPath="/bang-gia-nhom-mau" logBang="bang_gia_nhom_mau" />
 }

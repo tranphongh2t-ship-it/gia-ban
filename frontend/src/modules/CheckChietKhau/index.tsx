@@ -359,6 +359,7 @@ export default function CheckChietKhauPage() {
           { label: 'Sửa CK', onClick: openSuaCk },
           { label: 'Lịch sử', onClick: openLichSu, tone: 'primary' },
         ]}
+        logBang="check_chiet_khau_test"
       />
 
       {modal && (

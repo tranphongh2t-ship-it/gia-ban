@@ -11,5 +11,5 @@ const columns: Column[] = [
 ]
 
 export default function DanhSachKhachPage() {
-  return <DataGrid title="Danh sách khách hàng" columns={columns} apiPath="/danh-sach-khach" defaultLimit={500} columnsPerRow={2} />
+  return <DataGrid title="Danh sách khách hàng" columns={columns} apiPath="/danh-sach-khach" defaultLimit={500} columnsPerRow={2} logBang="danh_sach_khach" />
 }

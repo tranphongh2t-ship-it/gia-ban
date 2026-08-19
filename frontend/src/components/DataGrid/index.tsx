@@ -35,6 +35,9 @@ interface DataGridProps {
   rowActionLabel?: string
   onRowAction?: (row: any) => void
   rowActions?: Array<{ label: string; onClick: (row: any) => void; tone?: 'info' | 'primary' | 'danger' }>
+  // Tên bảng thật trong thay_doi_log (vd "bang_gia_cot_go"). Khi có, DataGrid tự hiển thị
+  // lịch sử sửa theo account trong modal Sửa (ngược lại với historyInForm dành cho bảng đặc biệt).
+  logBang?: string
   historyInForm?: {
     get: (row: any) => Promise<any[]>
     format: (h: any) => string
@@ -121,7 +124,7 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
   )
 }
 
-export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, rowActions, historyInForm }: DataGridProps) {
+export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, rowActions, logBang, historyInForm }: DataGridProps) {
   const { hasPermission, user } = useAuth()
   const canEdit = hasPermission('feature:edit-data')
   const [data, setData] = useState<any[]>([])
@@ -342,9 +345,12 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     const form: any = {}
     editableCols.forEach(c => { if (!AUTO_FIELDS.includes(c.key)) form[c.key] = item[c.key] ?? '' })
     setEditItem(item); setFormData(form); setFormError(null); setFormHistory(null); setModalOpen(true)
-    if (historyInForm) {
-      historyInForm.get(item).then(hs => setFormHistory(hs)).catch(() => setFormHistory([]))
-    }
+    const loadHist = historyInForm
+      ? historyInForm.get(item)
+      : logBang
+        ? apiGet(`/chiet-khau/log?bang=${encodeURIComponent(logBang)}&ref_id=${item.id}&limit=100`).then((r: any) => r.data || []).catch(() => [])
+        : Promise.resolve(null)
+    loadHist.then(hs => setFormHistory(hs as any[])).catch(() => setFormHistory([]))
   }
 
   const handleSave = async () => {
@@ -733,10 +739,10 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
             </div>
           ))}
         </div>
-        {historyInForm && editItem && (
+        {(historyInForm || logBang) && editItem && (
           <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${colors.borderLight}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase' }}>Lịch sử giá</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase' }}>Lịch sử thay đổi</span>
               {formHistory && (
                 <span style={{ fontSize: 12, color: colors.textMuted }}>{formHistory.length} lần thay đổi</span>
               )}
@@ -744,12 +750,12 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
             {formHistory === null ? (
               <div style={{ fontSize: 13, color: colors.textMuted, padding: '6px 0' }}>Đang tải...</div>
             ) : formHistory.length === 0 ? (
-              <div style={{ fontSize: 13, color: colors.textMuted, padding: '6px 0' }}>Chưa có lịch sử thay đổi giá.</div>
+              <div style={{ fontSize: 13, color: colors.textMuted, padding: '6px 0' }}>Chưa có lịch sử thay đổi.</div>
             ) : (
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', maxHeight: 160, overflowY: 'auto' }}>
                 {formHistory.map((h, i) => (
                   <li key={i} style={{ padding: '5px 0', borderBottom: i < formHistory.length - 1 ? `1px solid ${colors.borderLight}` : 'none', fontSize: 12.5, color: colors.text }}>
-                    {historyInForm.format(h)}
+                    {historyInForm ? historyInForm.format(h) : `${h.created_at} · ${h.cot}: ${h.gia_tri_cu || '—'} → ${h.gia_tri_moi || '—'}` + (h.updated_by ? ` (${h.updated_by})` : '')}
                   </li>
                 ))}
               </ul>

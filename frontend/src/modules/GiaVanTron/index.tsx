@@ -190,9 +190,9 @@ export default function GiaVanTronPage() {
 
       {/* Tab content */}
       <div style={{ marginTop: 16 }}>
-        {tab === 'cot-go' && <DataGrid title="" columns={cotGoCols} apiPath="/bang-gia-cot-go" searchable={true} />}
-        {tab === 'be-mat' && <DataGrid title="" columns={beMatCols} apiPath="/bang-gia-nhom-mau" searchable={true} />}
-        {tab === 'ma-mau' && <DataGrid title="" columns={maMauCols} apiPath="/bang-gia-ma-mau" searchable={true} />}
+        {tab === 'cot-go' && <DataGrid title="" columns={cotGoCols} apiPath="/bang-gia-cot-go" searchable={true} logBang="bang_gia_cot_go" />}
+        {tab === 'be-mat' && <DataGrid title="" columns={beMatCols} apiPath="/bang-gia-nhom-mau" searchable={true} logBang="bang_gia_nhom_mau" />}
+        {tab === 'ma-mau' && <DataGrid title="" columns={maMauCols} apiPath="/bang-gia-ma-mau" searchable={true} logBang="bang_gia_ma_mau" />}
       </div>
 
     </div>

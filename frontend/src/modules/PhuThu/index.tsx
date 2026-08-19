@@ -9,5 +9,5 @@ const columns: Column[] = [
 ]
 
 export default function PhuThuPage() {
-  return <DataGrid title="Phụ thu" columns={columns} apiPath="/phu-thu" />
+  return <DataGrid title="Phụ thu" columns={columns} apiPath="/phu-thu" logBang="phu_thu" />
 }

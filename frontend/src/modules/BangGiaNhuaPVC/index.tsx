@@ -14,5 +14,5 @@ const columns: Column[] = [
 ]
 
 export default function BangGiaNhuaPVCPage() {
-  return <DataGrid title="Bảng giá Ván Nhựa PVC & Tấm Phủ" columns={columns} apiPath="/bang-gia-nhua-pvc" />
+  return <DataGrid title="Bảng giá Ván Nhựa PVC & Tấm Phủ" columns={columns} apiPath="/bang-gia-nhua-pvc" logBang="bang_gia_nhua_pvc" />
 }

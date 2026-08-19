@@ -1361,13 +1361,14 @@ router.post('/import-bang-thang', async (c) => {
 })
 
 // GET /api/chiet-khau/log — log tổng hợp thay đổi theo user
-// ?user= &bang= &thang= &limit= &offset=
+// ?user= &bang= &thang= &ref_id= &limit= &offset=
 router.get('/log', async (c) => {
   try {
     const db = c.env.DB
     const user = (c.req.query('user') || '').trim()
     const bang = (c.req.query('bang') || '').trim()
     const thang = (c.req.query('thang') || '').trim()
+    const refId = (c.req.query('ref_id') || '').trim()
     const limit = Math.min(parseInt(c.req.query('limit') || '200'), 1000)
     const offset = parseInt(c.req.query('offset') || '0')
 
@@ -1376,6 +1377,7 @@ router.get('/log', async (c) => {
     if (user) { where += ' AND updated_by LIKE ?'; params.push(`%${user}%`) }
     if (bang) { where += ' AND bang = ?'; params.push(bang) }
     if (/^\d{4}-\d{2}$/.test(thang)) { where += ' AND thang = ?'; params.push(thang) }
+    if (/^\d+$/.test(refId)) { where += ' AND ref_id = ?'; params.push(Number(refId)) }
 
     // Thống kê theo user (top)
     const { results: byUser } = await db.prepare(
@@ -1393,6 +1395,48 @@ router.get('/log', async (c) => {
     ).bind(...params).all()
 
     return c.json({ data: rows, by_user: byUser, total: (cnt as any)?.[0]?.total || 0, limit, offset })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// DELETE /api/chiet-khau/log — xóa lịch sử thay đổi (chỉ Admin).
+// Query: ?user= &bang= &thang= &id= — xóa theo filter; nếu không có filter → xóa toàn bộ.
+router.delete('/log', async (c) => {
+  try {
+    const db = c.env.DB
+    const userId = c.req.header('x-user-id')
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401)
+    const user = await db.prepare(`SELECT id, ten, vai_tro FROM nhan_vien WHERE id = ?`).bind(userId).first() as any
+    if (!user) return c.json({ error: 'User not found' }, 404)
+    if (user.vai_tro !== 'admin') return c.json({ error: 'Chỉ Admin mới được xóa lịch sử' }, 403)
+
+    const qUser = (c.req.query('user') || '').trim()
+    const qBang = (c.req.query('bang') || '').trim()
+    const qThang = (c.req.query('thang') || '').trim()
+    const qId = (c.req.query('id') || '').trim()
+
+    let where = 'WHERE 1=1'
+    const params: any[] = []
+    if (qUser) { where += ' AND updated_by LIKE ?'; params.push(`%${qUser}%`) }
+    if (qBang) { where += ' AND bang = ?'; params.push(qBang) }
+    if (/^\d{4}-\d{2}$/.test(qThang)) { where += ' AND thang = ?'; params.push(qThang) }
+    if (/^\d+$/.test(qId)) { where += ' AND id = ?'; params.push(Number(qId)) }
+
+    const { meta } = await db.prepare(`DELETE FROM thay_doi_log ${where}`).bind(...params).run()
+
+    // Ghi log chính thao tác xóa (để Admin vẫn truy vết được)
+    const ngayVn = new Date(Date.now() + 7 * 3600 * 1000)
+    const thangNow = `${ngayVn.getUTCFullYear()}-${String(ngayVn.getUTCMonth() + 1).padStart(2, '0')}`
+    const giaTri = qUser || qBang || qThang || qId ? `${qUser || '_'} / ${qBang || '_'} / ${qThang || '_'} / ${qId || '_'}` : 'ALL'
+    try {
+      await db.prepare(
+        `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
+         VALUES ('thay_doi_log', 0, 'xoa_log', '', ?, ?, ?, datetime('now','+7 hours'))`
+      ).bind(`Xóa lịch sử: ${giaTri}`, user.ten || null, thangNow).run()
+    } catch {}
+
+    return c.json({ success: true, deleted: Number((meta as any)?.changes) || 0 })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }

@@ -1,9 +1,27 @@
 import { Column } from '../components/DataGrid'
 
+// apiPath → tên bảng thật để xem lịch sử sửa theo account (thay_doi_log)
+export const BANG_MAP: Record<string, string> = {
+  '/bang-gia-new/veneer': 'bang_gia_veneers',
+  '/bang-gia-new/chi': 'bang_gia_chi',
+  '/bang-gia-new/keo-nong': 'bang_gia_keo_nong',
+  '/bang-gia-new/acrylic-foil': 'bang_gia_acrylic_foil',
+  '/bang-gia-new/van-phu-acrylic': 'bang_gia_van_phu_acrylic',
+  '/bang-gia-new/laminate-one': 'bang_gia_laminate_one',
+  '/bang-gia-new/nhua-pvc': 'bang_gia_nhua_pvc',
+  '/bang-gia-new/pvc-film': 'bang_gia_pvc_film',
+  '/bang-gia-new/van-phu-pvc': 'bang_gia_van_phu_pvc',
+  '/bang-gia-new/nhua-phu-mau': 'bang_gia_nhua_phu_mau',
+  '/bang-gia-new/nhua-laminate': 'bang_gia_nhua_laminate',
+  '/bang-gia-new/osb-laminate': 'bang_gia_osb_laminate',
+  '/bang-gia-new/mirror': 'bang_gia_mirror',
+}
+
 interface BangGiaViewConfig {
   title: string
   columns: Column[]
   apiPath: string
+  logBang?: string
 }
 
 const configs: BangGiaViewConfig[] = [

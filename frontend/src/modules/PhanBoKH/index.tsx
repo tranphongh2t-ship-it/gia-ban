@@ -11,5 +11,5 @@ const columns: Column[] = [
 ]
 
 export default function PhanBoKHPage() {
-  return <DataGrid title="Phân bổ khách hàng" columns={columns} apiPath="/phan-bo-kh" />
+  return <DataGrid title="Phân bổ khách hàng" columns={columns} apiPath="/phan-bo-kh" logBang="phan_bo_kh" />
 }
