@@ -1543,6 +1543,13 @@ router.get('/quan-ly-thang/khach-thang', async (c) => {
       for (const [maKh, arr] of ovMap) {
         if (arr.some(r => String(r.thang || '') === thang)) gdSet.add(maKh)
       }
+      // Gộp cả khách có giao dịch trong file Check chiết khấu vừa upload (bảng test, TTL 6h)
+      const { results: gdTest } = await db.prepare(
+        `SELECT DISTINCT ma_kh FROM check_chiet_khau_test
+         WHERE substr(ngay,7,4) || '-' || substr(ngay,4,2) = ?
+           AND ma_kh IS NOT NULL AND ma_kh != '' AND ma_hang != ''`
+      ).bind(thang).all()
+      for (const r of gdTest as any[]) gdSet.add(String(r.ma_kh))
     }
 
     // ck_op1 cho mức hiển thị OP1 (mức chung theo vùng): MDFOKAL_MEL 98mau/khac + VAN_CHUYEN mel
