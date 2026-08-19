@@ -46,6 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { fetchUser() }, [fetchUser])
 
+  // Heartbeat: đánh dấu online mỗi 30 giây khi đã đăng nhập
+  useEffect(() => {
+    if (!user?.id) return
+    const beat = () => {
+      apiPost('/auth/heartbeat', {}, { 'x-user-id': String(user.id) }).catch(() => {})
+    }
+    beat()
+    const t = setInterval(beat, 30000)
+    return () => clearInterval(t)
+  }, [user?.id])
+
   const login = useCallback(async (username: string, password: string) => {
     const res = await apiPost('/auth/login', { username, password })
     const u: AuthUser = { ...res, is_admin: res.is_admin }

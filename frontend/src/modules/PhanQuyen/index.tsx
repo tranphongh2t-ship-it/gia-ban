@@ -26,6 +26,30 @@ const S = {
   inp: { ...input, width: '100%', boxSizing: 'border-box' as const, height: 34, fontSize: 13 },
 }
 
+const ONLINE_COLOR = '#22c55e'
+const OFFLINE_COLOR = '#9ca3af'
+
+function statusDot(online: boolean): React.CSSProperties {
+  return {
+    display: 'inline-block', width: 9, height: 9, borderRadius: '50%', marginRight: 6,
+    background: online ? ONLINE_COLOR : OFFLINE_COLOR,
+    boxShadow: online ? `0 0 0 3px ${ONLINE_COLOR}22` : 'none',
+    verticalAlign: 'middle',
+  }
+}
+
+function timeAgo(lastSeen: string | null): string {
+  if (!lastSeen) return 'chưa online'
+  // last_seen_at lưu theo giờ Việt Nam (UTC+7)
+  const seen = new Date(lastSeen.replace(' ', 'T') + '+07:00')
+  if (isNaN(seen.getTime())) return lastSeen
+  const s = Math.max(0, Math.floor((Date.now() - seen.getTime()) / 1000))
+  if (s < 60) return 'vừa xong'
+  if (s < 3600) return `${Math.floor(s / 60)} phút trước`
+  if (s < 86400) return `${Math.floor(s / 3600)} giờ trước`
+  return `${Math.floor(s / 86400)} ngày trước`
+}
+
 interface MenuItem { key: string; label: string; group: string }
 
 export default function PhanQuyenPage() {
@@ -56,6 +80,9 @@ export default function PhanQuyenPage() {
       setMenuItems(r.menu_items || [])
       setFeatures(r.features || [])
     }).catch(() => {})
+    // Tự refresh danh sách để cập nhật trạng thái online/offline
+    const t = setInterval(loadUsers, 30000)
+    return () => clearInterval(t)
   }, [])
 
   useEffect(() => {
@@ -226,9 +253,15 @@ export default function PhanQuyenPage() {
               <div key={u.id} style={S.userCard(selectedId === u.id)} onClick={() => setSelectedId(u.id)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <span style={{ fontWeight: 500 }}>{u.ten}</span>
+                    <span style={{ fontWeight: 500 }}>
+                      <span style={statusDot(!!u.online)} />
+                      {u.ten}
+                    </span>
                     <span style={{ fontSize: 11, color: colors.textMuted, marginLeft: 6 }}>
                       {u.vai_tro === 'admin' ? '(Admin)' : ''}
+                    </span>
+                    <span style={{ fontSize: 11, marginLeft: 6, color: u.online ? ONLINE_COLOR : colors.textMuted }}>
+                      {u.online ? 'Đang online' : `Offline · ${timeAgo(u.last_seen_at)}`}
                     </span>
                   </div>
                   {u.ten !== 'Admin' && (

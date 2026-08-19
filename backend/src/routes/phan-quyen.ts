@@ -66,6 +66,17 @@ async function ensureTables(db: D1Database) {
 
   // Add mat_khau column if missing
   try { await db.prepare(`ALTER TABLE nhan_vien ADD COLUMN mat_khau TEXT`).run() } catch {}
+  // Add last_seen_at column if missing (trạng thái online/offline)
+  try { await db.prepare(`ALTER TABLE nhan_vien ADD COLUMN last_seen_at TEXT`).run() } catch {}
+}
+
+// User được xem là ONLINE nếu có tín hiệu trong vòng 2 phút (heartbeat mỗi 30 giây)
+const ONLINE_WINDOW_SECONDS = 120
+
+function onlineExpr(): string {
+  return `CASE WHEN last_seen_at IS NOT NULL
+    AND (julianday(datetime('now','+7 hours')) - julianday(last_seen_at)) * 86400 < ${ONLINE_WINDOW_SECONDS}
+    THEN 1 ELSE 0 END`
 }
 
 async function seedAdmin(db: D1Database) {
@@ -91,9 +102,21 @@ router.get('/users', async (c) => {
   await ensureTables(DB)
   await seedAdmin(DB)
   const users = await DB.prepare(
-    `SELECT id, ten, email, vai_tro, trang_thai FROM nhan_vien ORDER BY ten`
+    `SELECT id, ten, email, vai_tro, trang_thai, last_seen_at, ${onlineExpr()} AS online FROM nhan_vien ORDER BY ten`
   ).all()
   return c.json(users.results || [])
+})
+
+// POST /api/auth/heartbeat — cập nhật last_seen_at của user đang đăng nhập
+router.post('/heartbeat', async (c) => {
+  const { DB } = c.env
+  const userId = c.req.header('x-user-id')
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401)
+  await ensureTables(DB)
+  await DB.prepare(
+    `UPDATE nhan_vien SET last_seen_at = datetime('now','+7 hours') WHERE id = ?`
+  ).bind(userId).run()
+  return c.json({ success: true })
 })
 
 // GET /api/auth/menu-items — danh sách menu + features
@@ -125,6 +148,10 @@ router.post('/login', async (c) => {
   const permissions = (permRows.results || []).map((r: any) => r.permission)
 
   const isAdmin = user.vai_tro === 'admin'
+  // Đánh dấu online ngay khi đăng nhập
+  await DB.prepare(
+    `UPDATE nhan_vien SET last_seen_at = datetime('now','+7 hours') WHERE id = ?`
+  ).bind(user.id).run()
   return c.json({
     id: user.id, ten: user.ten, email: user.email,
     vai_tro: user.vai_tro, is_admin: isAdmin,
@@ -149,6 +176,10 @@ router.get('/me', async (c) => {
   const permissions = (permRows.results || []).map((r: any) => r.permission)
 
   const isAdmin = user.vai_tro === 'admin'
+  // Đánh dấu online khi mở lại app / xác thực lại
+  await DB.prepare(
+    `UPDATE nhan_vien SET last_seen_at = datetime('now','+7 hours') WHERE id = ?`
+  ).bind(user.id).run()
   return c.json({
     id: user.id, ten: user.ten, email: user.email,
     vai_tro: user.vai_tro, is_admin: isAdmin,
