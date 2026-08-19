@@ -50,18 +50,36 @@ const RAW_ROWS: any[] = [
 ]
 
 // Thêm giá trị check giả lập để cột tính toán hiển thị có ý nghĩa (backend sẽ trả giá trị thật)
+const CK_LABEL = ['MEL', 'OKAL', 'DURABO', 'KEO']
 function buildDemoRows(): any[] {
   return RAW_ROWS.map((r, i) => {
     const donGia = Number(r.don_gia) || 0
+    const doanhSo = Number(r.doanh_so) || 0
     const isSpecial = String(r.ma_hang || '').startsWith('Z') || donGia <= 0
     let giaGoc: number | null = null
     if (!isSpecial) {
       const mod = i % 5
       giaGoc = mod === 0 ? Math.round(donGia * 1.02) : mod === 1 ? Math.round(donGia * 0.97) : donGia
     }
-    let ckTinh = Number(r.ck) || 0
-    if (ckTinh > 0 && i % 3 === 2) ckTinh = Math.round(ckTinh * 0.9)
-    return { ...r, id: i + 1, gia_goc: giaGoc, ck_tinh: ckTinh }
+    // Các lớp chiết khấu (giả lập): CK1 ván trơn/chỉ nẹp, CK2 vận chuyển, CK0 Melamine
+    const nhom = CK_LABEL[i % CK_LABEL.length]
+    const ck1 = nhom === 'MEL' ? 0.2 : 0.18
+    const ck2 = nhom === 'KEO' ? 0.02 : 0.03
+    const ck3 = nhom === 'MEL' ? 0.05 : 0
+    const tongPct = ck1 + ck2 + ck3
+    const ckTinh = Math.round(doanhSo * tongPct)
+    const ck = Number(r.ck) || 0
+    const modCk = i % 4
+    const ckTinhFinal = modCk === 2 ? Math.round(ckTinh * 0.9) : ckTinh
+    const dieuKien = nhom === 'MEL' ? 'VN 2 mặt / DW' : nhom === 'OKAL' ? 'Veco 15mm' : nhom === 'DURABO' ? '0.6g KKT' : '21×0.8'
+    return {
+      ...r, id: i + 1,
+      gia_goc: giaGoc,
+      ck1_pct: ck1, ck2_pct: ck2, ck3_pct: ck3, tong_pct: tongPct,
+      ck_tinh: ckTinhFinal,
+      dieu_kien: dieuKien,
+      sua_ghichu: modCk === 2 && ck > 0 ? 'Thêm 1% vận chuyển (đơn tự lấy)' : null,
+    }
   })
 }
 
@@ -84,15 +102,8 @@ const columns: Column[] = [
   { key: 'dvt', label: 'ĐVT', width: '70' },
   { key: 'sl_ban', label: 'Tổng SL bán', type: 'number', width: '110' },
   { key: 'don_gia', label: 'Đơn giá', type: 'number', width: '120' },
-  { key: 'doanh_so', label: 'Doanh số bán', type: 'number', width: '130' },
-  { key: 'ck', label: 'Chiết khấu', type: 'number', width: '120' },
-  { key: 'sl_tra', label: 'Tổng SL trả lại', type: 'number', width: '110' },
-  { key: 'gt_tra', label: 'Giá trị trả lại', type: 'number', width: '120' },
-  { key: 'gt_giam', label: 'Giá trị giảm giá', type: 'number', width: '120' },
-  { key: 'thue', label: 'Thuế GTGT', type: 'number', width: '120' },
-  { key: 'nv_ban', label: 'NV bán hàng', width: '150' },
 
-  // --- Nhóm check 1: Giá gốc MISA ---
+  // --- Nhóm check 1: Giá gốc MISA — sau cột Đơn giá ---
   { key: 'gia_goc', label: 'Giá gốc (MISA)', type: 'number', width: '120', computed: true },
   {
     key: 'chech_lech', label: 'Chênh lệch', type: 'select', computed: true, width: '110',
@@ -112,7 +123,42 @@ const columns: Column[] = [
     },
   },
 
-  // --- Nhóm check 2: Chiết khấu theo engine ---
+  { key: 'doanh_so', label: 'Doanh số bán', type: 'number', width: '130' },
+  { key: 'ck', label: 'Chiết khấu', type: 'number', width: '120' },
+
+  // --- Nhóm check 2: Chiết khấu theo engine — ngay sau cột Chiết khấu ---
+  {
+    key: 'ck1_pct', label: 'CK1 (ván trơn/chỉ nẹp)', type: 'number', width: '120', computed: true,
+    render: (v, row) => {
+      const n = Number(v)
+      if (v === null || v === undefined || isNaN(n)) return '—'
+      return <span style={{ fontWeight: 600 }}>{(n * 100).toFixed(2)}%</span>
+    },
+  },
+  {
+    key: 'ck2_pct', label: 'CK2 (vận chuyển)', type: 'number', width: '120', computed: true,
+    render: (v, row) => {
+      const n = Number(v)
+      if (v === null || v === undefined || isNaN(n)) return '—'
+      return <span style={{ fontWeight: 600 }}>{(n * 100).toFixed(2)}%</span>
+    },
+  },
+  {
+    key: 'ck3_pct', label: 'CK0 (Melamine)', type: 'number', width: '120', computed: true,
+    render: (v, row) => {
+      const n = Number(v)
+      if (v === null || v === undefined || isNaN(n)) return '—'
+      return <span style={{ fontWeight: 600 }}>{(n * 100).toFixed(2)}%</span>
+    },
+  },
+  {
+    key: 'tong_pct', label: 'Tổng % (engine)', type: 'number', width: '130', computed: true,
+    render: (v, row) => {
+      const n = Number(v)
+      if (v === null || v === undefined || isNaN(n)) return '—'
+      return <span style={{ fontWeight: 700 }}>{(n * 100).toFixed(2)}%</span>
+    },
+  },
   { key: 'ck_tinh', label: 'CK tính (engine)', type: 'number', width: '130', computed: true },
   {
     key: 'ck_kq', label: 'Đúng/Sai', type: 'select', computed: true, width: '90',
@@ -130,6 +176,17 @@ const columns: Column[] = [
       return <span style={{ fontWeight: 700, color }}>{dung ? 'Đúng' : 'Sai'}</span>
     },
   },
+  { key: 'dieu_kien', label: 'Điều kiện CK', width: '160', computed: true, render: (v) => v ? v : '—' },
+  {
+    key: 'sua_ghichu', label: 'Ghi chú sử dụng', width: '180', computed: true,
+    render: (v) => v ? <span style={{ color: '#b45309' }}>{v}</span> : '—',
+  },
+
+  { key: 'sl_tra', label: 'Tổng SL trả lại', type: 'number', width: '110' },
+  { key: 'gt_tra', label: 'Giá trị trả lại', type: 'number', width: '120' },
+  { key: 'gt_giam', label: 'Giá trị giảm giá', type: 'number', width: '120' },
+  { key: 'thue', label: 'Thuế GTGT', type: 'number', width: '120' },
+  { key: 'nv_ban', label: 'NV bán hàng', width: '150' },
 ]
 
 export default function SoDoiChieuPage() {
