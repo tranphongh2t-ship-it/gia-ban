@@ -2,6 +2,7 @@ import { useState } from 'react'
 import DataGrid, { Column } from '../../components/DataGrid'
 import Modal from '../../components/Modal'
 import { apiGet, apiPost } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { colors, shadow, radius, input, btn } from '../../theme'
 import { formatNum } from '../../lib/format'
 
@@ -25,6 +26,8 @@ interface HistoryRow {
 }
 
 export default function MaMisaPage() {
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const [histOpen, setHistOpen] = useState(false)
   const [histRow, setHistRow] = useState<any | null>(null)
   const [history, setHistory] = useState<HistoryRow[]>([])
@@ -59,9 +62,9 @@ export default function MaMisaPage() {
     setSaving(true); setMsg(null)
     try {
       const res = await apiPost('/ma-misa/doi-gia', {
-        ma_sp: histRow.ma_sp, gia_goc: gia, thang,
+        ma_sp: histRow.ma_sp, gia_goc: gia, thang, updated_by: (JSON.parse(localStorage.getItem('auth_user') || 'null') as any)?.ten || null,
       })
-      if (res.changed) setMsg({ ok: true, text: `Đã đổi giá ${formatNum(res.gia_cu)} → ${formatNum(res.gia_goc)} (tháng ${res.thang})` })
+      if (res.changed) setMsg({ ok: true, text: `Đã đổi giá ${formatNum(res.gia_cu)} → ${formatNum(res.gia_goc)} (tháng ${res.thang})${res.synced > 0 ? ` • ${res.synced} dòng giá gốc đã đồng bộ` : ''}` })
       else setMsg({ ok: true, text: 'Giá không đổi' })
       const hres = await apiGet(`/ma-misa/lich-su/${encodeURIComponent(histRow.ma_sp)}`)
       setHistory(hres.data || [])
@@ -105,7 +108,7 @@ export default function MaMisaPage() {
             <label style={{ display: 'block', marginBottom: 5, fontSize: 12, fontWeight: 500, color: colors.textSecondary }}>Tháng áp dụng</label>
             <input style={{ ...input, width: 120 }} type="month" value={thang} onChange={e => setThang(e.target.value)} />
           </div>
-          <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={handleDoiGia} disabled={saving}>{saving ? 'Đang lưu...' : 'Đổi giá'}</button>
+          {canEdit && <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={handleDoiGia} disabled={saving}>{saving ? 'Đang lưu...' : 'Đổi giá'}</button>}
         </div>
 
         {loadingHist ? (

@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useAuth } from '../../lib/auth'
 import { apiGet, apiPost } from '../../lib/api'
 import { colors, shadow, radius, input, pageContainer, pageTitle, btn, spinner } from '../../theme'
 import { formatNum } from '../../lib/format'
@@ -6,6 +7,8 @@ import { formatNum } from '../../lib/format'
 const inputStyle: React.CSSProperties = { ...input, width: '100%', boxSizing: 'border-box' }
 
 export default function GiaGocTongHopPage() {
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const [data, setData] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -69,12 +72,16 @@ export default function GiaGocTongHopPage() {
 
       <div style={{ background: colors.card, borderRadius: radius.lg, padding: 20, border: `1px solid ${colors.border}`, boxShadow: shadow.card, marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          {canEdit && (
           <button style={{ ...btn('#6366f1', '#fff'), fontWeight: 600 }} onClick={handlePopulate} disabled={populating}>
             {populating ? 'Đang populate...' : 'Populate giá gốc'}
           </button>
+          )}
+          {canEdit && (
           <button style={{ ...btn('#16a34a', '#fff'), fontWeight: 600 }} onClick={handleMatch} disabled={matching}>
             {matching ? 'Đang match...' : 'Match MISA → giá gốc'}
           </button>
+          )}
           <div style={{ minWidth: 160 }}>
             <select style={inputStyle} value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(0) }}>
               <option value="">Tất cả trạng thái</option>

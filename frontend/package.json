@@ -1,6 +1,6 @@
 {
   "name": "gia-ban-frontend",
-  "version": "0.1.0",
+  "version": "0.2.7",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.js",
@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "electron:dev": "vite",
     "electron:build": "vite build && electron-builder",
-    "electron:preview": "vite build && electron ."
+    "electron:preview": "vite build && electron .",
+    "release": "node ../scripts/release.mjs"
   },
   "dependencies": {
     "react": "^18.3.0",
@@ -33,16 +34,26 @@
   },
   "build": {
     "appId": "com.giaban.app",
-    "productName": "Giá Bán Mới",
+    "productName": "THANH THUY PRICE",
     "directories": {
       "output": "release"
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "build/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "THANH THUY PRICE"
     }
   }
 }

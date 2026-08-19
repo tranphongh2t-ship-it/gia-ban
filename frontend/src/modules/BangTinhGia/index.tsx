@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
+import { useLock } from '../../lib/lock'
 import Modal from '../../components/Modal'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { colors, shadow, radius, input, card as cardStyle, pageContainer, pageTitle, btn, spinner } from '../../theme'
@@ -17,6 +19,10 @@ const DEFAULT_WIDTH = (label: string): number => Math.max(label.length * 8 + 44,
 export default function BangTinhGiaPage() {
   const { slug } = useParams()
   const config = sheetConfigs.find(c => c.slug === slug)
+  const { hasPermission } = useAuth()
+  const { locked } = useLock()
+  const canEdit = hasPermission('feature:edit-data')
+  const canManualEdit = canEdit && !locked
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
@@ -127,7 +133,7 @@ export default function BangTinhGiaPage() {
     try {
       if (config.compute.tinhToan) {
         const r = await apiPost(`/gia-chuan/${config.compute.tinhToan}`, {})
-        lines.push(`Tính toán: ${r.total != null ? `${r.total} dòng` : 'OK'}`)
+        lines.push(`Tính toán: ${r.total != null ? `${r.total} dòng` : 'OK'}` + (r.synced ? ` • ${r.synced} mã đồng bộ MISA` : ''))
       }
       if (config.compute.autoAssign) {
         const r = await apiPost(`/gia-chuan/${config.compute.autoAssign}`, {})
@@ -190,7 +196,10 @@ export default function BangTinhGiaPage() {
       if (c.readOnly) continue
       if (formData[c.key] !== '') payload[c.key] = c.type === 'number' ? Number(formData[c.key]) : formData[c.key]
     }
-    if (Object.keys(payload).length === 0) return
+    payload.updated_by = (() => {
+      try { const u = JSON.parse(localStorage.getItem('auth_user') || 'null'); return u?.ten || null } catch { return null }
+    })()
+    if (Object.keys(payload).filter(k => k !== 'updated_by').length === 0) return
     setSaving(true); setFormError(null)
     try {
       if (editItem) { await apiPatch(`/gia-chuan/${config.apiPath}/${editItem.id}`, payload) }
@@ -225,6 +234,12 @@ export default function BangTinhGiaPage() {
     <div style={pageContainer}>
       <h1 style={pageTitle}>Bảng Tính Giá - {config.label}</h1>
 
+      {locked && (
+        <div style={{ padding: '10px 14px', background: colors.dangerLight, color: colors.danger, borderRadius: radius.md, marginBottom: 16, border: `1px solid ${colors.danger}22`, fontSize: 13, fontWeight: 600 }}>
+          🔒 Bảng Tính Giá đang bị KHÓA — chỉnh sửa tay (Thêm/Sửa/Xoá, gán mã) đã bị chặn. Nút "Tính toán mã gốc" và luồng tự động vẫn hoạt động.
+        </div>
+      )}
+
       <div style={{ background: colors.card, borderRadius: radius.lg, padding: 20, border: `1px solid ${colors.border}`, boxShadow: shadow.card, marginBottom: 20 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
           <div style={{ minWidth: 250, flex: 1 }}>
@@ -232,10 +247,10 @@ export default function BangTinhGiaPage() {
             <input style={inputStyle} placeholder="VD: 9mm, 12mm..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
           </div>
           <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={fetchData}>Tra cứu</button>
-          {config.compute && (
+          {canEdit && config.compute && (
             <button style={{ ...btn(colors.success, '#fff'), fontWeight: 600 }} onClick={handleCompute} disabled={computing}>{computing ? 'Đang tính...' : '⚡ Tính toán mã gốc'}</button>
           )}
-          <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={openCreate}>+ Thêm</button>
+          {canManualEdit && <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={openCreate}>+ Thêm</button>}
           {isAdmin && (
             <button style={{ ...btn(colors.surfaceSecondary, colors.textSecondary), fontWeight: 500 }} onClick={saveAsDefault}>🎯 Lưu mặc định</button>
           )}
@@ -261,7 +276,7 @@ export default function BangTinhGiaPage() {
                         <div onMouseDown={e => startColResize(c.key, c.label, e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 10, zIndex: 10, cursor: 'col-resize' }} />
                       </th>
                     ))}
-                    <th style={{ padding: '10px 14px', textAlign: 'center', borderBottom: `1px solid ${colors.border}`, width: 90 }}>Tác vụ</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'center', borderBottom: `1px solid ${colors.border}`, width: canManualEdit ? 90 : 60 }}>Tác vụ</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -275,8 +290,12 @@ export default function BangTinhGiaPage() {
                       <td style={{ padding: '8px 14px', textAlign: 'center', borderBottom: `1px solid ${colors.borderLight}` }}>
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
                           <button style={{ height: 26, padding: '0 8px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, background: colors.infoLight, color: colors.infoDark }} onClick={() => openHistory(row)}>Lịch sử</button>
-                          <button style={{ height: 26, padding: '0 8px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, background: colors.primaryLight, color: colors.primaryDark }} onClick={() => openEdit(row)}>Sửa</button>
-                          <button style={{ height: 26, padding: '0 8px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, background: colors.dangerLight, color: colors.dangerDark }} onClick={() => setConfirmDelete(row)}>Xoá</button>
+                          {canManualEdit && (
+                            <>
+                              <button style={{ height: 26, padding: '0 8px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, background: colors.primaryLight, color: colors.primaryDark }} onClick={() => openEdit(row)}>Sửa</button>
+                              <button style={{ height: 26, padding: '0 8px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, background: colors.dangerLight, color: colors.dangerDark }} onClick={() => setConfirmDelete(row)}>Xoá</button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

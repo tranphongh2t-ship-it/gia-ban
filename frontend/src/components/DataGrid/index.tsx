@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from '../../lib/api'
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
+import { apiGet, apiPost, apiPatch, apiDelete, apiPut, API_BASE } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import Modal from '../Modal'
 import ConfirmDialog from '../ConfirmDialog'
 import { colors, shadow, radius, btn, input, tableStyle, pageContainer, pageTitle, spinner } from '../../theme'
@@ -17,6 +18,7 @@ export interface Column {
   render?: (value: any, row: any) => any
   renderForm?: (value: any, onChange: (v: any) => void) => any
   filterable?: boolean
+  computed?: boolean
 }
 
 interface DataGridProps {
@@ -28,6 +30,8 @@ interface DataGridProps {
   exportable?: boolean
   defaultLimit?: number
   extraFilters?: Record<string, string>
+  exportName?: string
+  columnsPerRow?: number
   rowActionLabel?: string
   onRowAction?: (row: any) => void
   historyInForm?: {
@@ -59,6 +63,16 @@ const ROW_PAD: Record<string, { td: string; th: string }> = {
 const STORAGE_COL = (p: string) => `dg_${p.replace(/\//g, '_')}_colw`
 const STORAGE_ROW = (p: string) => `dg_${p.replace(/\//g, '_')}_rowh`
 
+function buildPageList(current: number, total: number): number[] {
+  const pages: number[] = []
+  pages.push(1)
+  if (current > 3) pages.push(-1)
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i)
+  if (current < total - 2) pages.push(-1)
+  if (total > 1) pages.push(total)
+  return pages
+}
+
 function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value: string; onChange: (v: string) => void; onClose: () => void }) {
   const [val, setVal] = useState(value || '')
   const handleApply = () => { onChange(val); onClose() }
@@ -67,12 +81,15 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
 
   if (col.type === 'select' && col.options) {
     return (
-      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 200, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadow.dropdown, padding: 8 }}>
+      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 190, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadow.dropdown, padding: 8 }}>
         {col.options.map(opt => (
-          <div key={opt.value} style={{ padding: '6px 8px', cursor: 'pointer', borderRadius: radius.sm, background: val === opt.value ? colors.primaryLight : 'transparent', color: val === opt.value ? colors.primary : colors.text, marginBottom: 2, fontSize: 13, fontWeight: val === opt.value ? 600 : 400 }} onClick={() => { setVal(opt.value); onChange(opt.value); onClose() }}>
+          <div key={opt.value} style={{ padding: '5px 8px', cursor: 'pointer', borderRadius: radius.sm, background: val === opt.value ? colors.primaryLight : 'transparent', color: val === opt.value ? colors.primary : colors.text, marginBottom: 2, fontSize: 12, fontWeight: val === opt.value ? 600 : 400, textTransform: 'none' }} onClick={() => { setVal(opt.value); onChange(opt.value); onClose() }}>
             {opt.label}
           </div>
         ))}
+        <button style={{ width: '100%', marginTop: 6, padding: '5px 8px', background: val ? colors.dangerLight : colors.surfaceSecondary, color: val ? colors.danger : colors.textMuted, border: 'none', borderRadius: radius.sm, cursor: 'pointer', fontSize: 12, fontWeight: 500, textTransform: 'none' }} onClick={handleClear}>
+          Xóa bộ lọc
+        </button>
       </div>
     )
   }
@@ -103,7 +120,9 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
   )
 }
 
-export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, rowActionLabel, onRowAction, historyInForm }: DataGridProps) {
+export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, historyInForm }: DataGridProps) {
+  const { hasPermission, user } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const [data, setData] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [limit] = useState(defaultLimit)
@@ -120,6 +139,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const [formError, setFormError] = useState<string | null>(null)
   const [formHistory, setFormHistory] = useState<any[] | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [exportingCsv, setExportingCsv] = useState(false)
 
   const [confirmDelete, setConfirmDelete] = useState<any | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -194,6 +214,8 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
 
 
   const visibleCols = columns.filter(c => !c.hidden)
+  const perRow = Math.max(1, columnsPerRow || 1)
+  const fetchLimit = limit * perRow
   const curRowPad = ROW_PAD[rowHeight] || ROW_PAD.md
 
   // Default column width based on title text length
@@ -238,7 +260,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     try {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
-      params.set('limit', String(limit)); params.set('offset', String(offset))
+      params.set('limit', String(fetchLimit)); params.set('offset', String(offset))
 
       for (const [key, val] of Object.entries(filters)) {
         if (val.trim()) params.set(`filter_${key}`, val.trim())
@@ -263,32 +285,61 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     setExporting(true)
     try {
       const exportFormat = format === 'excel' ? 'excel' : 'json'
-      const res = await fetch(`/api/export/${exportFormat}${apiPath}`)
+      const res = await fetch(`${API_BASE}/export/${exportFormat}${apiPath}`)
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       const ext = format === 'excel' ? 'xlsx' : 'json'
-      a.download = `${apiPath.replace(/\//g, '_')}_${new Date().toISOString().split('T')[0]}.${ext}`
+      const prefix = exportName || apiPath.replace(/\//g, '_')
+      a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.${ext}`
       a.click()
       URL.revokeObjectURL(url)
     } catch (e: any) { setError(e.message) }
     finally { setExporting(false) }
   }
 
-  const totalPages = Math.ceil(total / limit)
-  const currentPage = Math.floor(offset / limit) + 1
+  const handleExportCsv = async () => {
+    setExportingCsv(true)
+    try {
+      const res = await fetch(`${API_BASE}/export/json${apiPath}`)
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
+      const payload = await res.json()
+      const rows: any[] = payload.data || []
+      if (rows.length === 0) throw new Error('Không có dữ liệu để xuất CSV')
+      const headers = Object.keys(rows[0])
+      const escape = (v: any) => {
+        const s = v === null || v === undefined ? '' : String(v)
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+      }
+      const csv = [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n')
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const prefix = exportName || apiPath.replace(/\//g, '_')
+      a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e: any) { setError(e.message) }
+    finally { setExportingCsv(false) }
+  }
+
+  const totalPages = Math.ceil(total / fetchLimit)
+  const currentPage = Math.floor(offset / fetchLimit) + 1
+
+  const editableCols = columns.filter(c => !c.computed)
 
   const openCreate = () => {
     const initial: any = {}
-    columns.forEach(c => { if (!AUTO_FIELDS.includes(c.key)) initial[c.key] = '' })
+    editableCols.forEach(c => { if (!AUTO_FIELDS.includes(c.key)) initial[c.key] = '' })
     setEditItem(null); setFormData(initial); setFormError(null); setModalOpen(true)
   }
 
   const openEdit = (item: any) => {
     const form: any = {}
-    columns.forEach(c => { if (!AUTO_FIELDS.includes(c.key)) form[c.key] = item[c.key] ?? '' })
+    editableCols.forEach(c => { if (!AUTO_FIELDS.includes(c.key)) form[c.key] = item[c.key] ?? '' })
     setEditItem(item); setFormData(form); setFormError(null); setFormHistory(null); setModalOpen(true)
     if (historyInForm) {
       historyInForm.get(item).then(hs => setFormHistory(hs)).catch(() => setFormHistory([]))
@@ -297,11 +348,12 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
 
   const handleSave = async () => {
     const payload: any = {}
-    for (const c of columns) {
+    for (const c of editableCols) {
       if (AUTO_FIELDS.includes(c.key)) continue
       if (c.required && !formData[c.key]) { setFormError(`"${c.label}" là bắt buộc`); return }
       if (formData[c.key] !== '') payload[c.key] = c.type === 'number' ? Number(formData[c.key]) : formData[c.key]
     }
+    payload.updated_by = user?.ten || null
     setSaving(true); setFormError(null)
     try {
       if (editItem) { await apiPatch(`${apiPath}/${editItem.id}`, payload) }
@@ -317,7 +369,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     try {
       await apiDelete(`${apiPath}/${confirmDelete.id}`)
       setConfirmDelete(null)
-      if (data.length === 1 && offset > 0) setOffset(offset - limit)
+      if (data.length === 1 && offset > 0) setOffset(offset - fetchLimit)
       else fetchData()
     } catch (e: any) { setError(e.message) }
     finally { setDeleting(false) }
@@ -328,7 +380,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   }
 
   const startInlineEdit = (row: any, col: Column) => {
-    if (AUTO_FIELDS.includes(col.key)) return
+    if (AUTO_FIELDS.includes(col.key) || col.computed) return
     setInlineEdit({ rowId: row.id, colKey: col.key, value: row[col.key] ?? '' })
     setTimeout(() => inlineRef.current?.focus(), 50)
   }
@@ -337,6 +389,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     if (!inlineEdit) return
     const payload: any = {}
     payload[inlineEdit.colKey] = inlineEdit.value
+    payload.updated_by = user?.ten || null
     try {
       await apiPatch(`${apiPath}/${inlineEdit.rowId}`, payload)
       setInlineEdit(null)
@@ -358,6 +411,65 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const thPad = { padding: curRowPad.th }
   const tdPad = { padding: curRowPad.td }
 
+  const hasAction = canEdit || (onRowAction && rowActionLabel)
+
+  const renderDataCell = (row: any, c: Column, ci: number, blockIdx: number) => {
+    const isLast = blockIdx === perRow - 1 && ci === visibleCols.length - 1
+    if (!row) return <td key={`e-${blockIdx}-${c.key}`} style={{ ...(isLast ? tCellLast : tCell), ...tdPad }} />
+    const isEditing = inlineEdit && inlineEdit.rowId === row.id && inlineEdit.colKey === c.key
+    return (
+      <td key={`${blockIdx}-${c.key}`} style={{ ...(isLast ? tCellLast : tCell), ...tdPad, ...(c.type === 'number' ? { textAlign: 'right' as const } : {}), cursor: AUTO_FIELDS.includes(c.key) ? 'default' : (editMode ? 'text' : 'pointer') }}
+        {...(canEdit ? (editMode ? { onClick: () => startInlineEdit(row, c) } : { onDoubleClick: () => startInlineEdit(row, c) }) : {})}
+      >
+        {isEditing ? (
+          c.type === 'select' && c.options ? (
+            <select ref={inlineRef as any} style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${colors.primary}`, borderRadius: 4, padding: '2px 4px', fontSize: 13, outline: 'none' }}
+              value={inlineEdit?.value ?? ''}
+              onChange={e => {
+                const val = e.target.value
+                setInlineEdit(prev => prev ? { ...prev, value: val } : null)
+                apiPatch(`${apiPath}/${inlineEdit!.rowId}`, { [inlineEdit!.colKey]: val, updated_by: user?.ten || null })
+                  .then(() => { setInlineEdit(null); fetchData() })
+                  .catch(e => { setError(e.message); setInlineEdit(null) })
+              }}
+              onBlur={() => setInlineEdit(null)}
+              autoFocus
+            >
+              {c.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          ) : (
+            <input ref={inlineRef as any} type={c.type === 'number' ? 'number' : 'text'}
+              style={{ width: '100%', boxSizing: 'border-box', border: `1px solid ${colors.primary}`, borderRadius: 4, padding: '2px 4px', fontSize: 13, outline: 'none', textAlign: c.type === 'number' ? 'right' : 'left' }}
+              value={inlineEdit?.value ?? ''}
+              onChange={e => setInlineEdit(prev => prev ? { ...prev, value: c.type === 'number' ? Number(e.target.value) : e.target.value } : null)}
+              onBlur={saveInline}
+              onKeyDown={e => { if (e.key === 'Enter') saveInline(); if (e.key === 'Escape') cancelInline() }}
+              autoFocus
+            />
+          )
+        ) : (
+          c.render ? c.render(row[c.key], row) : (c.type === 'number' ? formatNum(row[c.key], c.unit) : row[c.key] ?? <span style={{ color: colors.textMuted }}>—</span>)
+        )}
+      </td>
+    )
+  }
+
+  const renderActions = (row: any, isLast: boolean) => (
+    <td style={{ ...(isLast ? tCellLast : tCell), ...tdPad, whiteSpace: 'nowrap' }}>
+      <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+        {onRowAction && rowActionLabel && (
+          <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.infoLight, color: colors.infoDark, transition: 'background 120ms, color 120ms' }} onClick={() => onRowAction(row)}>{rowActionLabel}</button>
+        )}
+        {canEdit && (
+          <>
+            <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.primaryLight, color: colors.primaryDark, transition: 'background 120ms, color 120ms' }} onClick={() => openEdit(row)}>Sửa</button>
+            <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.dangerLight, color: colors.dangerDark, transition: 'background 120ms, color 120ms' }} onClick={() => setConfirmDelete(row)}>Xoá</button>
+          </>
+        )}
+      </div>
+    </td>
+  )
+
   return (
     <div style={pageContainer}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 } as React.CSSProperties}>
@@ -375,6 +487,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
               }} onClick={() => setRowHeight(z.key)} title={z.label}>{z.icon}</button>
             ))}
           </div>
+          {canEdit && (
           <button style={{
             padding: '4px 12px', border: `1px solid ${editMode ? colors.primary : colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: 12, fontWeight: editMode ? 600 : 400,
             background: editMode ? colors.primaryLight : 'transparent', color: editMode ? colors.primary : colors.textMuted,
@@ -382,6 +495,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
           }} onClick={() => setEditMode(v => !v)} title="Bật/tắt chế độ sửa nhanh">
             {editMode ? '✎ Đang sửa' : '✎ Sửa'}
           </button>
+          )}
           {isAdmin && (
             <button style={{
               padding: '4px 12px', border: `1px solid ${colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: 12, fontWeight: 500,
@@ -395,8 +509,9 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
           {searchable && (
             <input style={{ ...input, minWidth: 200 }} placeholder="Tìm kiếm..." value={search} onChange={(e) => handleSearch(e.target.value)} />
           )}
-          <button style={{ ...btn(colors.primary), fontWeight: 600 }} onClick={openCreate}>+ Thêm</button>
+          {canEdit && <button style={{ ...btn(colors.primary), fontWeight: 600 }} onClick={openCreate}>+ Thêm</button>}
           <button style={{ ...btn(colors.success), fontWeight: 500 }} onClick={() => handleExport('excel')} disabled={exporting}>Excel</button>
+          <button style={{ ...btn(colors.info), fontWeight: 500 }} onClick={handleExportCsv} disabled={exportingCsv}>CSV</button>
           <button style={{ ...btn(colors.info), fontWeight: 500 }} onClick={() => handleExport('json')} disabled={exporting}>JSON</button>
         </div>
       </div>
@@ -412,38 +527,88 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
             <table className="dg-tbl" style={{ borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed', minWidth: '100%', width: 'max-content' }}>
               <thead>
                 <tr>
+                  {perRow > 1 ? Array.from({ length: perRow }).map((_, b) => (
+                    <Fragment key={`hdr-${b}`}>
+                      {b > 0 && <th style={{ ...tHead, width: 14, ...thPad, background: colors.surfaceSecondary, fontSize: 9, textAlign: 'center', color: colors.textMuted }} />}
+                      {visibleCols.map((c, idx) => {
+                        const isLastCol = b === perRow - 1 && idx === visibleCols.length - 1 && !hasAction
+                        const w = getColWidth(c)
+                        const canFilter = b === 0 && (!c.computed || (c.computed && c.type === 'select'))
+                        return (
+                           <th key={`${b}-${c.key}`} style={{ ...(isLastCol ? tHeadLast : { ...tHead, width: w }), ...thPad, position: 'relative', userSelect: 'none' }}>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: canFilter ? 'pointer' : 'default' }} onClick={() => { if (canFilter) setOpenFilter(openFilter === c.key ? null : c.key) }}>
+                               <div style={{ flex: 1, minWidth: 0 }}>
+                                 {c.label}
+                                 {c.unit && <span style={{ fontWeight: 400, fontSize: 10, color: colors.textMuted, display: 'block', marginTop: 1 }}>{c.unit}</span>}
+                               </div>
+                               {canFilter && <span style={{ fontSize: 9, color: filters[c.key] ? colors.primary : colors.textMuted, opacity: 0.5, flexShrink: 0 }}>▼</span>}
+                               {canFilter && filters[c.key] && <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.primary, display: 'inline-block', flexShrink: 0 }} />}
+                             </div>
+                             {canFilter && openFilter === c.key && (
+                               <FilterDropdown col={c} value={filters[c.key] || ''} onChange={(v) => { setFilters(prev => ({ ...prev, [c.key]: v })); setOffset(0) }} onClose={() => setOpenFilter(null)} />
+                             )}
+                             {b === 0 && <div className="dg-rz" onMouseDown={(e) => startColResize(c.key, e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 10, zIndex: 10, cursor: 'col-resize' }} />}
+                           </th>
+                        )
+                      })}
+                      {hasAction && (
+                      <th style={{ ...tHead, width: 90, ...thPad, whiteSpace: 'nowrap' }}>Tác vụ</th>
+                      )}
+                    </Fragment>
+                  )) : (
+                  <>
                   {visibleCols.map((c, idx) => {
                     const w = getColWidth(c)
+                    const canFilter = !c.computed || (c.computed && c.type === 'select')
                     return (
                        <th key={c.key} style={{ ...(idx === visibleCols.length - 1 ? tHeadLast : { ...tHead, width: w }), ...thPad, position: 'relative', userSelect: 'none' }}>
-                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => setOpenFilter(openFilter === c.key ? null : c.key)}>
+                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: canFilter ? 'pointer' : 'default' }} onClick={() => { if (canFilter) setOpenFilter(openFilter === c.key ? null : c.key) }}>
                            <div style={{ flex: 1, minWidth: 0 }}>
                              {c.label}
                              {c.unit && <span style={{ fontWeight: 400, fontSize: 10, color: colors.textMuted, display: 'block', marginTop: 1 }}>{c.unit}</span>}
                            </div>
-                           <span style={{ fontSize: 9, color: filters[c.key] ? colors.primary : colors.textMuted, opacity: 0.5, flexShrink: 0 }}>▼</span>
-                           {filters[c.key] && <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.primary, display: 'inline-block', flexShrink: 0 }} />}
+                           {canFilter && <span style={{ fontSize: 9, color: filters[c.key] ? colors.primary : colors.textMuted, opacity: 0.5, flexShrink: 0 }}>▼</span>}
+                           {canFilter && filters[c.key] && <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.primary, display: 'inline-block', flexShrink: 0 }} />}
                          </div>
-                         {openFilter === c.key && (
+                         {canFilter && openFilter === c.key && (
                            <FilterDropdown col={c} value={filters[c.key] || ''} onChange={(v) => { setFilters(prev => ({ ...prev, [c.key]: v })); setOffset(0) }} onClose={() => setOpenFilter(null)} />
                          )}
                          <div className="dg-rz" onMouseDown={(e) => startColResize(c.key, e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 10, zIndex: 10, cursor: 'col-resize' }} />
                        </th>
                     )
                   })}
+                    {hasAction && (
                     <th style={{ ...tHeadLast, width: 90, ...thPad, whiteSpace: 'nowrap' }}>Tác vụ</th>
+                    )}
+                  </>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {data.length === 0 ? (
-                  <tr><td colSpan={visibleCols.length + 1} style={{ ...tableStyle.td, ...tdPad, textAlign: 'center', padding: 48, color: colors.textMuted }}>Không có dữ liệu</td></tr>
+                  <tr><td colSpan={perRow * (visibleCols.length + (hasAction ? 1 : 0)) + (perRow - 1)} style={{ ...tableStyle.td, ...tdPad, textAlign: 'center', padding: 48, color: colors.textMuted }}>Không có dữ liệu</td></tr>
+                ) : perRow > 1 ? (
+                  Array.from({ length: Math.ceil(data.length / perRow) }).map((_, gi) => (
+                    <tr key={`rg-${gi}`} style={{ transition: 'background 80ms' }}>
+                      {Array.from({ length: perRow }).map((_, b) => {
+                        const row = data[gi * perRow + b]
+                        return (
+                          <Fragment key={`blk-${gi}-${b}`}>
+                            {b > 0 && <td style={{ ...tCell, width: 14, ...tdPad, background: colors.surfaceSecondary }} />}
+                            {visibleCols.map((c, ci) => renderDataCell(row, c, ci, b))}
+                            {hasAction && renderActions(row, b === perRow - 1)}
+                          </Fragment>
+                        )
+                      })}
+                    </tr>
+                  ))
                 ) : data.map((row: any) => (
                   <tr key={row.id} style={{ transition: 'background 80ms' }}>
                     {visibleCols.map((c, ci) => {
                       const isEditing = inlineEdit && inlineEdit.rowId === row.id && inlineEdit.colKey === c.key
                       return (
                       <td key={c.key} style={{ ...(ci === visibleCols.length - 1 ? tCellLast : tCell), ...tdPad, ...(c.type === 'number' ? { textAlign: 'right' as const } : {}), cursor: AUTO_FIELDS.includes(c.key) ? 'default' : (editMode ? 'text' : 'pointer') }}
-                        {...(editMode ? { onClick: () => startInlineEdit(row, c) } : { onDoubleClick: () => startInlineEdit(row, c) })}
+                        {...(canEdit ? (editMode ? { onClick: () => startInlineEdit(row, c) } : { onDoubleClick: () => startInlineEdit(row, c) }) : {})}
                       >
                         {isEditing ? (
                           c.type === 'select' && c.options ? (
@@ -453,7 +618,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                                 const val = e.target.value
                                 setInlineEdit(prev => prev ? { ...prev, value: val } : null)
                                 // Save immediately on change (blur fires before onChange for selects)
-                                apiPatch(`${apiPath}/${inlineEdit!.rowId}`, { [inlineEdit!.colKey]: val })
+                                apiPatch(`${apiPath}/${inlineEdit!.rowId}`, { [inlineEdit!.colKey]: val, updated_by: user?.ten || null })
                                   .then(() => { setInlineEdit(null); fetchData() })
                                   .catch(e => { setError(e.message); setInlineEdit(null) })
                               }}
@@ -477,15 +642,21 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                         )}
                       </td>
                     )})}
+                    {hasAction && (
                     <td style={{ ...tCellLast, ...tdPad, whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
                         {onRowAction && rowActionLabel && (
                           <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.infoLight, color: colors.infoDark, transition: 'background 120ms, color 120ms' }} onClick={() => onRowAction(row)}>{rowActionLabel}</button>
                         )}
-                        <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.primaryLight, color: colors.primaryDark, transition: 'background 120ms, color 120ms' }} onClick={() => openEdit(row)}>Sửa</button>
-                        <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.dangerLight, color: colors.dangerDark, transition: 'background 120ms, color 120ms' }} onClick={() => setConfirmDelete(row)}>Xoá</button>
+                        {canEdit && (
+                          <>
+                            <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.primaryLight, color: colors.primaryDark, transition: 'background 120ms, color 120ms' }} onClick={() => openEdit(row)}>Sửa</button>
+                            <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.dangerLight, color: colors.dangerDark, transition: 'background 120ms, color 120ms' }} onClick={() => setConfirmDelete(row)}>Xoá</button>
+                          </>
+                        )}
                       </div>
                     </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -498,19 +669,28 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
             background: colors.card, padding: '12px 16px', borderRadius: radius.lg, boxShadow: shadow.card,
             border: `1px solid ${colors.border}`,
           } as React.CSSProperties}>
-            <span>Tổng: <strong>{total.toLocaleString()}</strong> bản ghi</span>
+            <span>Tổng: <strong>{total.toLocaleString()}</strong> bản ghi · {perRow > 1 ? `${limit} dòng/trang × ${perRow} cột` : `${limit} dòng/trang`}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button style={{
                 minWidth: 30, height: 30, padding: '0 8px', border: `1px solid ${colors.border}`, borderRadius: radius.sm,
                 background: colors.card, color: currentPage <= 1 ? colors.textDisabled : colors.textSecondary, cursor: currentPage <= 1 ? 'not-allowed' : 'pointer', fontSize: 12.5, fontWeight: 500,
                 transition: 'background 100ms, color 100ms',
-              }} disabled={currentPage <= 1} onClick={() => setOffset(offset - limit)}>← Trước</button>
+              }} disabled={currentPage <= 1} onClick={() => setOffset(offset - fetchLimit)}>← Trước</button>
+              {(totalPages > 10 ? buildPageList(currentPage, totalPages) : Array.from({ length: totalPages }, (_, i) => i + 1)).map((p, i) =>
+                p === -1
+                  ? <span key={`ellipsis-${i}`} style={{ color: colors.textMuted, fontSize: 13 }}>…</span>
+                  : <button key={p} style={{
+                      minWidth: 30, height: 30, padding: '0 8px', border: `1px solid ${p === currentPage ? colors.primary : colors.border}`, borderRadius: radius.sm,
+                      background: p === currentPage ? colors.primary : colors.card, color: p === currentPage ? '#fff' : colors.textSecondary, cursor: 'pointer', fontSize: 12.5, fontWeight: p === currentPage ? 600 : 500,
+                      transition: 'background 100ms, color 100ms',
+                    }} onClick={() => setOffset((p - 1) * fetchLimit)}>{p}</button>
+              )}
               <span>Trang <strong>{currentPage}</strong> / {totalPages || 1}</span>
               <button style={{
                 minWidth: 30, height: 30, padding: '0 8px', border: `1px solid ${colors.border}`, borderRadius: radius.sm,
                 background: colors.card, color: currentPage >= totalPages ? colors.textDisabled : colors.textSecondary, cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer', fontSize: 12.5, fontWeight: 500,
                 transition: 'background 100ms, color 100ms',
-              }} disabled={currentPage >= totalPages} onClick={() => setOffset(offset + limit)}>Sau →</button>
+              }} disabled={currentPage >= totalPages} onClick={() => setOffset(offset + fetchLimit)}>Sau →</button>
             </div>
           </div>
         </>
@@ -519,7 +699,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       <Modal open={modalOpen} title={editItem ? `Sửa ${title}` : `Thêm ${title}`} onClose={() => setModalOpen(false)} wide>
         {formError && <div style={{ padding: 14, background: colors.dangerLight, color: colors.danger, borderRadius: radius.md, marginBottom: 16, border: `1px solid ${colors.danger}22` }}>{formError}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '14px 16px' }}>
-          {columns.filter(c => !AUTO_FIELDS.includes(c.key) && !c.hidden).map(c => (
+          {editableCols.filter(c => !AUTO_FIELDS.includes(c.key) && !c.hidden).map(c => (
             <div key={c.key}>
               <label style={{ display: 'block', marginBottom: 5, fontSize: 12, fontWeight: 500, color: colors.textSecondary }}>
                 {c.label}{c.required ? <span style={{ color: colors.danger }}> *</span> : null}

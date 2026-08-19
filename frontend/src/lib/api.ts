@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.DEV ? '/api' : 'https://gia-ban-backend.maketing.workers.dev/api'
+export const API_BASE = import.meta.env.DEV ? '/api' : 'https://gia-ban-backend.maketing.workers.dev/api'
 
 declare global {
   interface Window {
@@ -34,7 +34,7 @@ export async function apiGet(path: string, headers?: Record<string, string>) {
   return res.json()
 }
 
-export async function apiPost(path: string, body: unknown) {
+export async function apiPost(path: string, body: unknown, headers?: Record<string, string>) {
   if (isElectron) {
     const r = await window.electronAPI!.apiPost(path, body)
     if (!r.ok) throw new Error(r.data?.error || `HTTP ${r.status}`)
@@ -42,7 +42,7 @@ export async function apiPost(path: string, body: unknown) {
   }
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify(body),
   })
   if (!res.ok) {

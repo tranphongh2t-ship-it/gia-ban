@@ -43,7 +43,7 @@ export default function TinhGiaMirrorPage() {
   const filtered = data.filter(r => {
     if (!search) return true
     const s = search.toLowerCase()
-    return r.quy_cach?.toLowerCase().includes(s) || r.loai?.toLowerCase().includes(s) || r.nguon?.toLowerCase().includes(s)
+    return r.quy_cach?.toLowerCase().includes(s) || r.loai?.toLowerCase().includes(s) || r.nguon?.toLowerCase().includes(s) || String(r.ma_sp || '').toLowerCase().includes(s) || String(r.ten_sp || '').toLowerCase().includes(s)
   })
 
   const nguons = [...new Set(data.map(r => r.nguon))] as string[]

@@ -160,6 +160,65 @@ export const duraboGuideTabs: GuideTabDef[] = [
         ],
       },
       {
+        title: 'Celuka (ván nhựa 1 lớp)',
+        content: [
+          {
+            type: 'codeTable',
+            codeTable: [
+              {
+                code: 'NT1706CEL',
+                parts: [
+                  { token: 'NT', meaning: 'Ván nhựa Durabo' },
+                  { token: '17', meaning: 'Độ dày 17mm' },
+                  { token: '06', meaning: 'Trọng lượng 0,6 g' },
+                  { token: 'CEL', meaning: 'Celuka (ván nhựa 1 lớp)' },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'genericTable',
+            table: {
+              columns: ['Loại', 'Quy tắc mã', 'Ví dụ'],
+              rows: [
+                ['Celuka 0.55D', 'NT{độ dày}055CEL', 'NT08055CEL, NT17055CEL'],
+                ['Celuka 0.6D', 'NT{độ dày}06CEL', 'NT1006CEL, NT1706CEL'],
+              ],
+            },
+          },
+        ],
+      },
+      {
+        title: 'WPC Shield Board',
+        content: [
+          {
+            type: 'codeTable',
+            codeTable: [
+              {
+                code: 'NT1706WPC',
+                parts: [
+                  { token: 'NT', meaning: 'Ván nhựa Durabo' },
+                  { token: '17', meaning: 'Độ dày 17mm' },
+                  { token: '06', meaning: 'Trọng lượng 0,6 g' },
+                  { token: 'WPC', meaning: 'WPC Shield Board' },
+                  { token: '2', meaning: 'Nhóm 2 (giá cao hơn)' },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'genericTable',
+            table: {
+              columns: ['Loại', 'Quy tắc mã', 'Ví dụ'],
+              rows: [
+                ['WPC 0.6D (nhóm 1)', 'NT{độ dày}06WPC', 'NT1706WPC'],
+                ['WPC 0.6D (nhóm 2)', 'NT{độ dày}06WPC2', 'NT1706WPC2'],
+              ],
+            },
+          },
+        ],
+      },
+      {
         title: 'Lưu ý',
         content: [
           {
@@ -167,7 +226,7 @@ export const duraboGuideTabs: GuideTabDef[] = [
             notes: [
               'Độ dày viết 2 chữ số: 3mm → 03, 5mm → 05, 8mm → 08, 17mm → 17.',
               'Trọng lượng viết 2–3 chữ số: 0,5g → 05, 0,55g → 055, 0,6g → 06, 0,65g → 065.',
-              'Celuka (ván nhựa 1 lớp) và WPC Shield Board chưa có mã trong bảng mã MISA → phải gán thủ công qua nút "Gán SP".',
+              'Celuka và WPC Shield Board đã có mã NT chuẩn (hậu tố CEL / WPC) trong bảng mã MISA, không cần gán thủ công.',
             ],
           },
         ],
@@ -258,7 +317,7 @@ export const duraboGuideTabs: GuideTabDef[] = [
             type: 'notes',
             notes: [
               'DURABO ECO, DURABO, Siêu bóng và Co-extrusion (lõi đen/trắng) có mã NT sẵn trong MISA — gán theo quy tắc cấu trúc ở tab "Mã SP".',
-              'Celuka Trắng và WPC Shield Board chưa có mã sẵn — gán thủ công khi có mã từ kế toán/MISA.',
+              'Celuka Trắng dùng hậu tố CEL (NT…06CEL / NT…055CEL), WPC Shield Board dùng hậu tố WPC (NT1706WPC / NT1706WPC2).',
             ],
           },
         ],

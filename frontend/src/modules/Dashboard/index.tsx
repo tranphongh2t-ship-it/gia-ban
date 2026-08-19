@@ -65,7 +65,10 @@ export default function Dashboard() {
 
   return (
     <div style={pageContainer}>
-      <h1 style={S.title}>Dashboard</h1>
+      <div style={S.title}>
+        <img src="/logo.svg" alt="logo" style={{ width: 30, height: 30, borderRadius: 8, verticalAlign: 'middle', marginRight: 10 }} />
+        <span style={{ verticalAlign: 'middle' }}>THANH THUY PRICE — Dashboard</span>
+      </div>
 
       {/* Filter bar */}
       <div style={{ ...section, padding: '12px 16px' }}>

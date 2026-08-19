@@ -45,9 +45,9 @@ export default function LoginOverlay() {
   return (
     <div style={overlay}>
       <div style={box}>
-        <div style={{ fontSize: 40, marginBottom: 8, opacity: 0.3 }}>◈</div>
+        <img src="/logo.svg" alt="logo" style={{ width: 56, height: 56, borderRadius: 12, marginBottom: 8 }} />
         <h2 style={{ fontSize: 18, fontWeight: 600, color: colors.text, margin: '0 0 4px' }}>Đăng nhập</h2>
-        <p style={{ fontSize: 13, color: colors.textMuted, margin: '0 0 24px' }}>Hệ thống quản lý giá bán</p>
+        <p style={{ fontSize: 13, color: colors.textMuted, margin: '0 0 24px' }}>THANH THUY PRICE — Hệ thống quản lý giá</p>
 
         {error && (
           <div style={{ fontSize: 13, color: colors.danger, background: colors.dangerLight, padding: '8px 12px', borderRadius: radius.md, marginBottom: 16, textAlign: 'left' }}>

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { apiGet, apiPost } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { colors, shadow, radius, input, pageContainer, pageTitle, btn, spinner } from '../../theme'
 import { formatNum } from '../../lib/format'
 import AssignMisaCode from '../../components/AssignMisaCode'
@@ -31,6 +32,8 @@ interface Props {
 }
 
 export default function TinhGiaBoardPage({ boardType: bt }: Props) {
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const boardType = bt || 'vdo'
   const cfg = BOARD_TYPES[boardType]
   const tableName = boardType === 'vmh' ? 'bang_gia_chuan_tinh_gia_vmh' : 'bang_gia_chuan_tinh_gia_vdo'
@@ -61,7 +64,7 @@ export default function TinhGiaBoardPage({ boardType: bt }: Props) {
     setComputing(true)
     try {
       const res = await apiPost(`/gia-chuan/${cfg.apiPath}/tinh-toan`, {})
-      alert(`Đã tính xong: ${res.total} dòng`)
+      alert(`Đã tính xong: ${res.total} dòng${res.synced ? ` • ${res.synced} mã đã đồng bộ MISA` : ''}`)
       fetchData()
     } catch (e: any) { alert('Lỗi: ' + e.message) }
     finally { setComputing(false) }
@@ -133,12 +136,12 @@ export default function TinhGiaBoardPage({ boardType: bt }: Props) {
               <option value="no">Chưa gán</option>
             </select>
           </div>
-          <button style={{ ...btn(colors.success, '#fff'), fontWeight: 600 }} onClick={handleCompute} disabled={computing}>
+          {canEdit && <button style={{ ...btn(colors.success, '#fff'), fontWeight: 600 }} onClick={handleCompute} disabled={computing}>
             {computing ? 'Đang tính...' : 'Tính toán lại'}
-          </button>
-          <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={handleAutoAssign} disabled={assigning}>
+          </button>}
+          {canEdit && <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={handleAutoAssign} disabled={assigning}>
             {assigning ? 'Đang gán...' : 'Gán Mã SP từ danh mục MISA'}
-          </button>
+          </button>}
         </div>
       </div>
 

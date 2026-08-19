@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { apiGet, apiPost } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { colors, shadow, radius, pageContainer, pageTitle, spinner, btn } from '../../theme'
 import { formatNum } from '../../lib/format'
 import AssignMisaCode from '../../components/AssignMisaCode'
@@ -32,6 +33,8 @@ const nhomLabels: Record<string, { title: string }> = {
 const nhomOrder = ['PVC', 'VENEER', 'ACRYLIC', 'ABS_PVC']
 
 export default function TinhGiaChiNepKeoHatPage() {
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const [chiNep, setChiNep] = useState<any[]>([])
   const [keoHat, setKeoHat] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -76,7 +79,7 @@ export default function TinhGiaChiNepKeoHatPage() {
           <div key={nhom}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
               <h2 style={{ ...sectionTitle, margin: 0 }}>{grp.title}</h2>
-              {nhom === 'PVC' && (
+              {nhom === 'PVC' && canEdit && (
                 <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={handleAutoAssignChiNep} disabled={assigning}>
                   {assigning ? 'Đang gán...' : 'Gán Mã SP từ danh mục MISA'}
                 </button>

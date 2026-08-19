@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react'
 import { apiGet, apiPost } from '../../lib/api'
-import { colors, shadow, radius, input, pageContainer, pageTitle, btn, spinner } from '../../theme'
+import { useAuth } from '../../lib/auth'
 import { formatNum } from '../../lib/format'
+import { colors, shadow, radius, input, pageContainer, pageTitle, btn, spinner } from '../../theme'
 import AssignMisaCode from '../../components/AssignMisaCode'
 import GuideTabs from '../../components/GuideTabs'
 import { pvcPetgGuideTabs } from '../../guides/pvcPetg'
@@ -11,6 +12,8 @@ const inputStyle: React.CSSProperties = { ...input, width: '100%', boxSizing: 'b
 
 export default function TinhGiaPvcPetgPage() {
   const [data, setData] = useState<any[]>([])
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const [loading, setLoading] = useState(false)
   const [computing, setComputing] = useState(false)
   const [search, setSearch] = useState('')
@@ -34,7 +37,7 @@ export default function TinhGiaPvcPetgPage() {
     setComputing(true)
     try {
       const res = await apiPost('/gia-chuan/tinh-gia-pvc-petg/tinh-toan', {})
-      alert(`Đã tính xong: ${res.total} dòng`)
+      alert(`Đã tính xong: ${res.total} dòng${res.synced ? ` • ${res.synced} mã đã đồng bộ MISA` : ''}`)
       fetchData()
     } catch (e: any) { alert('Lỗi: ' + e.message) }
     finally { setComputing(false) }
@@ -43,7 +46,7 @@ export default function TinhGiaPvcPetgPage() {
   const filtered = data.filter(r => {
     if (search) {
       const s = search.toLowerCase()
-      if (!r.ma_mau?.toLowerCase().includes(s) && !r.loai_van?.toLowerCase().includes(s) && !r.do_day?.toLowerCase().includes(s)) return false
+      if (!String(r.ma_mau || '').toLowerCase().includes(s) && !String(r.loai_van || '').toLowerCase().includes(s) && !String(r.do_day || '').toLowerCase().includes(s) && !String(r.ma_sp || '').toLowerCase().includes(s) && !String(r.ten_sp || '').toLowerCase().includes(s)) return false
     }
     if (filterNhom && r.nhom !== filterNhom) return false
     if (filterLoaiVan && r.loai_van !== filterLoaiVan) return false
@@ -91,9 +94,9 @@ export default function TinhGiaPvcPetgPage() {
               <option value="2">2 mặt</option>
             </select>
           </div>
-          <button style={{ ...btn(colors.success, '#fff'), fontWeight: 600 }} onClick={handleCompute} disabled={computing}>
+          {canEdit && <button style={{ ...btn(colors.success, '#fff'), fontWeight: 600 }} onClick={handleCompute} disabled={computing}>
             {computing ? 'Đang tính...' : 'Tính toán lại'}
-          </button>
+          </button>}
         </div>
       </div>
 

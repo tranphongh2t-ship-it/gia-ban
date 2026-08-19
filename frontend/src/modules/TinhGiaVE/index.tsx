@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { apiGet, apiPost } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { colors, shadow, radius, input, pageContainer, pageTitle, btn, spinner } from '../../theme'
 import { formatNum } from '../../lib/format'
 import AssignMisaCode from '../../components/AssignMisaCode'
@@ -10,6 +11,8 @@ import { veGuideTabs } from '../../guides/ve'
 const inputStyle: React.CSSProperties = { ...input, width: '100%', boxSizing: 'border-box' }
 
 export default function TinhGiaVEPage() {
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [computing, setComputing] = useState(false)
@@ -34,7 +37,7 @@ export default function TinhGiaVEPage() {
     setComputing(true)
     try {
       const res = await apiPost('/gia-chuan/tinh-gia-ve/tinh-toan', {})
-      alert(`Đã tính xong: ${res.total} dòng`)
+      alert(`Đã tính xong: ${res.total} dòng${res.synced ? ` • ${res.synced} mã đã đồng bộ MISA` : ''}`)
       fetchData()
     } catch (e: any) { alert('Lỗi: ' + e.message) }
     finally { setComputing(false) }
@@ -53,7 +56,7 @@ export default function TinhGiaVEPage() {
   const filtered = data.filter(r => {
     if (search) {
       const s = search.toLowerCase()
-      if (!r.quy_cach?.toLowerCase().includes(s) && !r.loai?.toLowerCase().includes(s) && !r.ma_sp?.toLowerCase().includes(s)) return false
+      if (!r.quy_cach?.toLowerCase().includes(s) && !r.loai?.toLowerCase().includes(s) && !r.ma_sp?.toLowerCase().includes(s) && !r.ten_sp?.toLowerCase().includes(s)) return false
     }
     if (filterNhom && r.nhom !== filterNhom) return false
     if (filterLoai && r.loai !== filterLoai) return false
@@ -92,12 +95,12 @@ export default function TinhGiaVEPage() {
               {loaiList.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
-          <button style={{ ...btn(colors.success, '#fff'), fontWeight: 600 }} onClick={handleCompute} disabled={computing}>
+          {canEdit && <button style={{ ...btn(colors.success, '#fff'), fontWeight: 600 }} onClick={handleCompute} disabled={computing}>
             {computing ? 'Đang tính...' : 'Tính toán lại'}
-          </button>
-          <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={handleAutoAssign} disabled={assigning}>
+          </button>}
+          {canEdit && <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={handleAutoAssign} disabled={assigning}>
             {assigning ? 'Đang gán...' : 'Gán Mã SP từ danh mục MISA'}
-          </button>
+          </button>}
         </div>
       </div>
 

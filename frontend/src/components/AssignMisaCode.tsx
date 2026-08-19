@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { colors, radius, btn } from '../theme'
 import { apiGet, apiPost } from '../lib/api'
+import { useAuth } from '../lib/auth'
+import { useLock } from '../lib/lock'
 import Modal from './Modal'
 
 interface AssignMisaCodeProps {
@@ -14,6 +16,9 @@ interface AssignMisaCodeProps {
 }
 
 export default function AssignMisaCode({ module, table, rowId, searchStr, onAssigned, currentMa, currentTen }: AssignMisaCodeProps) {
+  const { hasPermission } = useAuth()
+  const { locked } = useLock()
+  if (!hasPermission('feature:edit-data') || locked) return null
   const [open, setOpen] = useState(false)
   const [candidates, setCandidates] = useState<any[]>([])
   const [loading, setLoading] = useState(false)

@@ -1,16 +1,52 @@
 import { app, BrowserWindow, protocol, net, ipcMain } from 'electron'
 import path from 'node:path'
+import { writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { initDatabase, getDb, q, exec, run, saveDb } from './db'
 import { startSync, stopSync, addToQueue } from './sync-engine'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+app.setName('THANH THUY PRICE')
 
 process.env.DIST = path.join(__dirname, '../dist')
 
 let win: BrowserWindow | null = null
 const API_BASE = 'https://gia-ban-backend.maketing.workers.dev/api'
+const APP_VERSION = app.getVersion()
+
+// --- Cập nhật phần mềm (custom checker, Hướng A) ---
+let updateInfo: { version: string; url: string; notes: string } | null = null
+
+function compareVersions(a: string, b: string): number {
+  const norm = (v: string) => v.replace(/^v/, '').split('.').map((n) => parseInt(n || '0', 10))
+  const pa = norm(a)
+  const pb = norm(b)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] || 0) - (pb[i] || 0)
+    if (d !== 0) return d > 0 ? 1 : -1
+  }
+  return 0
+}
+
+async function checkForUpdate(): Promise<void> {
+  try {
+    const controller = new AbortController()
+    const t = setTimeout(() => controller.abort(), 8000)
+    const res = await fetch(`${API_BASE}/app/update`, { signal: controller.signal })
+    clearTimeout(t)
+    if (!res.ok) return
+    const data = await res.json()
+    if (!data || !data.version) return
+    if (compareVersions(data.version, APP_VERSION) > 0) {
+      updateInfo = { version: data.version, url: data.url || '', notes: data.notes || '' }
+      if (win) win.webContents.send('app:update-available', updateInfo)
+    }
+  } catch {
+    // offline — bỏ qua, lần khác check lại
+  }
+}
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
@@ -18,10 +54,13 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1400,
     height: 900,
+    title: 'THANH THUY PRICE',
+    icon: path.join(__dirname, '../build/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   })
 
@@ -93,7 +132,7 @@ function setupIpc() {
   ipcMain.handle('api:post', async (_e, url: string, body?: any) => {
     const result = await apiFetch('POST', url, body)
     if (result.offline && win) {
-      addToQueue(url, 'post', null, body || {})
+      addToQueue(url, 'create', null, body || {})
       win.webContents.send('sync:queued', { url, body })
     }
     return result
@@ -102,7 +141,7 @@ function setupIpc() {
   ipcMain.handle('api:patch', async (_e, url: string, body?: any) => {
     const result = await apiFetch('PATCH', url, body)
     if (result.offline && win) {
-      addToQueue(url, 'patch', null, body || {})
+      addToQueue(url, 'update', null, body || {})
       win.webContents.send('sync:queued', { url, body })
     }
     return result
@@ -110,6 +149,66 @@ function setupIpc() {
 
   ipcMain.handle('api:delete', async (_e, url: string) => {
     return apiFetch('DELETE', url)
+  })
+
+  // Cập nhật phần mềm
+  ipcMain.handle('app:check-update', async () => {
+    await checkForUpdate()
+    return updateInfo
+  })
+
+  ipcMain.handle('app:get-update', () => updateInfo)
+
+  ipcMain.handle('app:skip-update', () => {
+    updateInfo = null
+    return { skipped: true }
+  })
+
+  ipcMain.handle('app:install-update', async () => {
+    if (!updateInfo || !updateInfo.url) return { ok: false, error: 'Không có link tải' }
+    try {
+      if (win) win.webContents.send('app:update-progress', { state: 'downloading', percent: 0 })
+
+      // 1) Tải installer về thư mục temp
+      const res = await fetch(updateInfo.url)
+      if (!res.ok) throw new Error(`Tải thất bại (HTTP ${res.status})`)
+      const total = Number(res.headers.get('content-length') || 0)
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error('Không đọc được dữ liệu tải về')
+      const chunks: Uint8Array[] = []
+      let received = 0
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (value) {
+          chunks.push(value)
+          received += value.length
+          if (win && total) {
+            win.webContents.send('app:update-progress', {
+              state: 'downloading',
+              percent: Math.round((received / total) * 100),
+            })
+          }
+        }
+      }
+      const buf = Buffer.concat(chunks as unknown as Uint8Array[])
+      const setupPath = path.join(app.getPath('temp'), 'THANH-THUY-PRICE-Setup-update.exe')
+      await writeFile(setupPath, buf)
+      if (win) win.webContents.send('app:update-progress', { state: 'installing', percent: 100 })
+
+      // 2) Chạy installer silent (perMachine → cần nâng quyền admin, Windows hỏi UAC 1 lần)
+      await new Promise<void>((resolve, reject) => {
+        execFile('powershell.exe', ['-NoProfile', '-Command', `Start-Process -FilePath '${setupPath}' -ArgumentList '/S' -Wait -Verb RunAs`], { timeout: 60000 }, (err) => (err ? reject(err) : resolve()))
+      })
+
+      // 3) Cài xong → đóng app để dùng bản mới
+      if (win) win.webContents.send('app:update-progress', { state: 'done', percent: 100 })
+      setTimeout(() => { app.quit() }, 1000)
+      return { ok: true, installed: true }
+    } catch (e: any) {
+      return { ok: false, error: e.message }
+    }
   })
 
   // Sync control
@@ -141,6 +240,9 @@ function setupIpc() {
       if (win) win.webContents.send('online-status', false)
     }
   }, 10000)
+
+  // Kiểm tra cập nhật định kỳ (mỗi 6h)
+  setInterval(checkForUpdate, 6 * 60 * 60 * 1000)
 }
 
 app.whenReady().then(async () => {
@@ -155,4 +257,5 @@ app.whenReady().then(async () => {
   await initDatabase()
   setupIpc()
   createWindow()
+  checkForUpdate()
 })

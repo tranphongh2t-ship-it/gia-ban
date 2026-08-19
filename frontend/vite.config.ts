@@ -17,7 +17,7 @@ export default defineConfig({
           },
         },
       },
-      { entry: 'electron/preload.ts', onstart(args) { args.reload() } },
+      { entry: 'electron/preload.ts', onstart(args) { args.reload() }, vite: { build: { rollupOptions: { output: { format: 'cjs', entryFileNames: 'preload.js' } } } } },
     ]),
     renderer(),
   ],

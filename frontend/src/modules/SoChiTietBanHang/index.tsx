@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import DataGrid, { Column } from '../../components/DataGrid'
 import { apiDelete, apiPost } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { colors, btn } from '../../theme'
 
 const CHUNK = 1500
@@ -57,13 +58,25 @@ const columns: Column[] = [
   { key: 'thue', label: 'Thuế', type: 'number' },
 ]
 
+const doiChieuColumns: Column[] = [
+  { key: 'ck_tinh', label: 'CK tính', type: 'number', computed: true, width: '90' },
+  { key: 'pct_tinh', label: '% tính', computed: true, width: '72', render: (v: any) => v != null ? `${Number(v).toFixed(2)}%` : '' },
+  { key: 'chenh_lech', label: 'Chênh lệch', type: 'number', computed: true, width: '90' },
+  { key: 'sai_so', label: 'KQ', computed: true, width: '72', render: (v: any) => v == null ? '' : (v ? <span style={{ color: colors.danger, fontWeight: 700 }}>SAI</span> : <span style={{ color: colors.success, fontWeight: 700 }}>ĐÚNG</span>) },
+  { key: 'giai_thich', label: 'Ghi chú', computed: true },
+]
+
 export default function SoChiTietBanHangPage() {
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
+  const canImport = hasPermission('feature:import-export') || canEdit
   const fileRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [gridKey, setGridKey] = useState(0)
   const [noPrice, setNoPrice] = useState(false)
+  const [doiChieu, setDoiChieu] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
   const handleImport = async () => {
@@ -114,15 +127,8 @@ export default function SoChiTietBanHangPage() {
       let imported = 0, skipped = 0
       for (let i = 0; i < records.length; i += CHUNK) {
         const chunk = records.slice(i, i + CHUNK)
-        const res = await fetch('/api/so-chi-tiet-ban-hang/import-rows', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rows: chunk }),
-        })
-        const text = await res.text()
-        let data: any
-        try { data = JSON.parse(text) } catch { throw new Error('Server trả lỗi (không phải JSON). Thử giảm số dòng trong file hoặc liên hệ admin.') }
-        if (!res.ok || data.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
+        const data = await apiPost('/so-chi-tiet-ban-hang/import-rows', { rows: chunk })
+        if (data.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
         imported += data.imported || 0
         skipped += data.skipped || 0
       }
@@ -140,48 +146,60 @@ export default function SoChiTietBanHangPage() {
   return (
     <div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: '0 24px', marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: colors.textMuted }}>Import từ file "Sổ chi tiết bán hàng.xlsx":</div>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ fontSize: 13 }} />
-        <button style={{ ...btn(colors.primary), fontSize: 12, height: 32 }} onClick={handleImport} disabled={importing}>
-          {importing ? 'Đang import...' : 'Import'}
-        </button>
-        {result && <span style={{ color: colors.success, fontSize: 13, fontWeight: 500 }}>{result}</span>}
-        {error && <span style={{ color: colors.danger, fontSize: 13 }}>{error}</span>}
+        {canImport && (
+          <>
+            <div style={{ fontSize: 13, color: colors.textMuted }}>Import từ file "Sổ chi tiết bán hàng.xlsx":</div>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ fontSize: 13 }} />
+            <button style={{ ...btn(colors.primary), fontSize: 12, height: 32 }} onClick={handleImport} disabled={importing}>
+              {importing ? 'Đang import...' : 'Import'}
+            </button>
+            {result && <span style={{ color: colors.success, fontSize: 13, fontWeight: 500 }}>{result}</span>}
+            {error && <span style={{ color: colors.danger, fontSize: 13 }}>{error}</span>}
+          </>
+        )}
         <button
           style={{ ...btn(noPrice ? colors.warning : colors.textMuted, '#fff'), fontSize: 12, height: 32 }}
           onClick={() => { setNoPrice(v => !v); setGridKey(k => k + 1) }}
         >{noPrice ? '✓ Đơn giá = 0' : 'Lọc Đơn giá = 0'}</button>
         <button
-          style={{ ...btn(colors.warning, '#fff'), fontSize: 12, height: 32 }}
-          disabled={syncing}
-          onClick={async () => {
-            if (!confirm('Cập nhật giá gốc (Mã MISA + Giá bán) theo đơn giá mới nhất từ Sổ chi tiết?')) return
-            setSyncing(true)
-            try {
-              const d = await apiPost('/pricing/cap-nhat-gia-goc', {})
-              setResult(d.message || 'OK')
-            } catch (e: any) { setResult('Lỗi: ' + e.message) }
-            finally { setSyncing(false) }
-          }}
-        >{syncing ? 'Đang đồng bộ...' : 'ĐB giá gốc ← Đơn giá'}</button>
+          style={{ ...btn(doiChieu ? colors.primary : colors.textMuted, '#fff'), fontSize: 12, height: 32 }}
+          onClick={() => { setDoiChieu(v => !v); setGridKey(k => k + 1) }}
+        >{doiChieu ? '✓ Đối chiếu CK' : 'Đối chiếu CK'}</button>
+        {canEdit && (
+          <button
+            style={{ ...btn(colors.warning, '#fff'), fontSize: 12, height: 32 }}
+            disabled={syncing}
+            onClick={async () => {
+              if (!confirm('Cập nhật giá gốc (Mã MISA + Giá bán) theo đơn giá mới nhất từ Sổ chi tiết?')) return
+              setSyncing(true)
+              try {
+                const d = await apiPost('/pricing/cap-nhat-gia-goc', {})
+                setResult(d.message || 'OK')
+              } catch (e: any) { setResult('Lỗi: ' + e.message) }
+              finally { setSyncing(false) }
+            }}
+          >{syncing ? 'Đang đồng bộ...' : 'ĐB giá gốc ← Đơn giá'}</button>
+        )}
         <span style={{ flex: 1 }} />
-        <button
-          style={{ ...btn(colors.danger, '#fff'), fontSize: 12, height: 32 }}
-          onClick={async () => {
-            if (!confirm('Xóa toàn bộ dữ liệu Sổ chi tiết bán hàng?')) return
-            try {
-              const d = await apiDelete('/so-chi-tiet-ban-hang/clear')
-              if (d.success) { setResult(d.message); setGridKey(k => k + 1) }
-              else alert('Lỗi: ' + d.error)
-            } catch (e: any) { alert('Lỗi: ' + e.message) }
-          }}
-        >Xóa hết dữ liệu</button>
+        {canImport && (
+          <button
+            style={{ ...btn(colors.danger, '#fff'), fontSize: 12, height: 32 }}
+            onClick={async () => {
+              if (!confirm('Xóa toàn bộ dữ liệu Sổ chi tiết bán hàng?')) return
+              try {
+                const d = await apiDelete('/so-chi-tiet-ban-hang/clear')
+                if (d.success) { setResult(d.message); setGridKey(k => k + 1) }
+                else alert('Lỗi: ' + d.error)
+              } catch (e: any) { alert('Lỗi: ' + e.message) }
+            }}
+          >Xóa hết dữ liệu</button>
+        )}
       </div>
       <DataGrid
         key={gridKey}
-        title="Sổ chi tiết bán hàng"
-        columns={columns}
-        apiPath="/so-chi-tiet-ban-hang"
+        title={doiChieu ? 'Sổ chi tiết bán hàng — Đối chiếu CK' : 'Sổ chi tiết bán hàng'}
+        columns={doiChieu ? [...columns, ...doiChieuColumns] : columns}
+        apiPath={doiChieu ? '/so-chi-tiet-ban-hang/doi-chieu' : '/so-chi-tiet-ban-hang'}
         searchable
         defaultSort="id"
         exportable

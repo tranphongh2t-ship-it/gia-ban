@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { apiGet, apiPost, apiPatch, apiDelete } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import Modal from '../../components/Modal'
 import ConfirmDialog from '../../components/ConfirmDialog'
 import { colors, shadow, radius, input, card as cardStyle, pageContainer, pageTitle, btn, spinner } from '../../theme'
@@ -181,6 +182,8 @@ export default function TraCuuGiaGocPage() {
   const { slug } = useParams()
   const catIdx = Math.max(0, categories.findIndex(c => c.slug === slug))
   const cat = categories[catIdx]
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
 
   const [filterVals, setFilterVals] = useState<Record<string, string>>({})
   const [results, setResults] = useState<any[]>([])
@@ -319,7 +322,7 @@ export default function TraCuuGiaGocPage() {
         border: `1px solid ${colors.border}`, boxShadow: shadow.card, marginBottom: 20,
       }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600, alignSelf: 'flex-end', marginLeft: 'auto' }} onClick={syncMissingCodes}>Đồng bộ mã thiếu</button>
+          {canEdit && <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600, alignSelf: 'flex-end', marginLeft: 'auto' }} onClick={syncMissingCodes}>Đồng bộ mã thiếu</button>}
         </div>
         {syncResult && (
           <div style={{ marginTop: 12, padding: 12, background: colors.surfaceSecondary, borderRadius: radius.md, fontSize: 12, lineHeight: '1.6' }}>
@@ -377,7 +380,7 @@ export default function TraCuuGiaGocPage() {
             border: `1px solid ${colors.border}`, boxShadow: shadow.card,
           }}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 14px', borderBottom: `1px solid ${colors.borderLight}` }}>
-              <button style={{ ...btn(colors.primary), fontWeight: 600, fontSize: 12 }} onClick={openCreate}>+ Thêm</button>
+              {canEdit && <button style={{ ...btn(colors.primary), fontWeight: 600, fontSize: 12 }} onClick={openCreate}>+ Thêm</button>}
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
@@ -424,8 +427,10 @@ export default function TraCuuGiaGocPage() {
                     )})}
                     <td style={{ padding: '10px 14px', textAlign: 'center', borderBottom: `1px solid ${colors.borderLight}` }}>
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                        {canEdit && <>
                         <button style={{ height: 26, padding: '0 8px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, background: colors.primaryLight, color: colors.primaryDark }} onClick={() => openEdit(row)}>Sửa</button>
                         <button style={{ height: 26, padding: '0 8px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 500, background: colors.dangerLight, color: colors.dangerDark }} onClick={() => setConfirmDelete(row)}>Xoá</button>
+                        </>}
                       </div>
                     </td>
                   </tr>
@@ -446,7 +451,7 @@ export default function TraCuuGiaGocPage() {
         ) : (
           <div style={{ textAlign: 'center', padding: 48, color: colors.textMuted, background: colors.card, borderRadius: radius.lg, border: `1px solid ${colors.border}`, boxShadow: shadow.card }}>
             <div style={{ marginBottom: 8 }}>Chọn danh mục và nhập điều kiện tìm kiếm để tra cứu giá</div>
-            <button style={{ ...btn(colors.primary), fontWeight: 600, fontSize: 12 }} onClick={openCreate}>+ Thêm bản ghi</button>
+            {canEdit && <button style={{ ...btn(colors.primary), fontWeight: 600, fontSize: 12 }} onClick={openCreate}>+ Thêm bản ghi</button>}
           </div>
         )
       )}

@@ -2,57 +2,127 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { colors } from '../theme'
 import { useAuth } from '../lib/auth'
 import LoginOverlay from './LoginOverlay'
+import BangGiaLockToggle from './BangGiaLockToggle'
 
-const sidebarW = 252
-const sectionIcons: Record<string, string> = { 'Tổng quan': '◈', 'Danh mục': '◈', 'Chiết khấu': '◈', 'Bảng Tính Giá Chi Tiết': '◈', 'Bảng Tính Giá': '◈', 'Dữ liệu': '◈', 'Công cụ': '◈' }
+const sidebarW = 260
+const sectionColors: Record<string, string> = {
+  'Check Giá Gốc': '#1ABB9C',
+  'Tổng quan': '#4299e1',
+  'Danh mục': '#2fb344',
+  'Bảng Tính Giá Chi Tiết': '#f59f00',
+  'Bảng Tính Giá': '#ae3ec9',
+  'Đối chiếu MISA': '#17a2b8',
+  'Chiết khấu': '#d6336c',
+  'Dữ liệu': '#4263eb',
+  'Công cụ': '#f76707',
+}
+
+const PATH_ICONS: Record<string, string> = {
+  '/check-gia-goc': '⌕', '/dashboard': '⌂',
+  '/ma-misa': '☰', '/gia-ban-misa': '₫',
+  '/gia-van-tron': '▤', '/bang-gia-cot-go': '▦',
+  '/bang-gia-nhom-mau': '◐', '/bang-gia-ma-mau': '●',
+  '/tinh-gia-8-nhom-nho/veneer': '▥', '/tinh-gia-8-nhom-nho/chi': '❘',
+  '/tinh-gia-8-nhom-nho/keo-nong': '✦', '/tinh-gia-8-nhom-nho/van-phu-acrylic': '✧',
+  '/tinh-gia-8-nhom-nho/van-phu-pvc': '▣', '/tinh-gia-8-nhom-nho/nhua-phu-mau': '▧',
+  '/tinh-gia-8-nhom-nho/nhua-laminate': '▩',
+  '/bang-tinh-gia/osb': '▧', '/tinh-gia-osb': '⌬',
+  '/bang-tinh-gia/pvc-film-dura': '▣', '/bang-tinh-gia/van-phu-pvc-petg': '▭', '/tinh-gia-pvc-petg': '⌬',
+  '/bang-tinh-gia/durabo': '▢', '/tinh-gia-dr': '⌬',
+  '/bang-tinh-gia/mau-melamine-2': '◧', '/bang-tinh-gia/melamine-plywood': '◨',
+  '/bang-tinh-gia/melamine-nhua-osb-ghep': '◫', '/tinh-gia-melamine-tonghop': '⌬',
+  '/bang-tinh-gia/van-ep': '▭', '/bang-tinh-gia/van-ep-khac': '▯', '/tinh-gia-ve': '⌬',
+  '/bang-tinh-gia/go-ghep': '▯', '/bang-tinh-gia/phu-veneer': '▰', '/tinh-gia-gg': '⌬',
+  '/bang-tinh-gia/van-dam-okal': '▬', '/bang-tinh-gia/van-mdf-hdf': '▬',
+  '/bang-tinh-gia/phu-thu-melamine': '⊕', '/bang-tinh-gia/mau-melamine': '◍',
+  '/bang-tinh-gia/98-mau-melamine': '◔', '/tinh-gia-vdo': '⌬', '/tinh-gia-vmh': '⌬',
+  '/bang-tinh-gia/veneer': '▥', '/bang-tinh-gia/mat-phu-khac': '◪',
+  '/tinh-gia-veneer-mat-phu-khac': '⌬',
+  '/bang-tinh-gia/chi-nep': '─', '/bang-tinh-gia/keo-hat': '●',
+  '/tinh-gia-chi-nep-keo-hat': '⌬',
+  '/bang-tinh-gia/acrylic': '✧', '/bang-tinh-gia/van-phu-acrylic': '✦', '/tinh-gia-acrylic': '⌬',
+  '/bang-tinh-gia/one-laminate': '▩', '/bang-tinh-gia/van-nhua-phu-hpl': '▨',
+  '/bang-tinh-gia/osb-ghep-ep-phu-hpl': '▦', '/tinh-gia-one-laminate': '⌬',
+  '/bang-tinh-gia/mirror': '◮', '/tinh-gia-mirror': '⌬',
+  '/gia-goc-tong-hop': '⇆', '/kiem-tra-bang-tinh-gia': '⇄',
+  '/bang-gia-ck': '⌗', '/phan-bo-kh': '⇋', '/danh-sach-khach': '☰',
+  '/so-sanh-gia-goc': '⇵', '/so-chi-tiet-ban-hang': '▤', '/audit-gia-ck': '☑', '/check-chiet-khau': '☑', '/bang-khach-thang': '☑', '/don-hang-excel': '▣',
+  '/tinh-gia-goc': '¤',
+  '/import-export': '⇅', '/phu-thu': '⊕', '/phan-quyen': '☷',
+  '/chiet-khau': '⌗', '/bang-ck-thang': '▤', '/quan-ly-thang': '◫', '/danh-sach-khach-nhom': '☰', '/log-thay-doi': '▤',
+}
+
+const getIcon = (path: string): string => {
+  if (PATH_ICONS[path]) return PATH_ICONS[path]
+  if (path.startsWith('/tinh-gia-8-nhom-nho/')) return '▸'
+  if (path.startsWith('/bang-tinh-gia/')) return '▸'
+  return '▸'
+}
 
 const sidebarStyle: React.CSSProperties = {
   width: sidebarW, background: colors.sidebar, color: '#fff',
   display: 'flex', flexDirection: 'column', position: 'fixed',
   top: 0, left: 0, bottom: 0, overflow: 'hidden', zIndex: 100,
+  borderRight: `1px solid ${colors.sidebarBorder}`,
 }
 
 const brandStyle: React.CSSProperties = {
-  height: 56, padding: '0 16px', display: 'flex', alignItems: 'center',
+  height: 58, padding: '0 18px', display: 'flex', alignItems: 'center',
   gap: 10, borderBottom: `1px solid ${colors.sidebarBorder}`, flexShrink: 0,
 }
 
 const brandIcon: React.CSSProperties = {
-  width: 28, height: 28, background: colors.primary, borderRadius: 6,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  color: '#fff', fontWeight: 700, fontSize: 13,
+  width: 30, height: 30, background: `linear-gradient(135deg, ${colors.primary}, #0d6a5c)`,
+  borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  color: '#fff', fontWeight: 800, fontSize: 15, boxShadow: '0 2px 8px rgba(26,187,156,0.35)',
 }
 
 const brandName: React.CSSProperties = {
-  fontSize: 15, fontWeight: 600, color: '#fff', letterSpacing: -0.2, whiteSpace: 'nowrap',
+  fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: -0.2, whiteSpace: 'nowrap',
+}
+
+const brandSub: React.CSSProperties = {
+  fontSize: 10, color: 'rgba(123,143,163,0.6)', letterSpacing: 0.5, whiteSpace: 'nowrap',
 }
 
 const navStyle: React.CSSProperties = {
-  flex: 1, overflowY: 'auto', padding: '8px 0',
+  flex: 1, overflowY: 'auto', padding: '6px 0',
 }
 
 const sectionLabel: React.CSSProperties = {
-  padding: '16px 20px 4px', fontSize: 10, fontWeight: 600,
-  textTransform: 'uppercase', letterSpacing: 0.5,
-  color: 'rgba(123,143,163,0.5)', display: 'flex', alignItems: 'center', gap: 6,
+  padding: '18px 20px 6px', fontSize: 12.5, fontWeight: 700,
+  textTransform: 'uppercase', letterSpacing: 0.8,
+  color: 'rgba(190,202,216,0.85)', display: 'flex', alignItems: 'center', gap: 8,
+}
+
+const sectionDot: React.CSSProperties = {
+  width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
 }
 
 const linkBase: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10,
-  padding: '6px 20px', fontSize: 13, fontWeight: 400,
+  padding: '5px 14px', fontSize: 13, fontWeight: 400,
   color: colors.sidebarText, textDecoration: 'none',
-  borderRadius: 4, marginBottom: 1, minHeight: 32,
-  transition: 'background 120ms, color 120ms',
+  borderRadius: 6, margin: '1px 8px', minHeight: 34,
+  transition: 'background 120ms, color 120ms, transform 120ms',
 }
 
 const activeStyle: React.CSSProperties = {
   ...linkBase,
-  color: '#fff', background: colors.sidebarActive, fontWeight: 500,
+  color: '#fff', background: colors.sidebarActive, fontWeight: 600,
 }
 
 const iconStyle: React.CSSProperties = {
-  width: 18, fontSize: 12, opacity: 0.5, flexShrink: 0, textAlign: 'center' as const,
+  width: 22, height: 22, fontSize: 12, flexShrink: 0, textAlign: 'center' as const,
+  lineHeight: '22px', borderRadius: 5,
+  background: 'rgba(255,255,255,0.05)',
   color: colors.sidebarText,
+}
+
+const iconActiveStyle: React.CSSProperties = {
+  ...iconStyle,
+  background: colors.primaryLight,
+  color: colors.primary,
 }
 
 const contentStyle: React.CSSProperties = {
@@ -61,14 +131,21 @@ const contentStyle: React.CSSProperties = {
 }
 
 const footerStyle: React.CSSProperties = {
-  padding: '12px 16px', borderTop: `1px solid ${colors.sidebarBorder}`,
-  fontSize: 11, color: 'rgba(123,143,163,0.4)', flexShrink: 0,
+  padding: '14px 16px', borderTop: `1px solid ${colors.sidebarBorder}`,
+  fontSize: 11, color: 'rgba(123,143,163,0.45)', flexShrink: 0,
   display: 'flex', flexDirection: 'column', gap: 4,
 }
 
 const userBadge: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0',
-  fontSize: 12, color: 'rgba(123,143,163,0.7)', cursor: 'pointer',
+  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px',
+  fontSize: 12, color: 'rgba(123,143,163,0.85)', cursor: 'pointer',
+  borderRadius: 6, transition: 'background 120ms',
+}
+
+const userAvatar: React.CSSProperties = {
+  width: 24, height: 24, borderRadius: '50%', background: colors.primary,
+  color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex',
+  alignItems: 'center', justifyContent: 'center', flexShrink: 0,
 }
 
 type NavItem = { label: string; path: string; perm?: string }
@@ -76,9 +153,9 @@ type NavSubGroup = { label: string; items: NavItem[] }
 type NavGroup = { section: string; items?: NavItem[]; subGroups?: NavSubGroup[] }
 
 const subLabel: React.CSSProperties = {
-  padding: '8px 20px 2px 30px', fontSize: 10, fontWeight: 600,
-  textTransform: 'uppercase', letterSpacing: 0.4,
-  color: 'rgba(123,143,163,0.35)',
+  padding: '10px 20px 2px 26px', fontSize: 10.5, fontWeight: 700,
+  textTransform: 'uppercase', letterSpacing: 0.5,
+  color: 'rgba(123,143,163,0.45)',
 }
 
 export default function Layout() {
@@ -89,28 +166,16 @@ export default function Layout() {
   if (!user) return <LoginOverlay />
 
   const navGroups: NavGroup[] = [
-    { section: 'Tổng quan', items: [{ label: 'Dashboard', path: '/dashboard', perm: 'menu:/dashboard' }] },
-    { section: 'Danh mục', items: [
-      { label: 'Mã MISA', path: '/ma-misa', perm: 'menu:/ma-misa' },
-      { label: 'Giá bán (MISA)', path: '/gia-ban-misa', perm: 'menu:/gia-ban-misa' },
+    { section: 'Check Giá Gốc', items: [
+      { label: 'Check Giá Gốc', path: '/check-gia-goc', perm: 'menu:/check-gia-goc' },
+      { label: 'Máy tính giá', path: '/tinh-gia-goc', perm: 'menu:/tinh-gia-goc' },
+      { label: 'Check giá gốc - CK', path: '/audit-gia-ck', perm: 'menu:/audit-gia-ck' },
     ]},
-    { section: 'Bảng Tính Giá Chi Tiết', subGroups: [
-      { label: 'Tính Giá Ván Phủ', items: [
-        { label: 'Giá Ván Trơn', path: '/gia-van-tron', perm: 'menu:/gia-van-tron' },
-        { label: 'Cốt gỗ', path: '/bang-gia-cot-go', perm: 'menu:/bang-gia-cot-go' },
-        { label: 'Nhóm màu', path: '/bang-gia-nhom-mau', perm: 'menu:/bang-gia-nhom-mau' },
-        { label: 'Mã màu', path: '/bang-gia-ma-mau', perm: 'menu:/bang-gia-ma-mau' },
-      ]},
-      { label: 'Tính Giá 8 Nhóm Nhỏ', items: [
-        { label: 'Veneer', path: '/tinh-gia-8-nhom-nho/veneer', perm: 'menu:/veneer' },
-        { label: 'Chỉ', path: '/tinh-gia-8-nhom-nho/chi', perm: 'menu:/chi' },
-        { label: 'Keo dán chỉ', path: '/tinh-gia-8-nhom-nho/keo-nong', perm: 'menu:/keo-nong' },
-        { label: 'Ván phủ Acrylic', path: '/tinh-gia-8-nhom-nho/van-phu-acrylic', perm: 'menu:/van-phu-acrylic' },
-        { label: 'Ván phủ PVC', path: '/tinh-gia-8-nhom-nho/van-phu-pvc', perm: 'menu:/van-phu-pvc' },
-        { label: 'Ván phủ Melamine', path: '/tinh-gia-8-nhom-nho/nhua-phu-mau', perm: 'menu:/nhua-phu-mau' },
-        { label: 'Ván phủ Laminate', path: '/tinh-gia-8-nhom-nho/nhua-laminate', perm: 'menu:/nhua-laminate' },
-
-      ]},
+    { section: 'Chiết khấu', items: [
+      { label: 'Khách hàng theo tháng (minmap)', path: '/bang-khach-thang', perm: 'menu:/bang-khach-thang' },
+      { label: 'Tạo tháng & Bảng CK (OP1/OP2)', path: '/quan-ly-thang', perm: 'menu:/quan-ly-thang' },
+      { label: 'Nền 5 nhóm khách', path: '/danh-sach-khach-nhom', perm: 'menu:/danh-sach-khach-nhom' },
+      { label: 'Check chiết khấu (test)', path: '/check-chiet-khau', perm: 'menu:/check-chiet-khau' },
     ]},
     { section: 'Bảng Tính Giá', subGroups: [
       { label: 'Tính Giá OSB', items: [
@@ -164,43 +229,62 @@ export default function Layout() {
       { label: 'Tính Giá VÁN NHỰA-MDF MR PHỦ ACRYLIC', items: [
         { label: 'Acrylic Mã màu', path: '/bang-tinh-gia/acrylic', perm: 'menu:/bang-tinh-gia' },
         { label: 'Ván phủ Acrylic', path: '/bang-tinh-gia/van-phu-acrylic', perm: 'menu:/bang-tinh-gia' },
-        { label: 'Tính giá Acrylic', path: '/tinh-gia-acrylic', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Tính giá gốc Acrylic', path: '/tinh-gia-acrylic', perm: 'menu:/bang-tinh-gia' },
       ]},
       { label: 'Tính Giá ONE LAMINATE', items: [
         { label: 'One Laminate Mã màu', path: '/bang-tinh-gia/one-laminate', perm: 'menu:/bang-tinh-gia' },
         { label: 'Ván nhựa phủ HPL', path: '/bang-tinh-gia/van-nhua-phu-hpl', perm: 'menu:/bang-tinh-gia' },
         { label: 'OSB/Gỗ ghép/Ván ép phủ HPL', path: '/bang-tinh-gia/osb-ghep-ep-phu-hpl', perm: 'menu:/bang-tinh-gia' },
-        { label: 'Tính giá One Laminate', path: '/tinh-gia-one-laminate', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Tính giá gốc One Laminate', path: '/tinh-gia-one-laminate', perm: 'menu:/bang-tinh-gia' },
       ]},
       { label: 'Tính Giá MIRROR', items: [
         { label: 'Mirror', path: '/bang-tinh-gia/mirror', perm: 'menu:/bang-tinh-gia' },
-        { label: 'Tính giá Mirror', path: '/tinh-gia-mirror', perm: 'menu:/bang-tinh-gia' },
+        { label: 'Tính giá gốc Mirror', path: '/tinh-gia-mirror', perm: 'menu:/bang-tinh-gia' },
       ]},
     ]},
+    { section: 'Tổng quan', items: [{ label: 'Dashboard', path: '/dashboard', perm: 'menu:/dashboard' }] },
+    { section: 'Danh mục', items: [
+      { label: 'Mã MISA', path: '/ma-misa', perm: 'menu:/ma-misa' },
+      { label: 'Giá bán (MISA)', path: '/gia-ban-misa', perm: 'menu:/gia-ban-misa' },
+    ]},
+    { section: 'Bảng Tính Giá Chi Tiết', subGroups: [
+      { label: 'Tính Giá Ván Phủ', items: [
+        { label: 'Giá Ván Trơn', path: '/gia-van-tron', perm: 'menu:/gia-van-tron' },
+        { label: 'Cốt gỗ', path: '/bang-gia-cot-go', perm: 'menu:/bang-gia-cot-go' },
+        { label: 'Nhóm màu', path: '/bang-gia-nhom-mau', perm: 'menu:/bang-gia-nhom-mau' },
+        { label: 'Mã màu', path: '/bang-gia-ma-mau', perm: 'menu:/bang-gia-ma-mau' },
+      ]},
+      { label: 'Tính Giá 8 Nhóm Nhỏ', items: [
+        { label: 'Veneer', path: '/tinh-gia-8-nhom-nho/veneer', perm: 'menu:/veneer' },
+        { label: 'Chỉ', path: '/tinh-gia-8-nhom-nho/chi', perm: 'menu:/chi' },
+        { label: 'Keo dán chỉ', path: '/tinh-gia-8-nhom-nho/keo-nong', perm: 'menu:/keo-nong' },
+        { label: 'Ván phủ Acrylic', path: '/tinh-gia-8-nhom-nho/van-phu-acrylic', perm: 'menu:/van-phu-acrylic' },
+        { label: 'Ván phủ PVC', path: '/tinh-gia-8-nhom-nho/van-phu-pvc', perm: 'menu:/van-phu-pvc' },
+        { label: 'Ván phủ Melamine', path: '/tinh-gia-8-nhom-nho/nhua-phu-mau', perm: 'menu:/nhua-phu-mau' },
+        { label: 'Ván phủ Laminate', path: '/tinh-gia-8-nhom-nho/nhua-laminate', perm: 'menu:/nhua-laminate' },
+
+      ]},
+    ]},
+
     { section: 'Đối chiếu MISA', items: [
-      { label: 'Giá gốc tổng hợp', path: '/gia-goc-tong-hop', perm: 'menu:/bang-tinh-gia' },
-      { label: 'Kiểm tra Bảng Tính Giá', path: '/kiem-tra-bang-tinh-gia', perm: 'menu:/bang-tinh-gia' },
+      { label: 'Giá gốc tổng hợp', path: '/gia-goc-tong-hop', perm: 'menu:/gia-goc-tong-hop' },
+      { label: 'Kiểm tra Bảng Tính Giá', path: '/kiem-tra-bang-tinh-gia', perm: 'menu:/kiem-tra-bang-tinh-gia' },
     ]},
     { section: 'Chiết khấu', items: [
       { label: 'Bảng giá CK', path: '/bang-gia-ck', perm: 'menu:/bang-gia-ck' },
       { label: 'Phân bổ KH', path: '/phan-bo-kh', perm: 'menu:/phan-bo-kh' },
+      { label: 'Danh sách KH', path: '/danh-sach-khach', perm: 'menu:/danh-sach-khach' },
     ]},
     { section: 'Dữ liệu', items: [
       { label: 'So sánh giá gốc', path: '/so-sanh-gia-goc', perm: 'menu:/so-sanh-gia-goc' },
       { label: 'Sổ chi tiết bán hàng', path: '/so-chi-tiet-ban-hang', perm: 'menu:/so-chi-tiet-ban-hang' },
       { label: 'Đơn hàng', path: '/don-hang-excel', perm: 'menu:/don-hang-excel' },
     ]},
-    { section: 'Tính Tồn Kho', items: [
-      { label: 'Tính tồn kho', path: '/tinh-ton-kho', perm: 'menu:/tinh-ton-kho' },
-    ]},
     { section: 'Công cụ', items: [
-      { label: 'Tính giá/CK', path: '/tinh-gia', perm: 'menu:/tinh-gia' },
-      { label: 'Tính giá gốc', path: '/tinh-gia-goc', perm: 'menu:/tinh-gia-goc' },
-      { label: 'Quản lý tháng', path: '/quan-ly-thang', perm: 'menu:/quan-ly-thang' },
       { label: 'Import/Export', path: '/import-export', perm: 'menu:/import-export' },
       { label: 'Phụ thu', path: '/phu-thu', perm: 'menu:/phu-thu' },
-      { label: 'Audit CK', path: '/audit', perm: 'menu:/audit' },
       { label: 'Phân quyền', path: '/phan-quyen', perm: 'menu:/phan-quyen' },
+      { label: 'Log lịch sử thay đổi', path: '/log-thay-doi', perm: 'menu:/log-thay-doi' },
     ]},
   ]
 
@@ -235,8 +319,13 @@ export default function Layout() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <nav style={sidebarStyle}>
         <div style={brandStyle}>
-          <div style={brandIcon}>G</div>
-          <div style={brandName}>Admin Dashboard</div>
+          <div style={brandIcon}>
+            <img src="/logo.svg" alt="logo" style={{ width: 30, height: 30, borderRadius: 8 }} />
+          </div>
+          <div>
+            <div style={brandName}>THANH THUY PRICE</div>
+            <div style={brandSub}>HỆ THỐNG GIÁ</div>
+          </div>
         </div>
         <div style={navStyle}>
           {navGroups.map((group) => {
@@ -246,10 +335,11 @@ export default function Layout() {
                 (group.subGroups && (!visibleSubGroups || visibleSubGroups.length === 0))) {
               return null
             }
+            const secColor = sectionColors[group.section] || colors.primary
             return (
               <div key={group.section}>
                 <div style={sectionLabel}>
-                  <span style={{ fontSize: 10, opacity: 0.5, fontFamily: 'monospace' }}>{sectionIcons[group.section]}</span>
+                  <span style={{ ...sectionDot, background: secColor, boxShadow: `0 0 6px ${secColor}` }} />
                   {group.section}
                 </div>
                 {group.subGroups ? visibleSubGroups!.map((sg) => (
@@ -257,15 +347,23 @@ export default function Layout() {
                     <div style={subLabel}>{sg.label}</div>
                     {sg.items.filter(i => hasPermission(i.perm!)).map((item) => (
                       <NavLink key={item.path} to={item.path} end={item.path === '/'} style={({ isActive }) => isActive ? activeStyle : linkBase}>
-                        <span style={iconStyle}>▹</span>
-                        {item.label}
+                        {({ isActive }) => (
+                          <>
+                            <span style={isActive ? iconActiveStyle : iconStyle}>{getIcon(item.path)}</span>
+                            {item.label}
+                          </>
+                        )}
                       </NavLink>
                     ))}
                   </div>
                 )) : visibleItems!.map((item) => (
                   <NavLink key={item.path} to={item.path} end={item.path === '/'} style={({ isActive }) => isActive ? activeStyle : linkBase}>
-                    <span style={iconStyle}>▹</span>
-                    {item.label}
+                    {({ isActive }) => (
+                      <>
+                        <span style={isActive ? iconActiveStyle : iconStyle}>{getIcon(item.path)}</span>
+                        {item.label}
+                      </>
+                    )}
                   </NavLink>
                 ))}
               </div>
@@ -273,14 +371,22 @@ export default function Layout() {
           })}
         </div>
         <div style={footerStyle}>
-          <div style={userBadge} onClick={logout} title="Click to logout">
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.primary, display: 'inline-block' }} />
-            {user.ten} {user.is_admin ? '(Admin)' : ''}
+          <div style={{ ...userBadge, background: colors.sidebarHover }} onClick={logout} title="Click để đăng xuất">
+            <span style={userAvatar}>{(user.ten || '?').slice(0, 1).toUpperCase()}</span>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user.ten} {user.is_admin ? <span style={{ color: colors.primary, fontWeight: 600 }}>· Admin</span> : ''}
+            </span>
           </div>
           <div>v0.2.0</div>
         </div>
       </nav>
       <main className="main-content" style={contentStyle}>
+        {currentPerm === 'menu:/bang-tinh-gia' && (
+          <div style={{ padding: '10px 20px', background: colors.card, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center' }}>
+            <span style={{ fontSize: 12.5, color: colors.textSecondary }}>Công tắc an toàn Bảng Tính Giá (12 nhóm)</span>
+            <BangGiaLockToggle />
+          </div>
+        )}
         {canAccess ? <Outlet /> : (
           <div style={{ textAlign: 'center', padding: 80, color: colors.textMuted }}>
             <div style={{ fontSize: 48, opacity: 0.2, marginBottom: 16 }}>🔒</div>

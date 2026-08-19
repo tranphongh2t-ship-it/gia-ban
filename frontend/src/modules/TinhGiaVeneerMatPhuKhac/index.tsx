@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { apiGet, apiPost } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { colors, shadow, radius, input, pageContainer, pageTitle, btn, spinner } from '../../theme'
 import { formatNum } from '../../lib/format'
 import AssignMisaCode from '../../components/AssignMisaCode'
@@ -29,6 +30,8 @@ const priceCell: React.CSSProperties = {
 }
 
 export default function TinhGiaVeneerMatPhuKhacPage() {
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const [veneer, setVeneer] = useState<any[]>([])
   const [matPhuKhac, setMatPhuKhac] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -79,9 +82,9 @@ export default function TinhGiaVeneerMatPhuKhacPage() {
       {/* === VENEER === */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <h2 style={{ fontSize: 16, fontWeight: 700, color: colors.text, margin: 0 }}>VENEER</h2>
-        <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={handleAutoAssignVeneer} disabled={assigning}>
+        {canEdit && <button style={{ ...btn(colors.primary, '#fff'), fontWeight: 600 }} onClick={handleAutoAssignVeneer} disabled={assigning}>
           {assigning ? 'Đang gán...' : 'Gán Mã SP từ danh mục MISA'}
-        </button>
+        </button>}
       </div>
       <div style={tableWrap}>
         <div style={{ overflowX: 'auto' }}>

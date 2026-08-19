@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiGet, apiPost } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { colors, shadow, radius, btn, input, select, pageContainer, pageTitle, pageSubtitle, section, sectionTitle, spinner, badge } from '../../theme'
 
 const P = {
@@ -31,6 +32,8 @@ interface TableInfo {
 }
 
 export default function ImportExportPage() {
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const [tables, setTables] = useState<TableInfo[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -192,9 +195,11 @@ export default function ImportExportPage() {
 
           <div style={{ display: 'flex', gap: 8 }}>
             <button style={btn(colors.info, '#fff')} onClick={downloadTemplate}>Tải mẫu Excel</button>
+            {canEdit && (
             <button style={btn(colors.primary)} onClick={handlePreview} disabled={importLoading}>
               {importLoading ? 'Đang phân tích...' : 'Xem trước'}
             </button>
+            )}
           </div>
 
           {importError && (
@@ -275,7 +280,7 @@ export default function ImportExportPage() {
                 </div>
               )}
 
-              {hasChanges && !hasErrors && (
+              {canEdit && hasChanges && !hasErrors && (
                 <button style={{ ...btn(colors.success), marginTop: 12 }} onClick={handleConfirm} disabled={confirmLoading}>
                   {confirmLoading ? 'Đang import...' : `Xác nhận import (${summary.new + summary.changed} dòng)`}
                 </button>

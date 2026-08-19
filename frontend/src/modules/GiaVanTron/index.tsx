@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import DataGrid, { Column } from '../../components/DataGrid'
 import { apiGet, apiPost } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
 import { colors, pageContainer, pageTitle, input, section, sectionTitle, btn, radius, shadow } from '../../theme'
 import { formatNum } from '../../lib/format'
 
@@ -34,6 +35,8 @@ const maMauCols: Column[] = [
 ]
 
 export default function GiaVanTronPage() {
+  const { hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
   const [tab, setTab] = useState('cot-go')
   const [seeding, setSeeding] = useState(false)
   const [seedResult, setSeedResult] = useState('')
@@ -115,9 +118,9 @@ export default function GiaVanTronPage() {
         <h1 style={pageTitle}>Giá Ván Trơn</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {seedResult && <span style={{ fontSize: 12, color: seedResult.startsWith('Lỗi') ? colors.danger : colors.success }}>{seedResult}</span>}
-          <button style={{ ...btn(colors.warning, '#fff'), fontSize: 12, height: 32 }} onClick={handleSeed} disabled={seeding}>
+          {canEdit && <button style={{ ...btn(colors.warning, '#fff'), fontSize: 12, height: 32 }} onClick={handleSeed} disabled={seeding}>
             {seeding ? 'Đang bổ sung...' : 'Bổ sung dữ liệu thiếu'}
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -152,9 +155,9 @@ export default function GiaVanTronPage() {
             <option value="1">1 mặt</option>
             <option value="2">2 mặt</option>
           </select>
-          <button style={{ ...btn(colors.primary), fontSize: 12 }} onClick={handleCalc} disabled={calcLoading}>
+          {canEdit && <button style={{ ...btn(colors.primary), fontSize: 12 }} onClick={handleCalc} disabled={calcLoading}>
             {calcLoading ? 'Đang tính...' : 'Tính'}
-          </button>
+          </button>}
         </div>
 
         {calcResult && (

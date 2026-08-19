@@ -24,4 +24,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onOnlineStatus: (cb: (online: boolean) => void) => {
     ipcRenderer.on('online-status', (_e, status) => cb(status))
   },
+
+  // Cập nhật phần mềm
+  checkUpdate: () => ipcRenderer.invoke('app:check-update'),
+  getUpdate: () => ipcRenderer.invoke('app:get-update'),
+  skipUpdate: () => ipcRenderer.invoke('app:skip-update'),
+  installUpdate: () => ipcRenderer.invoke('app:install-update'),
+  onUpdateAvailable: (cb: (info: { version: string; url: string; notes: string }) => void) => {
+    ipcRenderer.on('app:update-available', (_e, info) => cb(info))
+  },
+  onUpdateProgress: (cb: (p: { state: string; percent: number }) => void) => {
+    ipcRenderer.on('app:update-progress', (_e, p) => cb(p))
+  },
 })
