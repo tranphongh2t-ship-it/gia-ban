@@ -17,6 +17,18 @@ const SYNC_TABLES = [
   'bang_gia_ma_mau', 'so_chi_tiet_ban_hang', 'don_hang_excel',
 ]
 
+// Tạo index updated_at cho các bảng sync (chạy 1 lần, rẻ khi đã tồn tại)
+let indexEnsured = false
+async function ensureSyncIndexes(db: D1Database) {
+  if (indexEnsured) return
+  for (const table of SYNC_TABLES) {
+    try {
+      await db.prepare(`CREATE INDEX IF NOT EXISTS idx_${table}_updated ON ${table}(updated_at)`).run()
+    } catch { /* bảng không có cột updated_at */ }
+  }
+  indexEnsured = true
+}
+
 router.post('/push', async (c) => {
   try {
     const { changes, user_id, device_id } = await c.req.json() as {
@@ -88,6 +100,10 @@ router.get('/pull', async (c) => {
     const since = c.req.query('since') || '1970-01-01'
     const userId = parseInt(c.req.query('user_id') || '0')
     const limit = Math.min(parseInt(c.req.query('limit') || '5000'), 50000)
+    await ensureSyncIndexes(c.env.DB)
+
+    // Giới hạn mỗi bảng để tránh query khổng lồ làm quá tải D1 (internal error)
+    const perTable = Math.max(50, Math.min(Math.floor(limit / SYNC_TABLES.length), 2000))
 
     const allChanges: any[] = []
     for (const table of SYNC_TABLES) {
@@ -97,7 +113,7 @@ router.get('/pull', async (c) => {
            WHERE updated_at IS NOT NULL AND updated_at > ?
            AND (updated_by IS NULL OR updated_by != ?)
            ORDER BY updated_at ASC LIMIT ?`
-        ).bind(since, String(userId), limit).all() as any
+        ).bind(since, String(userId), perTable).all() as any
         if (rows.results?.length > 0) {
           for (const row of rows.results) {
             allChanges.push({ table, action: 'update', row })

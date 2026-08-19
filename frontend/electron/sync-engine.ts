@@ -1,8 +1,9 @@
 import { getDb, q, run, saveDb } from './db'
 
 const API_BASE = 'https://gia-ban-backend.maketing.workers.dev/api'
-const SYNC_INTERVAL = 30000
-const PULL_LIMIT = 5000
+// 5 phút/lần (trước 30s) — tránh làm quá tải D1 khi nhiều máy cùng chạy
+const SYNC_INTERVAL = 300000
+const PULL_LIMIT = 2000
 
 let intervalTimer: ReturnType<typeof setInterval> | null = null
 let isSyncing = false
