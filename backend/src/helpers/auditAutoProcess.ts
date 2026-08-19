@@ -243,6 +243,8 @@ async function loadSeenSet(db: D1Database): Promise<Set<string>> {
 // Ghi nhận mã đã xuất hiện trong file audit (lần đầu / lặp lại)
 export interface AuditAutoResult {
   tong_ma: number
+  // Đơn giá là SỐ LẺ (có phần thập phân, vd 320.435) → loại trừ, không đồng bộ giá MISA
+  loai_don_gia_le: number
   thieu_ma_hang: {
     them_moi: number
     them_ma_misa: number
@@ -288,7 +290,7 @@ export async function runAuditAutoProcess(db: D1Database, opts: { dryRun?: boole
   }
   const maList = Array.from(byMa.keys())
   if (maList.length === 0) return {
-    tong_ma: 0, thieu_ma_hang: { them_moi: 0, them_ma_misa: 0, them_bang_gia: 0, khong_xac_dinh_nhom: [] },
+    tong_ma: 0, loai_don_gia_le: 0, thieu_ma_hang: { them_moi: 0, them_ma_misa: 0, them_bang_gia: 0, khong_xac_dinh_nhom: [] },
     doi_gia_misa: { tu_dong: [], can_admin: [] }, da_khop: 0,
   }
 
@@ -308,6 +310,7 @@ export async function runAuditAutoProcess(db: D1Database, opts: { dryRun?: boole
 
   const result: AuditAutoResult = {
     tong_ma: maList.length,
+    loai_don_gia_le: 0,
     thieu_ma_hang: { them_moi: 0, them_ma_misa: 0, them_bang_gia: 0, khong_xac_dinh_nhom: [] },
     doi_gia_misa: { tu_dong: [], can_admin: [] },
     da_khop: 0,
@@ -324,6 +327,12 @@ export async function runAuditAutoProcess(db: D1Database, opts: { dryRun?: boole
     const info = byMa.get(ma)!
     const giaAudit = pickPrice(info.rows)
     if (!(giaAudit > 0)) continue
+    // Đơn giá là số lẻ (có phần thập phân, vd 320.435) → LOẠI TRỪ: không đồng bộ giá MISA, để nguyên.
+    // Chỉ đồng bộ khi đơn giá là số nguyên (vd 32000). Áp dụng cho cả chênh lệch dương lẫn âm.
+    if (!Number.isInteger(giaAudit)) {
+      result.loai_don_gia_le++
+      continue
+    }
     const misa = misaByMa.get(ma.toUpperCase())
     const ten = info.ten
 

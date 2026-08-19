@@ -86,7 +86,7 @@ router.post('/dong-bo-tat-ca', async (c) => {
       ...result,
       message:
         `${body.dryRun ? 'Dự kiến đồng bộ' : 'Đã đồng bộ'} giá MISA = giá gốc: ` +
-        `đổi ${d.tu_dong.length} mã, không đổi ${d.can_admin.length}, khớp ${result.da_khop}.`,
+        `đổi ${d.tu_dong.length} mã, không đổi ${d.can_admin.length}, khớp ${result.da_khop}, loại (đơn giá lẻ) ${result.loai_don_gia_le}.`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -582,7 +582,7 @@ router.post('/auto-xu-ly', async (c) => {
         `Phân tích ${result.tong_ma} mã. ` +
         `Thiếu mã hàng: thêm mới ${t.them_moi} (trong đó ${t.them_ma_misa} vào ma_misa, ${t.them_bang_gia} vào bảng giá gốc` +
         (t.khong_xac_dinh_nhom.length ? `, ${t.khong_xac_dinh_nhom.length} chưa xác định nhóm` : '') +
-        `). Giá MISA khác audit: tự đổi ${d.tu_dong.length}, cần Quản trị viên ${d.can_admin.length}${locked ? ' (đang khóa đồng bộ)' : ''}. Khớp giá: ${result.da_khop}.`,
+        `). Giá MISA khác audit: tự đổi ${d.tu_dong.length}, cần Quản trị viên ${d.can_admin.length}${locked ? ' (đang khóa đồng bộ)' : ''}. Khớp giá: ${result.da_khop}. Loại (đơn giá lẻ): ${result.loai_don_gia_le}.`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
