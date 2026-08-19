@@ -34,6 +34,7 @@ interface DataGridProps {
   columnsPerRow?: number
   rowActionLabel?: string
   onRowAction?: (row: any) => void
+  rowActions?: Array<{ label: string; onClick: (row: any) => void; tone?: 'info' | 'primary' | 'danger' }>
   historyInForm?: {
     get: (row: any) => Promise<any[]>
     format: (h: any) => string
@@ -120,7 +121,7 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
   )
 }
 
-export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, historyInForm }: DataGridProps) {
+export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, rowActions, historyInForm }: DataGridProps) {
   const { hasPermission, user } = useAuth()
   const canEdit = hasPermission('feature:edit-data')
   const [data, setData] = useState<any[]>([])
@@ -411,7 +412,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const thPad = { padding: curRowPad.th }
   const tdPad = { padding: curRowPad.td }
 
-  const hasAction = canEdit || (onRowAction && rowActionLabel)
+  const hasAction = canEdit || (onRowAction && rowActionLabel) || (rowActions && rowActions.length > 0)
 
   const renderDataCell = (row: any, c: Column, ci: number, blockIdx: number) => {
     const isLast = blockIdx === perRow - 1 && ci === visibleCols.length - 1
@@ -454,16 +455,28 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     )
   }
 
+  const actionBtnStyle = (tone: 'info' | 'primary' | 'danger' = 'info'): React.CSSProperties => {
+    const m = {
+      info: { bg: colors.infoLight, fg: colors.infoDark },
+      primary: { bg: colors.primaryLight, fg: colors.primaryDark },
+      danger: { bg: colors.dangerLight, fg: colors.dangerDark },
+    }[tone]
+    return { height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: m.bg, color: m.fg, transition: 'background 120ms, color 120ms' }
+  }
+
   const renderActions = (row: any, isLast: boolean) => (
     <td style={{ ...(isLast ? tCellLast : tCell), ...tdPad, whiteSpace: 'nowrap' }}>
       <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
         {onRowAction && rowActionLabel && (
-          <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.infoLight, color: colors.infoDark, transition: 'background 120ms, color 120ms' }} onClick={() => onRowAction(row)}>{rowActionLabel}</button>
+          <button style={actionBtnStyle('info')} onClick={() => onRowAction(row)}>{rowActionLabel}</button>
         )}
+        {(rowActions || []).map(a => (
+          <button key={a.label} style={actionBtnStyle(a.tone || 'info')} onClick={() => a.onClick(row)}>{a.label}</button>
+        ))}
         {canEdit && (
           <>
-            <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.primaryLight, color: colors.primaryDark, transition: 'background 120ms, color 120ms' }} onClick={() => openEdit(row)}>Sửa</button>
-            <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.dangerLight, color: colors.dangerDark, transition: 'background 120ms, color 120ms' }} onClick={() => setConfirmDelete(row)}>Xoá</button>
+            <button style={actionBtnStyle('primary')} onClick={() => openEdit(row)}>Sửa</button>
+            <button style={actionBtnStyle('danger')} onClick={() => setConfirmDelete(row)}>Xoá</button>
           </>
         )}
       </div>
@@ -646,12 +659,15 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                     <td style={{ ...tCellLast, ...tdPad, whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
                         {onRowAction && rowActionLabel && (
-                          <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.infoLight, color: colors.infoDark, transition: 'background 120ms, color 120ms' }} onClick={() => onRowAction(row)}>{rowActionLabel}</button>
+                          <button style={actionBtnStyle('info')} onClick={() => onRowAction(row)}>{rowActionLabel}</button>
                         )}
+                        {(rowActions || []).map(a => (
+                          <button key={a.label} style={actionBtnStyle(a.tone || 'info')} onClick={() => a.onClick(row)}>{a.label}</button>
+                        ))}
                         {canEdit && (
                           <>
-                            <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.primaryLight, color: colors.primaryDark, transition: 'background 120ms, color 120ms' }} onClick={() => openEdit(row)}>Sửa</button>
-                            <button style={{ height: 28, padding: '0 10px', borderRadius: radius.sm, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 500, background: colors.dangerLight, color: colors.dangerDark, transition: 'background 120ms, color 120ms' }} onClick={() => setConfirmDelete(row)}>Xoá</button>
+                            <button style={actionBtnStyle('primary')} onClick={() => openEdit(row)}>Sửa</button>
+                            <button style={actionBtnStyle('danger')} onClick={() => setConfirmDelete(row)}>Xoá</button>
                           </>
                         )}
                       </div>

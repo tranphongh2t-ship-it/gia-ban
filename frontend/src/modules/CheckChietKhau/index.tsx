@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import * as XLSX from 'xlsx'
 import DataGrid, { Column } from '../../components/DataGrid'
+import Modal from '../../components/Modal'
 import { apiDelete, apiPost, apiGet } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { colors, btn, select } from '../../theme'
@@ -113,51 +114,17 @@ const columns: Column[] = [
       { value: 'sai', label: 'Sai (lệch > 1đ)' },
     ],
     render: (v, row) => {
-      const ckTinh = Number(row.ck_tinh) || 0
+      const suaCkTinh = Number(row.sua_ck_tinh) || 0
+      const suaHas = row.sua_tong_pct !== null && row.sua_tong_pct !== undefined && row.sua_tong_pct !== ''
+      const ckTinh = suaHas ? suaCkTinh : (Number(row.ck_tinh) || 0)
       const ck = Number(row.ck) || 0
       const ok = Math.abs(ck - ckTinh) <= 1
-      return <span style={{ fontWeight: 700, color: ok ? '#16a34a' : '#dc2626' }}>{ok ? 'Đúng' : 'Sai'}</span>
-    },
-  },
-  {
-    key: 'sua_ck1_pct', label: 'Sửa CK1 %', type: 'text',
-    render: (v, r) => v === null || v === undefined || v === '' ? '—' : pct(v),
-  },
-  {
-    key: 'sua_ck2_pct', label: 'Sửa CK2 %', type: 'text',
-    render: (v, r) => v === null || v === undefined || v === '' ? '—' : pct(v),
-  },
-  {
-    key: 'sua_ck3_pct', label: 'Sửa CK3 %', type: 'text',
-    render: (v, r) => v === null || v === undefined || v === '' ? '—' : pct(v),
-  },
-  {
-    key: 'sua_tong_pct', label: 'Tổng % (sửa)', type: 'text',
-    render: (v, r) => v === null || v === undefined || v === '' ? '—' : pct(v),
-  },
-  { key: 'sua_ck_tinh', label: 'CK tính (sửa)', type: 'number' },
-  {
-    key: 'sua_sai_so', label: 'Sửa Đúng/Sai', type: 'select', computed: true, filterable: true,
-    options: [
-      { value: 'dung', label: 'Đúng với CK thực tế' },
-      { value: 'sai', label: 'Sai với CK thực tế' },
-    ],
-    render: (v, row) => {
-      if (row.sua_tong_pct === null || row.sua_tong_pct === undefined || row.sua_tong_pct === '') return <span style={{ color: colors.textMuted }}>—</span>
-      const suaCkTinh = Number(row.sua_ck_tinh) || 0
-      const ck = Number(row.ck) || 0
-      const ok = Math.abs(ck - suaCkTinh) <= 1
       return <span style={{ fontWeight: 700, color: ok ? '#16a34a' : '#dc2626' }}>{ok ? 'Đúng' : 'Sai'}</span>
     },
   },
   { key: 'nhom_mau', label: 'Nhóm màu Mel' },
   { key: 'dieu_kien', label: 'Điều kiện CK' },
   { key: 'giai_thich', label: 'Giải thích' },
-  {
-    key: 'sua_ghichu', label: 'Ghi chú sửa', type: 'text',
-    render: (v) => v ? <span style={{ color: '#b45309' }}>{v}</span> : '—',
-  },
-  { key: 'updated_by', label: 'Người sửa', type: 'text' },
 ]
 
 export default function CheckChietKhauPage() {
@@ -175,6 +142,10 @@ export default function CheckChietKhauPage() {
   const [suas, setSuas] = useState<Record<string, number>>({})
   const [thang, setThang] = useState('')
   const [thangOpts, setThangOpts] = useState<string[]>([])
+  const [histOpen, setHistOpen] = useState(false)
+  const [histRow, setHistRow] = useState<any | null>(null)
+  const [history, setHistory] = useState<any[]>([])
+  const [loadingHist, setLoadingHist] = useState(false)
 
   const refresh = () => setGridKey(k => k + 1)
 
@@ -292,6 +263,17 @@ export default function CheckChietKhauPage() {
     setModal(row)
   }, [])
 
+  const openLichSu = useCallback(async (row: any) => {
+    setHistRow(row)
+    setHistOpen(true)
+    setLoadingHist(true)
+    try {
+      const res = await apiGet(`${API_PATH}/lich-su/${row.id}`)
+      setHistory(res.data || [])
+    } catch (e: any) { setHistory([]) }
+    finally { setLoadingHist(false) }
+  }, [])
+
   const saveSuaCk = async () => {
     if (!modal) return
     try {
@@ -370,8 +352,10 @@ export default function CheckChietKhauPage() {
         exportable
         exportName="CheckChietKhau"
         defaultLimit={500}
-        rowActionLabel="Sửa CK"
-        onRowAction={openSuaCk}
+        rowActions={[
+          { label: 'Sửa CK', onClick: openSuaCk },
+          { label: 'Lịch sử', onClick: openLichSu, tone: 'primary' },
+        ]}
       />
 
       {modal && (
@@ -405,6 +389,49 @@ export default function CheckChietKhauPage() {
           </div>
         </div>
       )}
+
+      <Modal open={histOpen} title={`Lịch sử chỉnh sửa CK — dòng #${histRow?.id ?? ''}`} onClose={() => setHistOpen(false)} wide>
+        {histRow && (
+          <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 14 }}>
+            {histRow.so_ct} · {histRow.ten_kh || histRow.ma_kh} · {histRow.ma_hang}
+          </div>
+        )}
+        {loadingHist ? (
+          <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Đang tải...</div>
+        ) : history.length > 0 ? (
+          <div style={{ overflowX: 'auto', borderRadius: 12, border: `1px solid ${colors.border}` }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: colors.surfaceSecondary }}>
+                  {['Cột sửa', 'Giá trị cũ', 'Giá trị mới', 'Người sửa', 'Thời gian'].map(h => (
+                    <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: colors.textMuted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', borderBottom: `1px solid ${colors.border}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {history.map((h, i) => (
+                  <tr key={h.id} style={{ background: i % 2 === 0 ? colors.card : colors.surfaceSecondary }}>
+                    <td style={{ padding: '8px 12px', borderBottom: `1px solid ${colors.borderLight}`, whiteSpace: 'nowrap' }}>
+                      {h.cot === 'sua_ck1_pct' ? 'CK1 (ván trơn/chỉ nẹp)'
+                        : h.cot === 'sua_ck2_pct' ? 'CK2 (vận chuyển)'
+                        : h.cot === 'sua_ck3_pct' ? 'CK3 (Melamine)'
+                        : h.cot === 'sua_tong_pct' ? 'Tổng %' : h.cot}
+                    </td>
+                    <td style={{ padding: '8px 12px', borderBottom: `1px solid ${colors.borderLight}`, color: colors.textMuted }}>{h.gia_tri_cu}</td>
+                    <td style={{ padding: '8px 12px', borderBottom: `1px solid ${colors.borderLight}`, fontWeight: 600 }}>{h.gia_tri_moi}</td>
+                    <td style={{ padding: '8px 12px', borderBottom: `1px solid ${colors.borderLight}` }}>{h.updated_by || '—'}</td>
+                    <td style={{ padding: '8px 12px', borderBottom: `1px solid ${colors.borderLight}`, whiteSpace: 'nowrap' }}>{h.created_at}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>
+            Chưa có lịch sử sửa CK cho dòng này.
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
