@@ -251,11 +251,12 @@ INSERT INTO bang_gia_chuan_go_ghep (stt, quy_cach, cao_su_aa_ab, cao_su_ac, cao_
 INSERT INTO bang_gia_chuan_go_ghep (stt, quy_cach, cao_su_aa_ab, cao_su_ac, cao_su_bc, cao_su_cc, thong_nzl_aa) VALUES (3, '12mm', NULL, 530000, NULL, NULL, NULL);
 INSERT INTO bang_gia_chuan_go_ghep (stt, quy_cach, cao_su_aa_ab, cao_su_ac, cao_su_bc, cao_su_cc, thong_nzl_aa) VALUES (4, '17mm', NULL, NULL, 610000, NULL, NULL);
 INSERT INTO bang_gia_chuan_go_ghep (stt, quy_cach, cao_su_aa_ab, cao_su_ac, cao_su_bc, cao_su_cc, thong_nzl_aa) VALUES (5, '18mm', NULL, 645000, 620000, 565000, 740000);
--- bang_gia_chuan_phu_veneer (4 rows)
+-- bang_gia_chuan_phu_veneer (5 rows: 17-18mm đã tách thành 17mm + 18mm)
 INSERT INTO bang_gia_chuan_phu_veneer (stt, quy_cach, xoan_1m, xoan_2m, soi_1m, soi_2m, soi_kt_1m, soi_kt_2m, oc_cho_kt_1m, oc_cho_kt_2m) VALUES (1, '8mm', NULL, 530000, NULL, NULL, NULL, NULL, NULL, NULL);
 INSERT INTO bang_gia_chuan_phu_veneer (stt, quy_cach, xoan_1m, xoan_2m, soi_1m, soi_2m, soi_kt_1m, soi_kt_2m, oc_cho_kt_1m, oc_cho_kt_2m) VALUES (2, '10mm', 490000, 555000, 555000, 665000, 510000, 620000, 520000, 660000);
 INSERT INTO bang_gia_chuan_phu_veneer (stt, quy_cach, xoan_1m, xoan_2m, soi_1m, soi_2m, soi_kt_1m, soi_kt_2m, oc_cho_kt_1m, oc_cho_kt_2m) VALUES (3, '12mm', 590000, NULL, NULL, 740000, NULL, NULL, NULL, NULL);
-INSERT INTO bang_gia_chuan_phu_veneer (stt, quy_cach, xoan_1m, xoan_2m, soi_1m, soi_2m, soi_kt_1m, soi_kt_2m, oc_cho_kt_1m, oc_cho_kt_2m) VALUES (4, '17–18mm', 650000, 715000, 730000, 840000, 675000, 785000, NULL, 840000);
+INSERT INTO bang_gia_chuan_phu_veneer (stt, quy_cach, xoan_1m, xoan_2m, soi_1m, soi_2m, soi_kt_1m, soi_kt_2m, oc_cho_kt_1m, oc_cho_kt_2m) VALUES (4, '17mm', 650000, 715000, 730000, 840000, 675000, 840000, NULL, 840000);
+INSERT INTO bang_gia_chuan_phu_veneer (stt, quy_cach, xoan_1m, xoan_2m, soi_1m, soi_2m, soi_kt_1m, soi_kt_2m, oc_cho_kt_1m, oc_cho_kt_2m) VALUES (5, '18mm', 650000, 715000, 730000, 840000, 675000, 840000, NULL, 840000);
 -- bang_gia_chuan_van_ep (9 rows)
 INSERT INTO bang_gia_chuan_van_ep (stt, quy_cach, kt_1000x2000, kt_1220x2440) VALUES (1, '4mm', 102000, 144000);
 INSERT INTO bang_gia_chuan_van_ep (stt, quy_cach, kt_1000x2000, kt_1220x2440) VALUES (2, '5mm', NULL, 204000);
@@ -279,7 +280,8 @@ INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (
 INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (6, '18mm', 'POPLAR AA', 755000, 'Nhập khẩu');
 INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (6, '18mm', 'EV/EV', 806000, 'Nhập khẩu');
 INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (7, '25mm', 'EV/EV', 1204000, 'Nhập khẩu');
-INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (1, '17–18mm', 'Standard', 490000, 'Phủ phim');
+INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (1, '17mm', 'Standard', 490000, 'Phủ phim');
+INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (2, '18mm', 'Standard', 490000, 'Phủ phim');
 INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (1, '18mm', 'Sồi KT', 825000, 'Phủ veneer');
 INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (1, '18mm', 'Walnut KT', 875000, 'Phủ veneer');
 INSERT INTO bang_gia_chuan_van_ep_khac (stt, quy_cach, loai, gia, nhom) VALUES (2, '9mm', 'Sồi KT', 600000, 'Phủ veneer');

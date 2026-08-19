@@ -42,6 +42,77 @@ export function getNhomSP(maSP: string): string {
   return DEFAULT_NHOM
 }
 
+// ============================================================
+// Phân loại mã SP → nhóm sản phẩm theo CHÍNH SÁCH 2026 (5 lớp)
+// Tên nhóm khớp 1:1 với cột `nhom_sp` của bảng policy_rules
+// (đặc tả mục 5 — 18 nhóm, seed ở migration 0045).
+// ============================================================
+// Thứ tự quan trọng: prefix dài/cụ thể hơn kiểm tra trước.
+const NHOM_SP_POLICY: [string, string][] = [
+  ['MEVE', 'MELAMINE_PLYWOOD'],        // Plywood phủ mel (EV PLY MEL)
+  ['MEGG', 'MEL_NHUA_OSB_GO_GHEP'],    // Gỗ ghép phủ melamine
+  ['MEVN', 'MAT_PHU_MELAMINE'],        // MDF vân (10% cố định)
+  ['TOK', 'VAN_DAM_OKAL'],             // Okal ván trơn
+  ['TOSB', 'OSB'],
+  ['TGG', 'GO_GHEP'],
+  ['TVE', 'VAN_EP'],
+  ['TDR', 'DURABO'],
+  ['VNGG', 'GO_GHEP'],
+  ['VNVE', 'VENEER_MAT_PHU_KHAC'],
+  ['NT', 'DURABO'],                    // Ván Nhựa Durabo (NT17...)
+  ['OSB', 'OSB'],
+  ['GG', 'GO_GHEP'],
+  ['VE', 'VAN_EP'],
+  ['VL', 'VAN_EP'],
+  ['DR', 'DURABO'],
+  ['PETG', 'PVC_PETG'],
+  ['PVC', 'PVC_PETG'],
+  ['NP', 'PVC_PETG'],
+  ['MP', 'PVC_PETG'],
+  ['CHI', 'CHI_NEP'],
+  ['ZKEO', 'KEO_HAT'],
+  ['AC', 'ACRYLIC'],
+  ['NA', 'ACRYLIC'],
+  ['MA', 'ACRYLIC'],
+  // NL = Ván Nhựa phủ One Laminate — thực tế flat 10% ≈ nhóm nhựa/OSB/gỗ ghép (không phải 2%)
+  ['NL', 'MEL_NHUA_OSB_GO_GHEP'],
+  // LE/LP/GL = tấm Foil One Laminate (bán vật liệu cuộn/tấm) — giữ nhóm laminate
+  ['LE', 'ONE_LAMINATE'],
+  ['LP', 'ONE_LAMINATE'],
+  ['GL', 'ONE_LAMINATE'],
+  // ML/HL = MDF/HDF kháng ẩm phủ One Laminate — xử lý như ván MDF/HDF
+  ['ML', 'MDF_HDF'],
+  ['HL', 'MDF_HDF'],
+  ['GC', 'VENEER_MAT_PHU_KHAC'],
+  // M0*/M1* = Melamine giấy keo (ten_hang "TL giấy keo") — giống MEVN: mức cố định 10%
+  ['M0', 'MAT_PHU_MELAMINE'],
+  ['M1', 'MAT_PHU_MELAMINE'],
+  // ME chung = MDF/Okal phủ Melamine (danh mục chính) — cần trước 'T' nhưng sau các biến thể MEVE/MEGG/MEVN
+  ['ME', 'MDFOKAL_MEL_REG'],
+  ['T', 'MDF_HDF'],                    // Ván trơn MDF/HDF (T17HDF, T17MDF, T08HDF, T08LDF...)
+]
+
+export function getNhomSPPolicy(maSP: string): string {
+  if (!maSP) return ''
+  const upper = maSP.toUpperCase()
+  for (const [prefix, nhom] of NHOM_SP_POLICY) {
+    if (upper.startsWith(prefix)) return nhom
+  }
+  return ''
+}
+
+// Mã hàng chịu Lớp 3 (CK doanh số MDF/Okal phủ Melamine)?
+// MDF/Okal phủ Melamine (ME, MEOK) → Lớp 3. Các biến thể ME đặc biệt
+// (MEVE=Plywood, MEGG=gỗ ghép, MEVN=vân 10%) → Lớp 1.
+export function laMelPhu(maSP: string): boolean {
+  const upper = maSP.toUpperCase()
+  if (!upper.startsWith('ME')) return false
+  if (upper.startsWith('MEVE')) return false
+  if (upper.startsWith('MEGG')) return false
+  if (upper.startsWith('MEVN')) return false
+  return true
+}
+
 // ---- 4.4: Tier-specific discount (PREMIERDL / PREMIUM) ----
 // Công thức từ file Excel gốc, SPEC mục 4.4 (BE)
 

@@ -1,282 +1,9 @@
 import { Hono } from 'hono'
-import { getNhomSP, getLoaiKH, getCotCKOP2 } from '../logic/discountLookup'
-import { calculateAll, RevenueInput } from '../logic/revenueCalc'
-import { calculateDiscount, CalculateInput } from '../logic/pricingEngine'
 import { calculateBasePrice, BasePriceInput } from '../logic/basePricingEngine'
 import { calculateAnyBasePrice } from '../logic/extendedPricingEngine'
+import { syncMisaToBangsBulk } from '../helpers/giaGocSync'
 
 const router = new Hono<{ Bindings: { DB: D1Database } }>()
-
-// POST /api/pricing/calculate — Tính chiết khấu (cột AD)
-router.post('/calculate', async (c) => {
-  try {
-    const body = await c.req.json() as CalculateInput
-    const result = await calculateDiscount(c.env.DB, body)
-    return c.json(result)
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
-  }
-})
-
-// POST /api/pricing/calculate-revenue — Tính doanh thu (cột Z)
-router.post('/calculate-revenue', async (c) => {
-  try {
-    const body = await c.req.json() as RevenueInput
-    const result = calculateAll(body)
-    return c.json(result)
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
-  }
-})
-
-// POST /api/pricing/calculate-ban — Tính toàn bộ cho 1 dòng Bán
-router.post('/calculate-ban', async (c) => {
-  try {
-    const body = await c.req.json() as {
-      maKH: string
-      maSP: string
-      ngay: string
-      phanLoaiKH: string
-      ckVanChuyen?: number
-      // Revenue inputs
-      X?: number; Y?: number; AE?: number; AH?: number
-      P?: number; U?: number; V?: number; AC?: number
-    }
-
-    const discount = await calculateDiscount(c.env.DB, {
-      maKH: body.maKH,
-      maSP: body.maSP,
-      ngay: body.ngay,
-      phanLoaiKH: body.phanLoaiKH,
-      ckVanChuyen: body.ckVanChuyen,
-    })
-
-    const revenue = calculateAll({
-      X: body.X ?? 0, Y: body.Y ?? 0,
-      AE: body.AE ?? 0, AH: body.AH ?? 0,
-      P: body.P ?? 0, U: body.U ?? 0,
-      V: body.V ?? 0, AC: body.AC ?? 0,
-    })
-
-    return c.json({ discount, revenue })
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
-  }
-})
-
-// GET /api/pricing/classify — Tra cứu nhóm SP + loại KH
-router.get('/classify', async (c) => {
-  try {
-    const maSP = c.req.query('maSP') || ''
-    const phanLoai = c.req.query('phanLoai') || ''
-
-    const nhomSP = getNhomSP(maSP)
-    const loaiKH = getLoaiKH(phanLoai)
-    const cotCKOP2 = getCotCKOP2(nhomSP)
-
-    return c.json({ maSP, nhomSP, loaiKH, cotCKOP2 })
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
-  }
-})
-
-// === QUẢN LÝ THÁNG (SPEC 4.9) ===
-
-// GET /api/pricing/months — danh sách tháng có dữ liệu
-router.get('/months', async (c) => {
-  try {
-    const [bgckMonths, pbMonths] = await Promise.all([
-      c.env.DB.prepare(
-        `SELECT DISTINCT SUBSTR(key_match, 1, 7) as mm_yyyy FROM bang_gia_ck ORDER BY mm_yyyy`
-      ).all(),
-      c.env.DB.prepare(
-        `SELECT DISTINCT thang, nam FROM phan_bo_kh ORDER BY nam, thang`
-      ).all(),
-    ])
-
-    const bgckList = (bgckMonths.results || []).map((r: any) => r.mm_yyyy)
-    const pbList = (pbMonths.results || []).map((r: any) =>
-      `${String(r.thang).padStart(2, '0')}/${r.nam}`
-    )
-
-    const allMonths = [...new Set([...bgckList, ...pbList])].sort()
-
-    return c.json({
-      bang_gia_ck: bgckList,
-      phan_bo_kh: pbList,
-      all_months: allMonths,
-    })
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
-  }
-})
-
-// POST /api/pricing/clone-preview — xem trước số dòng sẽ clone
-router.post('/clone-preview', async (c) => {
-  try {
-    const { source, target, tables } = await c.req.json() as {
-      source: string // "MM/YYYY"
-      target: string // "MM/YYYY"
-      tables: string[] // ['bang_gia_ck_op1', 'bang_gia_ck_op2', 'phan_bo_kh']
-    }
-
-    const [sMonth, sYear] = source.split('/')
-    const [tMonth, tYear] = target.split('/')
-
-    if (!sMonth || !sYear || !tMonth || !tYear) {
-      return c.json({ error: 'Định dạng tháng không hợp lệ (MM/YYYY)' }, 400)
-    }
-
-    const preview: any = {}
-
-    if (tables.includes('bang_gia_ck_op1')) {
-      const src = await c.env.DB.prepare(
-        `SELECT COUNT(*) as cnt FROM bang_gia_ck WHERE loai = 'OP1' AND key_match LIKE ?`
-      ).bind(`${sMonth}/${sYear}|%`).first()
-      const dst = await c.env.DB.prepare(
-        `SELECT COUNT(*) as cnt FROM bang_gia_ck WHERE loai = 'OP1' AND key_match LIKE ?`
-      ).bind(`${tMonth}/${tYear}|%`).first()
-      preview.bang_gia_ck_op1 = {
-        source: (src as any)?.cnt || 0,
-        target_existing: (dst as any)?.cnt || 0,
-      }
-    }
-
-    if (tables.includes('bang_gia_ck_op2')) {
-      const src = await c.env.DB.prepare(
-        `SELECT COUNT(*) as cnt FROM bang_gia_ck WHERE loai = 'OP2' AND key_match LIKE ?`
-      ).bind(`${sMonth}/${sYear}|%`).first()
-      const dst = await c.env.DB.prepare(
-        `SELECT COUNT(*) as cnt FROM bang_gia_ck WHERE loai = 'OP2' AND key_match LIKE ?`
-      ).bind(`${tMonth}/${tYear}|%`).first()
-      preview.bang_gia_ck_op2 = {
-        source: (src as any)?.cnt || 0,
-        target_existing: (dst as any)?.cnt || 0,
-      }
-    }
-
-    if (tables.includes('phan_bo_kh')) {
-      const src = await c.env.DB.prepare(
-        `SELECT COUNT(*) as cnt FROM phan_bo_kh WHERE thang = ? AND nam = ?`
-      ).bind(Number(sMonth), Number(sYear)).first()
-      const dst = await c.env.DB.prepare(
-        `SELECT COUNT(*) as cnt FROM phan_bo_kh WHERE thang = ? AND nam = ?`
-      ).bind(Number(tMonth), Number(tYear)).first()
-      preview.phan_bo_kh = {
-        source: (src as any)?.cnt || 0,
-        target_existing: (dst as any)?.cnt || 0,
-      }
-    }
-
-    return c.json(preview)
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
-  }
-})
-
-// POST /api/pricing/clone-execute — thực hiện clone
-router.post('/clone-execute', async (c) => {
-  try {
-    const { source, target, tables } = await c.req.json() as {
-      source: string
-      target: string
-      tables: string[]
-    }
-
-    const [sMonth, sYear] = source.split('/')
-    const [tMonth, tYear] = target.split('/')
-
-    if (!sMonth || !sYear || !tMonth || !tYear) {
-      return c.json({ error: 'Định dạng tháng không hợp lệ (MM/YYYY)' }, 400)
-    }
-
-    const results: any = { bang_gia_ck_op1: 0, bang_gia_ck_op2: 0, phan_bo_kh: 0 }
-
-    if (tables.includes('bang_gia_ck_op1')) {
-      const rows = await c.env.DB.prepare(
-        `SELECT * FROM bang_gia_ck WHERE loai = 'OP1' AND key_match LIKE ?`
-      ).bind(`${sMonth}/${sYear}|%`).all()
-
-      for (const row of (rows.results || [])) {
-        const newKey = `${tMonth}/${tYear}|${(row as any).key_match.split('|')[1]}`
-        const exists = await c.env.DB.prepare(
-          `SELECT id FROM bang_gia_ck WHERE loai = 'OP1' AND key_match = ? AND loai_kh = ?`
-        ).bind(newKey, (row as any).loai_kh).first()
-
-        if (!exists) {
-          await c.env.DB.prepare(
-            `INSERT INTO bang_gia_ck (loai, key_match, loai_kh, gia_tri, loai_don_vi, ghi_chu)
-             VALUES ('OP1', ?, ?, ?, ?, ?)`
-          ).bind(
-            newKey,
-            (row as any).loai_kh,
-            (row as any).gia_tri,
-            (row as any).loai_don_vi,
-            (row as any).ghi_chu || `Clone từ ${source}`,
-          ).run()
-          results.bang_gia_ck_op1++
-        }
-      }
-    }
-
-    if (tables.includes('bang_gia_ck_op2')) {
-      const rows = await c.env.DB.prepare(
-        `SELECT * FROM bang_gia_ck WHERE loai = 'OP2' AND key_match LIKE ?`
-      ).bind(`${sMonth}/${sYear}|%`).all()
-
-      for (const row of (rows.results || [])) {
-        const newKey = `${tMonth}/${tYear}|${(row as any).key_match.split('|')[1]}`
-        const exists = await c.env.DB.prepare(
-          `SELECT id FROM bang_gia_ck WHERE loai = 'OP2' AND key_match = ? AND cot_index = ?`
-        ).bind(newKey, (row as any).cot_index).first()
-
-        if (!exists) {
-          await c.env.DB.prepare(
-            `INSERT INTO bang_gia_ck (loai, key_match, cot_index, gia_tri, loai_don_vi, ghi_chu)
-             VALUES ('OP2', ?, ?, ?, ?, ?)`
-          ).bind(
-            newKey,
-            (row as any).cot_index,
-            (row as any).gia_tri,
-            (row as any).loai_don_vi,
-            (row as any).ghi_chu || `Clone từ ${source}`,
-          ).run()
-          results.bang_gia_ck_op2++
-        }
-      }
-    }
-
-    if (tables.includes('phan_bo_kh')) {
-      const rows = await c.env.DB.prepare(
-        `SELECT * FROM phan_bo_kh WHERE thang = ? AND nam = ?`
-      ).bind(Number(sMonth), Number(sYear)).all()
-
-      for (const row of (rows.results || [])) {
-        const exists = await c.env.DB.prepare(
-          `SELECT id FROM phan_bo_kh WHERE ma_kh = ? AND thang = ? AND nam = ?`
-        ).bind((row as any).ma_kh, Number(tMonth), Number(tYear)).first()
-
-        if (!exists) {
-          await c.env.DB.prepare(
-            `INSERT INTO phan_bo_kh (ma_kh, thang, nam, loai_op)
-             VALUES (?, ?, ?, ?)`
-          ).bind(
-            (row as any).ma_kh, Number(tMonth), Number(tYear), (row as any).loai_op
-          ).run()
-          results.phan_bo_kh++
-        }
-      }
-    }
-
-    return c.json({
-      success: true,
-      message: `Clone từ ${source} → ${target} hoàn tất`,
-      results,
-    })
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
-  }
-})
 
 // POST /api/pricing/calculate-base-price — Tính giá gốc (cốt gỗ + bề mặt)
 router.post('/calculate-base-price', async (c) => {
@@ -584,12 +311,22 @@ router.post('/cap-nhat-gia-goc', async (c) => {
   try {
     const db = c.env.DB
 
-    // Bước 1: upsert gia_goc_by_ma theo đơn giá mode từ Sổ chi tiết (giữ nguyên mã không bán)
+    // Bước 1: upsert gia_goc_by_ma theo ĐƠN GIÁ MỚI NHẤT từ Sổ chi tiết
+    // Ưu tiên ngày chứng từ mới nhất; cùng ngày thì chọn giá bán nhiều sản lượng nhất, trùng thì giá thấp
     const byMaResult = await db.prepare(`
       INSERT INTO gia_goc_by_ma (ma_sp, gia_goc, updated_at)
       SELECT ma_hang, don_gia, datetime('now') FROM (
-        SELECT s.ma_hang, s.don_gia, COUNT(*) cnt,
-               ROW_NUMBER() OVER (PARTITION BY s.ma_hang ORDER BY COUNT(*) DESC, s.don_gia ASC) rn
+        SELECT s.ma_hang, s.don_gia, COUNT(*) cnt, COALESCE(SUM(s.sl_ban),0) qty,
+               CASE WHEN length(s.ngay)=10 AND substr(s.ngay,3,1)='/' AND substr(s.ngay,6,1)='/'
+                    THEN substr(s.ngay,7,4)||substr(s.ngay,4,2)||substr(s.ngay,1,2)
+                    ELSE '00000000' END AS ngay_key,
+               ROW_NUMBER() OVER (
+                 PARTITION BY s.ma_hang
+                 ORDER BY (CASE WHEN length(s.ngay)=10 AND substr(s.ngay,3,1)='/' AND substr(s.ngay,6,1)='/'
+                           THEN substr(s.ngay,7,4)||substr(s.ngay,4,2)||substr(s.ngay,1,2)
+                           ELSE '00000000' END) DESC,
+                          COALESCE(SUM(s.sl_ban),0) DESC, COUNT(*) DESC, s.don_gia ASC
+               ) rn
         FROM so_chi_tiet_ban_hang s
         WHERE s.ma_hang IS NOT NULL AND s.ma_hang != '' AND s.don_gia > 0
         GROUP BY s.ma_hang, s.don_gia
@@ -603,17 +340,41 @@ router.post('/cap-nhat-gia-goc', async (c) => {
        WHERE ma_sp IN (SELECT ma_sp FROM gia_goc_by_ma)`
     ).run()
 
-    // Bước 3: đồng bộ ma_misa
+    // Bước 3: đồng bộ ma_misa (ghi lịch sử cho từng mã bị đổi giá)
+    const syncRows = await db.prepare(
+      `SELECT m.ma_sp, m.gia_goc AS gia_cu, g.gia_goc AS gia_moi
+       FROM gia_goc_by_ma g JOIN ma_misa m ON m.ma_sp = g.ma_sp
+       WHERE COALESCE(m.gia_goc, -1) != COALESCE(g.gia_goc, -1)`
+    ).all()
+
     await db.prepare(
       `UPDATE ma_misa SET gia_goc = (SELECT g.gia_goc FROM gia_goc_by_ma g WHERE g.ma_sp=ma_misa.ma_sp)
        WHERE ma_sp IN (SELECT ma_sp FROM gia_goc_by_ma)`
     ).run()
+
+    const syncList = (syncRows.results || []) as { ma_sp: string; gia_cu: number | null; gia_moi: number }[]
+    const now = new Date(Date.now() + 7 * 3600 * 1000)
+    const thang = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+    const histChunk = 100
+    for (let i = 0; i < syncList.length; i += histChunk) {
+      const chunk = syncList.slice(i, i + histChunk)
+      await db.batch(chunk.map(r =>
+        db.prepare(
+          'INSERT INTO ma_misa_gia_history (ma_sp, thang, gia_cu, gia_goc, nguon, updated_by) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(r.ma_sp, thang, r.gia_cu, r.gia_moi, 'sync', 'auto')
+      ))
+    }
+
+    // Chiều B*: đẩy giá thực tế mới nhất xuống mọi bảng giá gốc có cùng mã + lịch sử
+    const bangSynced = await syncMisaToBangsBulk(c.env.DB, syncList, 'auto')
 
     const total = await db.prepare(`SELECT COUNT(*) n FROM so_chi_tiet_ban_hang WHERE ma_hang!='' AND don_gia>0`).first() as any
 
     return c.json({
       success: true,
       total_products: total?.n || 0,
+      synced_history: syncList.length,
+      bang_synced: bangSynced,
       message: `Đã đồng bộ giá gốc theo đơn giá thực tế (gia_ban + ma_misa + gia_goc_by_ma)`,
     })
   } catch (e: any) {

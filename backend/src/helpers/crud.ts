@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { syncBangToMisa, syncMisaToBangs, type GiaGocSyncTable } from './giaGocSync'
+import { isBangGiaLocked } from './bangGiaLock'
 
 type Env = { Bindings: { DB: D1Database } }
 
@@ -10,6 +12,8 @@ interface CrudOptions {
   listQuery?: string
   extraFilterMap?: Record<string, string>
   defaultFilters?: Record<string, string>
+  // Bảng thuộc 12 nhóm "Bảng Tính Giá" — chặn ghi tay khi khóa được bật
+  lockable?: boolean
   priceHistory?: {
     historyTable: string
     priceCol: string
@@ -19,7 +23,13 @@ interface CrudOptions {
     historyTable: string
     bang: string
   }
+  // Chiều A: bảng giá gốc (có ma_sp + cột giá) → tự push lên ma_misa.gia_goc + lịch sử
+  giaGocSync?: GiaGocSyncTable
+  // Chiều B: bảng ma_misa → đổi giá tự push xuống tất cả bảng giá gốc cùng mã + lịch sử
+  misaGiaSync?: boolean
 }
+
+const LOCKED_ERROR = 'Bảng Tính Giá đang bị KHÓA. Luồng tự động vẫn chạy, nhưng chỉnh sửa tay đã bị chặn — hãy liên hệ Admin.'
 
 function currentThang(): string {
   const d = new Date(Date.now() + 7 * 3600 * 1000)
@@ -58,6 +68,18 @@ export function crudRoutes(opts: CrudOptions) {
             conditions.push(`${col} IS NOT NULL`)
           } else if (val === '__empty') {
             conditions.push(`(${col} IS NULL OR ${col} = 0 OR ${col} = '')`)
+          } else if (val === '__gt0') {
+            conditions.push(`${col} > 0`)
+          } else if (val === '__gte0') {
+            conditions.push(`${col} >= 0`)
+          } else if (val === '__lt0') {
+            conditions.push(`${col} < 0`)
+          } else if (val === '__lte0') {
+            conditions.push(`${col} <= 0`)
+          } else if (val === '__eq0') {
+            conditions.push(`${col} = 0`)
+          } else if (val === '__ne0') {
+            conditions.push(`${col} != 0`)
           } else {
             conditions.push(`INSTR(${col}, ?) > 0`)
             params.push(val)
@@ -123,6 +145,9 @@ export function crudRoutes(opts: CrudOptions) {
 
   router.post('/', async (c) => {
     try {
+      if (opts.lockable && await isBangGiaLocked(c.env.DB)) {
+        return c.json({ error: LOCKED_ERROR }, 423)
+      }
       const body = await c.req.json()
       const keys = Object.keys(body)
       if (keys.length === 0) return c.json({ error: 'Empty body' }, 400)
@@ -138,6 +163,9 @@ export function crudRoutes(opts: CrudOptions) {
 
   router.patch('/:id', async (c) => {
     try {
+      if (opts.lockable && await isBangGiaLocked(c.env.DB)) {
+        return c.json({ error: LOCKED_ERROR }, 423)
+      }
       const id = c.req.param('id')
       const body = await c.req.json()
       const keys = Object.keys(body)
@@ -145,8 +173,9 @@ export function crudRoutes(opts: CrudOptions) {
       const values = Object.values(body)
 
       const ph = opts.priceHistory
+      let oldRow: any = null
       if (ph && body[ph.priceCol] !== undefined) {
-        const oldRow = await c.env.DB.prepare(`SELECT ${ph.refCol}, ${ph.priceCol} FROM ${table} WHERE ${idField} = ?`).bind(id).first()
+        oldRow = await c.env.DB.prepare(`SELECT ${ph.refCol}, ${ph.priceCol} FROM ${table} WHERE ${idField} = ?`).bind(id).first()
         if (oldRow) {
           const oldVal = (oldRow as any)[ph.priceCol]
           const newVal = Number(body[ph.priceCol])
@@ -183,6 +212,26 @@ export function crudRoutes(opts: CrudOptions) {
       const setClause = keys.map(k => `${k} = ?`).join(', ')
       const result = await c.env.DB.prepare(`UPDATE ${table} SET ${setClause} WHERE ${idField} = ?`).bind(...values, id).run()
       if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
+
+      // Chiều B: đổi giá trên ma_misa → đẩy xuống tất cả bảng giá gốc cùng mã + lịch sử
+      if (opts.misaGiaSync && opts.priceHistory && body[opts.priceHistory.priceCol] !== undefined) {
+        const newVal = Number(body[opts.priceHistory.priceCol])
+        const refVal = oldRow ? (oldRow as any)[opts.priceHistory.refCol] : null
+        if (refVal != null && newVal > 0) {
+          await syncMisaToBangs(c.env.DB, String(refVal), newVal, body.updated_by || null)
+        }
+      }
+
+      // Chiều A: đổi giá ở bảng giá gốc → push lên ma_misa.gia_goc + lịch sử
+      if (opts.giaGocSync && body[opts.giaGocSync.priceCol] !== undefined) {
+        await syncBangToMisa(c.env.DB, opts.giaGocSync, Number(id))
+      }
+
+      // Ghi log tổng hợp theo user (chỉ khi có updated_by)
+      await logThayDoi(c.env.DB, {
+        bang: table, ref_id: Number(id), body, tableOpts: opts,
+      })
+
       return c.json({ success: true })
     } catch (e: any) {
       return c.json({ error: e.message }, 500)
@@ -191,6 +240,9 @@ export function crudRoutes(opts: CrudOptions) {
 
   router.put('/:id', async (c) => {
     try {
+      if (opts.lockable && await isBangGiaLocked(c.env.DB)) {
+        return c.json({ error: LOCKED_ERROR }, 423)
+      }
       const id = c.req.param('id')
       const body = await c.req.json()
       const keys = Object.keys(body)
@@ -199,6 +251,11 @@ export function crudRoutes(opts: CrudOptions) {
       const setClause = keys.map(k => `${k} = ?`).join(', ')
       const result = await c.env.DB.prepare(`UPDATE ${table} SET ${setClause} WHERE ${idField} = ?`).bind(...values, id).run()
       if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
+
+      await logThayDoi(c.env.DB, {
+        bang: table, ref_id: Number(id), body, tableOpts: opts,
+      })
+
       return c.json({ success: true })
     } catch (e: any) {
       return c.json({ error: e.message }, 500)
@@ -207,6 +264,9 @@ export function crudRoutes(opts: CrudOptions) {
 
   router.delete('/:id', async (c) => {
     try {
+      if (opts.lockable && await isBangGiaLocked(c.env.DB)) {
+        return c.json({ error: LOCKED_ERROR }, 423)
+      }
       const id = c.req.param('id')
       const result = await c.env.DB.prepare(`DELETE FROM ${table} WHERE ${idField} = ?`).bind(id).run()
       if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
@@ -217,4 +277,49 @@ export function crudRoutes(opts: CrudOptions) {
   })
 
   return router
+}
+
+// Ghi log tổng hợp mọi thay đổi theo user (bảng thay_doi_log)
+// Chỉ ghi khi body có updated_by — tránh nhiễu từ các cập nhật tự động.
+interface LogInput {
+  bang: string
+  ref_id: number
+  body: Record<string, any>
+  tableOpts: CrudOptions
+}
+
+async function logThayDoi(db: D1Database, input: LogInput) {
+  try {
+    const { bang, ref_id, body, tableOpts } = input
+    const updatedBy = body.updated_by || null
+    if (!updatedBy) return
+
+    // Lấy giá trị cũ trước khi ghi (nếu có priceCol hoặc numericHistory thì đã biết)
+    const cols = Object.keys(body).filter(k => k !== 'updated_by' && k !== 'id')
+    if (cols.length === 0) return
+
+    const selectCols = cols.map(c => c).join(', ')
+    const oldRow = await db.prepare(
+      `SELECT ${selectCols} FROM ${bang} WHERE ${tableOpts.idField || 'id'} = ?`
+    ).bind(ref_id).first() as any
+    if (!oldRow) return
+
+    const thang = currentThang()
+    for (const col of cols) {
+      const oldVal = (oldRow as any)[col]
+      const newVal = body[col]
+      if (String(oldVal ?? '') === String(newVal ?? '')) continue
+      await db.prepare(
+        `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
+      ).bind(
+        bang, ref_id, col,
+        oldVal === null || oldVal === undefined ? '' : String(oldVal),
+        newVal === null || newVal === undefined ? '' : String(newVal),
+        updatedBy, thang,
+      ).run()
+    }
+  } catch {
+    // Log lỗi không được phép làm hỏng thao tác chính
+  }
 }

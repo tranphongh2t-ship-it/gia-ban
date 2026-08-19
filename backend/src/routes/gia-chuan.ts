@@ -1,11 +1,14 @@
 import { Hono } from 'hono'
 import { crudRoutes } from '../helpers/crud'
 import { removeAccents } from '../helpers/removeAccents'
+import { isBangGiaLocked } from '../helpers/bangGiaLock'
+import { currentThang, GIA_GOC_SYNC_TABLES, syncTableToMisaBulk, syncVmhVariantsToMisa } from '../helpers/giaGocSync'
 import { MELAMINE_SP_INDEX } from '../data/melamine-sp-index'
 import { MELAMINE_EFFECT_RULES, MELAMINE_GKT_RULES, MELAMINE_MISSING_COLORS } from '../data/melamine-gen-rules'
 import { MELAMINE_220 } from '../data/melamine-220'
 import { MEOK_SP_INDEX } from '../data/meok-sp-index'
-import { ME_SP_INDEX } from '../data/me-sp-index'
+import { VMH_SP_MAP } from '../data/vmh-sp-map'
+import { VMH_VARIANT_MAP } from '../data/vmh-variant-map'
 
 type Env = { Bindings: { DB: D1Database } }
 
@@ -440,7 +443,11 @@ tables.forEach(t => {
     searchFields: t.searchFields,
     orderBy: (t as any).orderBy || 'stt ASC, id ASC',
     ...(t as any).listQuery ? { listQuery: (t as any).listQuery } : {},
+    lockable: true,
     numericHistory: { historyTable: 'gia_chuan_gia_history', bang: t.table },
+    // Chiều A: bảng có ma_sp + cột giá (veneer, mat-phu-khac, mirror, chi-nep, keo-hat)
+    // → đổi giá tự push lên ma_misa.gia_goc + lịch sử
+    giaGocSync: GIA_GOC_SYNC_TABLES.find(s => s.table === t.table),
   })
   app.route(`/${t.path}`, crud)
 })
@@ -452,7 +459,7 @@ app.get('/lich-su', async (c) => {
     let tableBang = bang
     if (path && !tableBang) {
       const t = tables.find(t => t.path === path)
-      tableBang = t?.table
+      tableBang = t?.table ?? ''
       if (!tableBang) return c.json({ error: `Không tìm thấy bảng: ${path}` }, 404)
     }
     if (!tableBang) return c.json({ error: 'Thiếu tham số path hoặc bang' }, 400)
@@ -495,11 +502,13 @@ function normColorKey(s: string): string {
 
 // ====== Compute helper: mở rộng theo Nhóm màu Melamine 220 ======
 // Mỗi dòng = (độ dày × loại ván × 1 màu 220 × số mặt), giá = board_gia + phụ thu của màu
+// plainLabels: các loại ván TRƠN (VD TH-grade HDF HMR) chỉ có 1 dòng/quy cách, không màu, không phụ thu
 async function computeTinhGia(
   db: D1Database,
   sourceTable: string,
   destTable: string,
   grades: { key: string; label: string }[],
+  plainLabels: string[] = [],
 ) {
   const [boardRows, phuThuRows] = await Promise.all([
     db.prepare(`SELECT * FROM ${sourceTable} ORDER BY stt`).all(),
@@ -510,6 +519,17 @@ async function computeTinhGia(
   const phuThus = phuThuRows.results as any[]
   const phuThuDonGia = phuThus.find(r => r.stt === 1)
   const phuThuDacBiet = phuThus.find(r => r.stt === 3)
+  const plainSet = new Set(plainLabels)
+
+  // Lưu mã MISA đã gán (ma_sp/ten_sp) trước khi xóa để tái gắn sau khi tính lại giá,
+  // tránh việc "Tính toán" xóa sạch mã đã auto-assign.
+  const existing = await db.prepare(
+    `SELECT board_quy_cach, board_loai, ma_mau, so_mat, ma_sp, ten_sp FROM ${destTable} WHERE ma_sp IS NOT NULL AND ma_sp != ''`
+  ).all()
+  const spByKey = new Map<string, { ma_sp: string; ten_sp: string }>()
+  for (const r of (existing.results || []) as any[]) {
+    spByKey.set(`${r.board_quy_cach}|${r.board_loai}|${r.ma_mau}|${r.so_mat}`, { ma_sp: r.ma_sp, ten_sp: r.ten_sp })
+  }
 
   await db.prepare(`DELETE FROM ${destTable}`).run()
 
@@ -518,6 +538,23 @@ async function computeTinhGia(
     for (const grade of grades) {
       const boardGia = board[grade.key]
       if (boardGia === null || boardGia === undefined) continue
+
+      // Ván trơn: 1 dòng/quy cách, không màu, giá gốc = board_gia (không cộng phụ thu màu)
+      if (plainSet.has(grade.label)) {
+        inserts.push({
+          board_quy_cach: board.quy_cach,
+          board_loai: grade.label,
+          board_gia: boardGia,
+          ma_mau: '',
+          color_nhom: '',
+          color_loai: '',
+          so_mat: 1,
+          phu_thu_loai: '',
+          phu_thu_gia: 0,
+          tong_gia: boardGia,
+        })
+        continue
+      }
 
       for (const color of MELAMINE_220) {
         for (const soMat of [1, 2]) {
@@ -555,11 +592,12 @@ async function computeTinhGia(
   const batchSize = 100
   for (let i = 0; i < inserts.length; i += batchSize) {
     const batch = inserts.slice(i, i + batchSize)
-    const stmts = batch.map(row =>
-      db.prepare(
-        `INSERT INTO ${destTable} (board_quy_cach, board_loai, board_gia, ma_mau, color_nhom, color_loai, so_mat, phu_thu_loai, phu_thu_gia, tong_gia) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(row.board_quy_cach, row.board_loai, row.board_gia, row.ma_mau, row.color_nhom, row.color_loai, row.so_mat, row.phu_thu_loai, row.phu_thu_gia, row.tong_gia)
-    )
+    const stmts = batch.map(row => {
+      const sp = spByKey.get(`${row.board_quy_cach}|${row.board_loai}|${row.ma_mau}|${row.so_mat}`)
+      return db.prepare(
+        `INSERT INTO ${destTable} (board_quy_cach, board_loai, board_gia, ma_mau, color_nhom, color_loai, so_mat, phu_thu_loai, phu_thu_gia, tong_gia, ma_sp, ten_sp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(row.board_quy_cach, row.board_loai, row.board_gia, row.ma_mau, row.color_nhom, row.color_loai, row.so_mat, row.phu_thu_loai, row.phu_thu_gia, row.tong_gia, sp?.ma_sp || null, sp?.ten_sp || null)
+    })
     await db.batch(stmts)
   }
 
@@ -578,7 +616,8 @@ const VDO_LOAI_MAP: Record<string, string> = {
 app.post('/tinh-gia-vdo/tinh-toan', async (c) => {
   try {
     const total = await computeTinhGia(c.env.DB, 'bang_gia_chuan_dam_okal', 'bang_gia_chuan_tinh_gia_vdo', BOARD_GRADES)
-    return c.json({ success: true, total })
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_vdo')!)
+    return c.json({ success: true, total, synced })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
@@ -711,6 +750,9 @@ const MDF_GRADES = [
   { key: 'th_hdf_hmr_e2', label: 'TH HDF HMR E2' },
   { key: 'vn_lmr_e2', label: 'VN LMR E2' },
   { key: 'vn_mmr_e2', label: 'VN MMR E2' },
+  { key: 'vn_mmr_e2', label: 'VN MMR MK' },
+  { key: 'th_mmr_e2', label: 'VN MMR TL' },
+  { key: 'vn_mmr_e2', label: 'VN MMR TT' },
   { key: 'vn_hmr_e2', label: 'VN HMR E2' },
   { key: 'vn_hmr_e1', label: 'VN HMR E1' },
   { key: 'vn_hmr_cp2', label: 'VN HMR CP2' },
@@ -718,52 +760,53 @@ const MDF_GRADES = [
   { key: 'th_hmr_v313_e1', label: 'TH HMR V313 E1' },
 ]
 
+// Các loại ván TRƠN (TH-grade) — chỉ 1 dòng/quy cách, không màu, không phụ thu (T-mã ván trơn)
+const MDF_PLAIN_LABELS = ['TH MDF E2', 'TH HDF HMR E2', 'TH MMR E2', 'TH HMR V313 E1']
+
+// Tìm T-mã ván trơn theo loại + độ dày (bất kể màu/số mặt) — quét prefix key "loai|dd|" trong VMH_SP_MAP
+function findVmhPlain(boardLoai: string, doDay: string): [string, string] | undefined {
+  const prefix = `${boardLoai}|${doDay}|`
+  for (const [k, v] of Object.entries(VMH_SP_MAP)) {
+    if (k.startsWith(prefix)) return v
+  }
+  return undefined
+}
+
 app.post('/tinh-gia-vmh/tinh-toan', async (c) => {
   try {
-    const total = await computeTinhGia(c.env.DB, 'bang_gia_chuan_mdf_hdf', 'bang_gia_chuan_tinh_gia_vmh', MDF_GRADES)
-    return c.json({ success: true, total })
+    const total = await computeTinhGia(c.env.DB, 'bang_gia_chuan_mdf_hdf', 'bang_gia_chuan_tinh_gia_vmh', MDF_GRADES, MDF_PLAIN_LABELS)
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_vmh')!)
+    const v = await syncVmhVariantsToMisa(c.env.DB, VMH_SP_MAP, VMH_VARIANT_MAP)
+    return c.json({ success: true, total, synced, syncedVariants: v.variants })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
 })
 
-// Auto-assign Mã MISA cho VMH dựa trên ME_SP_INDEX (ưu tiên hiệu ứng T)
-const VMH_LOAI_MAP: Record<string, string> = {
-  'VN LDF E2': 'MDF E2',
-  'VN MDF E2': 'MDF E2',
-  'VN MDF CP2': 'MDF CP2',
-  'VN HDF HMR E2': 'HMR E2',
-  'VN HDF HMR E1': 'HMR E1',
-  'TH MDF E2': 'MDF E2',
-  'TH HDF HMR E2': 'HMR E2',
-  'VN LMR E2': 'LMR E2',
-  'VN MMR E2': 'MMR E2',
-  'VN HMR E2': 'HMR E2',
-  'VN HMR E1': 'HMR E1',
-  'VN HMR CP2': 'HMR CP2',
-  'TH MMR E2': 'MMR E2',
-  'TH HMR V313 E1': 'HMR V313',
-}
-
+// Auto-assign Mã MISA cho VMH: dùng VMH_SP_MAP (VN → ME-mã exact LINE; TH → T-mã ván trơn)
 app.post('/tinh-gia-vmh/auto-assign-ma-sp', async (c) => {
   try {
     const db = c.env.DB
-    // Xóa sạch mã đã gán trước để đảm bảo không còn mã trùng/mã cũ ở dòng không khớp
-    await db.prepare('UPDATE bang_gia_chuan_tinh_gia_vmh SET ma_sp = ?, ten_sp = ? WHERE ma_sp IS NOT NULL AND ma_sp != ?').bind('', '', '').run()
+    // Lấp mã từ VMH_SP_MAP (VN → ME-mã exact LINE theo màu; TH → T-mã ván trơn từ VAN TRON).
+    // Không xóa mã đã gán của dòng không khớp (tránh mất dữ liệu hiện có).
     const { results } = await db.prepare('SELECT * FROM bang_gia_chuan_tinh_gia_vmh').all()
     const rows = results as any[]
     const toAssign: { id: number; ma_sp: string; ten_sp: string }[] = []
-    const usedMasp = new Set<string>()
     let skipped = 0
 
     for (const r of rows) {
       const doDay = String(r.board_quy_cach || '').replace(/mm/gi, '').trim()
-      const loai = VMH_LOAI_MAP[r.board_loai] || r.board_loai
       const mauKey = normColorKey(r.ma_mau)
-      const key = `${doDay}|${loai}|${mauKey}|${r.so_mat}`
-      const hit = ME_SP_INDEX[key]
-      if (hit && !usedMasp.has(hit[0])) {
-        usedMasp.add(hit[0])
+      // Ván trơn (TH-grade): dòng không màu → tìm T-mã theo loại|độ dày (bất kỳ màu đều chung 1 T-mã)
+      if (MDF_PLAIN_LABELS.includes(String(r.board_loai || ''))) {
+        const hit = findVmhPlain(r.board_loai, doDay)
+        if (hit) toAssign.push({ id: r.id, ma_sp: hit[0], ten_sp: hit[1] })
+        else skipped++
+        continue
+      }
+      const key = `${r.board_loai}|${doDay}|${mauKey}|${r.so_mat}`
+      const hit = VMH_SP_MAP[key]
+      if (hit) {
         toAssign.push({ id: r.id, ma_sp: hit[0], ten_sp: hit[1] })
       } else skipped++
     }
@@ -801,7 +844,6 @@ const VENEER_SP_MAP: Record<string, [string, string]> = {
 app.post('/veneer/auto-assign-ma-sp', async (c) => {
   try {
     const db = c.env.DB
-    await db.prepare('UPDATE bang_gia_chuan_veneer SET ma_sp = ?, ten_sp = ? WHERE ma_sp IS NOT NULL AND ma_sp != ?').bind('', '', '').run()
     const { results } = await db.prepare('SELECT * FROM bang_gia_chuan_veneer').all()
     const rows = results as any[]
     const toAssign: { id: number; ma_sp: string; ten_sp: string }[] = []
@@ -1018,7 +1060,8 @@ app.post('/tinh-gia-gg/tinh-toan', async (c) => {
       await db.batch(stmts)
     }
 
-    return c.json({ success: true, total: inserts.length })
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_gg')!)
+    return c.json({ success: true, total: inserts.length, synced })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
@@ -1194,7 +1237,8 @@ app.post('/tinh-gia-ve/tinh-toan', async (c) => {
       await db.batch(stmts)
     }
 
-    return c.json({ success: true, total: inserts.length })
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_ve')!)
+    return c.json({ success: true, total: inserts.length, synced })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
@@ -1266,9 +1310,8 @@ app.post('/tinh-gia-ve/auto-assign-ma-sp', async (c) => {
   try {
     const db = c.env.DB
 
-    // Xóa sạch mã SP cũ (mã tự sinh từ hệ match cũ đều sai)
-    await db.prepare("UPDATE bang_gia_chuan_tinh_gia_ve SET ma_sp = '', ten_sp = ''").run()
-
+    // Không xóa sạch mã đã gán — chỉ ghi đè mã khi có match trong mapping.
+    // Các dòng không có match (mã tự sinh / gán thủ công) được giữ nguyên.
     const { results } = await db.prepare('SELECT * FROM bang_gia_chuan_tinh_gia_ve').all()
     const rows = results as any[]
 
@@ -1355,7 +1398,8 @@ app.post('/tinh-gia-osb/tinh-toan', async (c) => {
       await db.batch(stmts)
     }
 
-    return c.json({ success: true, total: inserts.length })
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_osb')!)
+    return c.json({ success: true, total: inserts.length, synced })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
@@ -1430,7 +1474,8 @@ app.post('/tinh-gia-pvc-petg/tinh-toan', async (c) => {
       await db.batch(stmts)
     }
 
-    return c.json({ success: true, total: inserts.length })
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_pvc_petg')!)
+    return c.json({ success: true, total: inserts.length, synced })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
@@ -1572,7 +1617,8 @@ app.post('/tinh-gia-dr/tinh-toan', async (c) => {
       await db.batch(stmts)
     }
 
-    return c.json({ success: true, total: inserts.length })
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_dr')!)
+    return c.json({ success: true, total: inserts.length, synced })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
@@ -1684,7 +1730,8 @@ app.post('/tinh-gia-melamine-tonghop/tinh-toan', async (c) => {
       await db.batch(stmts)
     }
 
-    return c.json({ success: true, total: inserts.length })
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_melamine_tonghop')!)
+    return c.json({ success: true, total: inserts.length, synced })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
@@ -1727,9 +1774,8 @@ app.post('/tinh-gia-melamine-tonghop/auto-assign-ma-sp', async (c) => {
   try {
     const db = c.env.DB
 
-    // Xóa sạch mã SP cũ (mã tự sinh từ hệ match cũ đều sai)
-    await db.prepare("UPDATE bang_gia_chuan_tinh_gia_melamine_tonghop SET ma_sp = '', ten_sp = ''").run()
-
+    // Không xóa sạch mã đã gán — chỉ ghi đè mã khi có match trong danh mục MISA.
+    // Các dòng không có match (vd 14 màu đã sinh mã tự động) được giữ nguyên mã hiện tại.
     const { results } = await db.prepare('SELECT * FROM bang_gia_chuan_tinh_gia_melamine_tonghop').all()
     const rows = results as any[]
 
@@ -1921,6 +1967,16 @@ app.post('/tinh-gia-acrylic/tinh-toan', async (c) => {
     const colors = colorRows.results as any[]
     const boards = boardRows.results as any[]
 
+    // Preserve existing ma_sp before delete (tinh-gia-acrylic rebuilds this table)
+    const { results: existingAcrylic } = await db.prepare(
+      "SELECT ma_mau, series, loai_mau, phu, board_type, ma_sp FROM bang_gia_chuan_tinh_gia_acrylic WHERE ma_sp IS NOT NULL AND ma_sp != ''"
+    ).all()
+    const spByAcrylicKey = new Map<string, string>()
+    for (const r of existingAcrylic as any[]) {
+      const key = `${r.ma_mau}|${r.series}|${r.loai_mau}|${r.phu}|${r.board_type}`
+      if (!spByAcrylicKey.has(key)) spByAcrylicKey.set(key, r.ma_sp)
+    }
+
     await db.prepare('DELETE FROM bang_gia_chuan_tinh_gia_acrylic').run()
 
     const inserts: any[] = []
@@ -1931,7 +1987,8 @@ app.post('/tinh-gia-acrylic/tinh-toan', async (c) => {
         if (b.series !== c.series) continue
         const gia = b[col]
         if (gia !== null && gia !== undefined && typeof gia === 'number') {
-          inserts.push({ ma_mau: c.ma_mau, series: c.series, loai_mau: c.loai_mau, phu: b.phu, board_type: b.board_type, gia })
+          const key = `${c.ma_mau}|${c.series}|${c.loai_mau}|${b.phu}|${b.board_type}`
+          inserts.push({ ma_mau: c.ma_mau, series: c.series, loai_mau: c.loai_mau, phu: b.phu, board_type: b.board_type, gia, ma_sp: spByAcrylicKey.get(key) || null })
         }
       }
     }
@@ -1941,13 +1998,14 @@ app.post('/tinh-gia-acrylic/tinh-toan', async (c) => {
       const batch = inserts.slice(i, i + batchSize)
       const stmts = batch.map(row =>
         db.prepare(
-          'INSERT INTO bang_gia_chuan_tinh_gia_acrylic (ma_mau, series, loai_mau, phu, board_type, gia) VALUES (?, ?, ?, ?, ?, ?)'
-        ).bind(row.ma_mau, row.series, row.loai_mau, row.phu, row.board_type, row.gia)
+          'INSERT INTO bang_gia_chuan_tinh_gia_acrylic (ma_mau, series, loai_mau, phu, board_type, gia, ma_sp) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(row.ma_mau, row.series, row.loai_mau, row.phu, row.board_type, row.gia, row.ma_sp)
       )
       await db.batch(stmts)
     }
 
-    return c.json({ success: true, total: inserts.length })
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_acrylic')!)
+    return c.json({ success: true, total: inserts.length, synced })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
@@ -1985,6 +2043,16 @@ app.post('/tinh-gia-one-laminate/tinh-toan', async (c) => {
     const vns = vnRows.results as any[]
     const osbs = osbRows.results as any[]
 
+    // Preserve existing ma_sp/ten_sp before delete
+    const { results: existing } = await db.prepare(
+      "SELECT ma_mau, nhom, nguon, loai_van, do_day, do_day_tp, so_mat, ma_sp, ten_sp FROM bang_gia_chuan_tinh_gia_one_laminate WHERE ma_sp IS NOT NULL AND ma_sp != ''"
+    ).all()
+    const spByKey = new Map<string, { ma_sp: string; ten_sp: string }>()
+    for (const r of existing as any[]) {
+      const key = `${r.ma_mau}|${r.nhom}|${r.nguon}|${r.loai_van}|${r.do_day}|${r.do_day_tp}|${r.so_mat}`
+      if (!spByKey.has(key)) spByKey.set(key, { ma_sp: r.ma_sp, ten_sp: r.ten_sp || r.ma_sp })
+    }
+
     await db.prepare('DELETE FROM bang_gia_chuan_tinh_gia_one_laminate').run()
 
     const inserts: any[] = []
@@ -1997,20 +2065,28 @@ app.post('/tinh-gia-one-laminate/tinh-toan', async (c) => {
       // Ván nhựa phủ HPL
       for (const b of vns) {
         if (col1m && b[col1m] !== null && typeof b[col1m] === 'number') {
-          inserts.push({ ma_mau: c.ma_mau, nhom: c.nhom, gia_foil: c.gia_foil, nguon: 'Ván nhựa', loai_van: b.loai_van, do_day: b.do_day, do_day_tp: b.do_day_tp, so_mat: 1, gia: b[col1m] })
+          const key = `${c.ma_mau}|${c.nhom}|Ván nhựa|${b.loai_van}|${b.do_day}|${b.do_day_tp}|1`
+          const sp = spByKey.get(key)
+          inserts.push({ ma_mau: c.ma_mau, nhom: c.nhom, gia_foil: c.gia_foil, nguon: 'Ván nhựa', loai_van: b.loai_van, do_day: b.do_day, do_day_tp: b.do_day_tp, so_mat: 1, gia: b[col1m], ma_sp: sp?.ma_sp || null, ten_sp: sp?.ten_sp || null })
         }
         if (col2m && b[col2m] !== null && typeof b[col2m] === 'number') {
-          inserts.push({ ma_mau: c.ma_mau, nhom: c.nhom, gia_foil: c.gia_foil, nguon: 'Ván nhựa', loai_van: b.loai_van, do_day: b.do_day, do_day_tp: b.do_day_tp, so_mat: 2, gia: b[col2m] })
+          const key = `${c.ma_mau}|${c.nhom}|Ván nhựa|${b.loai_van}|${b.do_day}|${b.do_day_tp}|2`
+          const sp = spByKey.get(key)
+          inserts.push({ ma_mau: c.ma_mau, nhom: c.nhom, gia_foil: c.gia_foil, nguon: 'Ván nhựa', loai_van: b.loai_van, do_day: b.do_day, do_day_tp: b.do_day_tp, so_mat: 2, gia: b[col2m], ma_sp: sp?.ma_sp || null, ten_sp: sp?.ten_sp || null })
         }
       }
 
       // OSB / Gỗ ghép / Ván ép phủ HPL
       for (const b of osbs) {
         if (col1m && b[col1m] !== null && typeof b[col1m] === 'number') {
-          inserts.push({ ma_mau: c.ma_mau, nhom: c.nhom, gia_foil: c.gia_foil, nguon: 'OSB/Gỗ ghép/Ván ép', loai_van: b.loai_van, do_day: b.do_day, do_day_tp: b.do_day_tp, so_mat: 1, gia: b[col1m] })
+          const key = `${c.ma_mau}|${c.nhom}|OSB/Gỗ ghép/Ván ép|${b.loai_van}|${b.do_day}|${b.do_day_tp}|1`
+          const sp = spByKey.get(key)
+          inserts.push({ ma_mau: c.ma_mau, nhom: c.nhom, gia_foil: c.gia_foil, nguon: 'OSB/Gỗ ghép/Ván ép', loai_van: b.loai_van, do_day: b.do_day, do_day_tp: b.do_day_tp, so_mat: 1, gia: b[col1m], ma_sp: sp?.ma_sp || null, ten_sp: sp?.ten_sp || null })
         }
         if (col2m && b[col2m] !== null && typeof b[col2m] === 'number') {
-          inserts.push({ ma_mau: c.ma_mau, nhom: c.nhom, gia_foil: c.gia_foil, nguon: 'OSB/Gỗ ghép/Ván ép', loai_van: b.loai_van, do_day: b.do_day, do_day_tp: b.do_day_tp, so_mat: 2, gia: b[col2m] })
+          const key = `${c.ma_mau}|${c.nhom}|OSB/Gỗ ghép/Ván ép|${b.loai_van}|${b.do_day}|${b.do_day_tp}|2`
+          const sp = spByKey.get(key)
+          inserts.push({ ma_mau: c.ma_mau, nhom: c.nhom, gia_foil: c.gia_foil, nguon: 'OSB/Gỗ ghép/Ván ép', loai_van: b.loai_van, do_day: b.do_day, do_day_tp: b.do_day_tp, so_mat: 2, gia: b[col2m], ma_sp: sp?.ma_sp || null, ten_sp: sp?.ten_sp || null })
         }
       }
     }
@@ -2020,13 +2096,14 @@ app.post('/tinh-gia-one-laminate/tinh-toan', async (c) => {
       const batch = inserts.slice(i, i + batchSize)
       const stmts = batch.map(row =>
         db.prepare(
-          'INSERT INTO bang_gia_chuan_tinh_gia_one_laminate (ma_mau, nhom, gia_foil, nguon, loai_van, do_day, do_day_tp, so_mat, gia) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        ).bind(row.ma_mau, row.nhom, row.gia_foil, row.nguon, row.loai_van, row.do_day, row.do_day_tp, row.so_mat, row.gia)
+          'INSERT INTO bang_gia_chuan_tinh_gia_one_laminate (ma_mau, nhom, gia_foil, nguon, loai_van, do_day, do_day_tp, so_mat, gia, ma_sp, ten_sp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(row.ma_mau, row.nhom, row.gia_foil, row.nguon, row.loai_van, row.do_day, row.do_day_tp, row.so_mat, row.gia, row.ma_sp, row.ten_sp)
       )
       await db.batch(stmts)
     }
 
-    return c.json({ success: true, total: inserts.length })
+    const synced = await syncTableToMisaBulk(c.env.DB, GIA_GOC_SYNC_TABLES.find(s => s.table === 'bang_gia_chuan_tinh_gia_one_laminate')!)
+    return c.json({ success: true, total: inserts.length, synced })
   } catch (e: any) {
     return c.json({ error: e.message, stack: e.stack }, 500)
   }
@@ -2261,6 +2338,121 @@ app.post('/gia-goc-tong-hop/match/:id/override', async (c) => {
   }
 })
 
+// POST /api/gia-chuan/gia-goc-tong-hop/restore-unmatched — phục hồi match cho các mã đang
+// 'unmatched' (đã bị gỡ) bằng cách chạy lại thuật toán match giống hệt /match.
+// Không chạm mã 'manual'/'pending'/'overridden'. Idempotent.
+app.post('/gia-goc-tong-hop/restore-unmatched', async (c) => {
+  try {
+    const db = c.env.DB
+    const body = await c.req.json().catch(() => ({}))
+    const batchSize = Math.min(body.batchSize || 300, 500)
+    const lastId = body.lastId || 0
+
+    const { results: ggthRows } = await db.prepare(
+      'SELECT id, module, mo_ta, mo_ta_search, gia_goc FROM gia_goc_tong_hop'
+    ).all()
+    const ggthList = ggthRows as any[]
+    const ggthTokens: { tokens: Set<string> }[] = []
+    for (const g of ggthList) ggthTokens.push({ tokens: tokenize(g.mo_ta_search) })
+
+    const tokenIndex = new Map<string, number[]>()
+    for (let i = 0; i < ggthTokens.length; i++) {
+      for (const t of ggthTokens[i].tokens) {
+        let arr = tokenIndex.get(t)
+        if (!arr) { arr = []; tokenIndex.set(t, arr) }
+        if (arr[arr.length - 1] !== i) arr.push(i)
+      }
+    }
+
+    const { results: misaRows } = await db.prepare(
+      "SELECT id, ma_sp, ten_sp FROM ma_misa WHERE ten_sp IS NOT NULL AND ten_sp != '' AND match_status = 'unmatched' AND id > ? ORDER BY id LIMIT ?"
+    ).bind(lastId, batchSize).all()
+    const misaList = misaRows as any[]
+    if (misaList.length === 0) return c.json({ success: true, total: 0, done: true, matched: 0, unmatched: 0 })
+
+    const updates: { id: number, score: number, module: string, mo_ta: string, gia_goc: number }[] = []
+    let matched = 0, unmatched = 0
+
+    for (const m of misaList) {
+      const misaTokens = tokenize(m.ten_sp)
+      if (misaTokens.size === 0) { unmatched++; continue }
+
+      const candidateSet = new Set<number>()
+      for (const t of misaTokens) {
+        const indices = tokenIndex.get(t)
+        if (indices) for (const idx of indices) candidateSet.add(idx)
+      }
+
+      let bestScore = 0
+      let best: any = null
+      for (const idx of candidateSet) {
+        const g = ggthList[idx]
+        const score = scoreTokens(misaTokens, ggthTokens[idx].tokens)
+        if (score > bestScore) { bestScore = score; best = g }
+      }
+
+      if (best && bestScore >= 0.15) {
+        updates.push({ id: m.id, score: Math.round(bestScore * 100) / 100, module: best.module, mo_ta: best.mo_ta, gia_goc: best.gia_goc })
+        matched++
+      } else { unmatched++ }
+    }
+
+    for (let i = 0; i < updates.length; i += 100) {
+      const chunk = updates.slice(i, i + 100)
+      const stmts = chunk.map(u =>
+        db.prepare(
+          "UPDATE ma_misa SET match_status = ?, match_score = ?, match_module = ?, match_mo_ta = ?, gia_goc = ?, match_updated_at = datetime('now','+7 hours') WHERE id = ?"
+        ).bind(
+          u.score >= 0.15 ? 'matched' : 'unmatched',
+          u.score, u.module, u.mo_ta,
+          u.score >= 0.15 ? u.gia_goc : null,
+          u.id
+        )
+      )
+      await db.batch(stmts)
+    }
+
+    const nextId = misaList[misaList.length - 1].id
+    return c.json({ success: true, total: misaList.length, done: false, matched, unmatched, nextId })
+  } catch (e: any) {
+    return c.json({ error: e.message, stack: e.stack }, 500)
+  }
+})
+
+// POST /api/gia-chuan/gia-goc-tong-hop/unmatch-wrong-material — gỡ match cho mã Melamine
+// (ten_sp chứa "MEL") đang match sang module vật liệu khác (ván nhựa PETG, veneer,
+// OneLaminate, gỗ ghép, DURABO, Acrylic, OSB). Mã bị gỡ → match_status='unmatched',
+// gia_goc=NULL. Idempotent: chạy lại được, chỉ ảnh hưởng mã đang matched sai.
+app.post('/gia-goc-tong-hop/unmatch-wrong-material', async (c) => {
+  try {
+    const db = c.env.DB
+    const { results } = await db.prepare(
+      "SELECT id, ma_sp, ten_sp, match_module FROM ma_misa WHERE match_status = 'matched'"
+    ).all()
+    const rows = results as any[]
+    const badMods = ['pvc_petg', 've', 'one_laminate', 'gg', 'dr', 'acrylic', 'osb']
+    const ids: number[] = []
+    for (const r of rows) {
+      const ten = String(r.ten_sp || '').toUpperCase()
+      if (ten.includes('MEL') && badMods.includes(r.match_module)) ids.push(r.id)
+    }
+    let updated = 0
+    for (let i = 0; i < ids.length; i += 100) {
+      const chunk = ids.slice(i, i + 100)
+      const stmts = chunk.map(id =>
+        db.prepare(
+          "UPDATE ma_misa SET match_status = 'unmatched', match_score = 0, match_module = '', match_mo_ta = '', gia_goc = NULL, match_updated_at = datetime('now','+7 hours') WHERE id = ?"
+        ).bind(id)
+      )
+      await db.batch(stmts)
+      updated += chunk.length
+    }
+    return c.json({ success: true, total: ids.length, updated })
+  } catch (e: any) {
+    return c.json({ error: e.message, stack: e.stack }, 500)
+  }
+})
+
 // Export data for local matching
 app.get('/gia-goc-tong-hop/ggth-all', async (c) => {
   const db = c.env.DB
@@ -2302,6 +2494,9 @@ app.post('/gia-goc-tong-hop/match-update', async (c) => {
 app.post('/gia-goc-tong-hop/update-ma-sp', async (c) => {
   try {
     const db = c.env.DB
+    if (await isBangGiaLocked(db)) {
+      return c.json({ error: 'Bảng Tính Giá đang bị KHÓA. Gán mã tay đã bị chặn — hãy liên hệ Admin.' }, 423)
+    }
     const { table, rows } = await c.req.json()
     if (!table || !rows || !Array.isArray(rows)) return c.json({ error: 'Invalid payload' }, 400)
 
@@ -2583,6 +2778,9 @@ app.get('/tim-ma-sp', async (c) => {
 app.post('/clear-ma-sp', async (c) => {
   try {
     const db = c.env.DB
+    if (await isBangGiaLocked(db)) {
+      return c.json({ error: 'Bảng Tính Giá đang bị KHÓA. Xóa mã hàng loạt đã bị chặn — hãy liên hệ Admin.' }, 423)
+    }
     const { table } = await c.req.json() as any
     if (!table || typeof table !== 'string') return c.json({ error: 'Missing table name' }, 400)
     await db.prepare(`UPDATE ${table} SET ma_sp = '', ten_sp = ''`).run()
@@ -2592,6 +2790,68 @@ app.post('/clear-ma-sp', async (c) => {
  }
 })
 
+// Check Giá Gốc — tra cứu giá gốc theo mã SP cho Sale
+app.get('/check-gia-goc', async (c) => {
+  try {
+    const db = c.env.DB
+    const q = (c.req.query('q') || '').trim().toUpperCase()
+    const limit = Math.min(parseInt(c.req.query('limit') || '20'), 100)
+    if (!q) return c.json({ data: [], total: 0 })
+
+    // 1) Tra c?u bang MISALA (don gia thuc te) + ten hang
+    const { results: misaRows } = await db.prepare(
+      `SELECT g.ma_sp, m.ten_sp, g.gia_goc
+       FROM gia_goc_by_ma g
+       LEFT JOIN ma_misa m ON g.ma_sp = m.ma_sp
+       WHERE g.ma_sp LIKE ? OR (m.ten_sp IS NOT NULL AND m.ten_sp LIKE ?)
+       ORDER BY g.ma_sp
+       LIMIT ?`
+    ).bind(`%${q}%`, `%${q}%`, limit).all()
+
+    // Union merge theo ma SP: uu tien MISA, bo sung ten/mo ta + gia tu bang tinh gia chi tiet
+    const mods = Object.keys(MODULE_COMPARE)
+    const moduleByMa: Record<string, string> = {}
+    const rows: Record<string, any> = {}
+
+    // (a) gains tu MISA
+    for (const r of misaRows as any[]) {
+      rows[r.ma_sp] = { ma_sp: r.ma_sp, ten_sp: r.ten_sp ?? null, gia_goc: r.gia_goc ?? null, module: '', src: 'misa' }
+    }
+
+    // (b) scan cac bang tinh gia chi tiet theo ma/ten
+    for (const mod of mods) {
+      const cfg = MODULE_COMPARE[mod as keyof typeof MODULE_COMPARE]
+      const priceExpr = cfg.priceCols.length === 1
+        ? cfg.priceCols[0]
+        : `COALESCE(${cfg.priceCols.join(', ')})`
+      const { results: found } = await db.prepare(
+        `SELECT ma_sp, ten_sp, ${priceExpr} AS gia_detail
+         FROM ${cfg.table}
+         WHERE ma_sp LIKE ? OR COALESCE(ten_sp, '') LIKE ?
+         ORDER BY ma_sp LIMIT ?`
+      ).bind(`%${q}%`, `%${q}%`, limit).all()
+      for (const r of ((found || []) as any[])) {
+        moduleByMa[r.ma_sp] = mod
+        if (!rows[r.ma_sp]) {
+          rows[r.ma_sp] = { ma_sp: r.ma_sp, ten_sp: r.ten_sp ?? null, gia_goc: r.gia_detail ?? null, module: mod, src: 'detail' }
+        } else {
+          if (!rows[r.ma_sp].ten_sp && r.ten_sp) rows[r.ma_sp].ten_sp = r.ten_sp
+          if (rows[r.ma_sp].gia_goc == null && r.gia_detail != null) rows[r.ma_sp].gia_goc = r.gia_detail
+        }
+      }
+    }
+
+    // gan module
+    for (const [ma, rec] of Object.entries(rows)) {
+      if (!rec.module && moduleByMa[ma]) rec.module = moduleByMa[ma]
+    }
+
+    const data = Object.values(rows).slice(0, limit)
+    return c.json({ data, total: data.length })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
 // Debug: query D1
 app.get('/query', async (c) => {
   try {
@@ -2603,6 +2863,466 @@ app.get('/query', async (c) => {
     return c.json({ results })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
+  }
+})
+
+// ====== BẢNG GIÁ CHỈ NẸP (bang_gia_chi) → MISA ======
+// Bảng này chưa nằm trong GIA_GOC_SYNC_TABLES nên chưa từng được đẩy lên ma_misa.
+// Dùng syncTableToMisaBulk (không đăng ký vào GIA_GOC_SYNC_TABLES để tránh chiều B ngược).
+app.post('/bang-gia-chi/sync-to-misa', async (c) => {
+  try {
+    const synced = await syncTableToMisaBulk(c.env.DB, { table: 'bang_gia_chi', maCol: 'ma_sp', priceCol: 'gia' })
+    return c.json({ success: true, synced })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// ====== RESTORE GIÁ GỐC CHO MÃ ME CÒN THIẾU ======
+// Chỉ LẤP các mã ma_misa đang NULL (không override giá đã có).
+// Tầng 1: khớp ma_sp chính xác trong bang_gia_chuan_tinh_gia_vmh/_vdo (nguồn giá theo nhóm màu/hiệu ứng).
+// Tầng 2: "anh em an toàn" — cùng key (mm|loai|mau|soMat), chỉ gán khi key có ĐÚNG 1 giá trong ma_misa.
+// Tầng 3: khớp (board_quy_cach, board_loai, ma_mau, so_mat) trong bảng tinh_gia → lấy tong_gia theo nhóm màu.
+//   Chỉ áp dụng với key KHÔNG đa giá trong ma_misa (tránh gán sai khi màu cùng hiệu ứng khác nhau có giá khác).
+// Trả về số đã gán mỗi tầng + danh sách còn thiếu để gán tay.
+function parseMelKey(ten: string | null): string | null {
+  if (!ten) return null
+  let s = ten.replace(/\(.*?\)/g, ' ').replace(/x1220x2440/g, ' ').replace(/\s+/g, ' ').trim()
+  const soM = s.match(/(\d+)\s*(?:mặt|măt|m)\s*$/i)
+  if (!soM) return null
+  const soMat = soM[1]
+  s = s.replace(/(\d+)\s*(?:mặt|măt|m)\s*$/i, ' ').trim()
+  const mmM = s.match(/(\d+(?:\.\d+)?)\s*(?:mm|ly|li)/i)
+  if (!mmM) return null
+  const mm = mmM[1]
+  s = s.replace(/(\d+(?:\.\d+)?)\s*(?:mm|ly|li)/i, ' ').trim()
+  let loai = 'MDF E2'
+  let m = s.match(/kh[aàáảãạ]ng \u1ea9m ([A-Z\u00C0-\u024F]+)/i)
+  if (!m) m = s.match(/kh[aàáảãạ]ng \u1eafm ([A-Z\u00C0-\u024F]+)/i)
+  if (m) {
+    loai = m[1] + ' E2'
+    s = s.replace(/kh[aàáảãạ]ng [\u1ea9m\u1eafm]+ [A-Z\u00C0-\u024F]+/i, ' ').trim()
+  } else if (/carb p2/i.test(s)) {
+    loai = 'CP2'
+    s = s.replace(/carb p2/gi, ' ').trim()
+  } else if (/okal/i.test(s)) {
+    loai = 'OKAL'
+    s = s.replace(/okal/gi, ' ').trim()
+  } else if (/g\u1ed7 gh/i.test(s)) {
+    loai = 'GỖ GHÉP'
+    s = s.replace(/g\u1ed7 gh[^ ]*/gi, ' ').trim()
+  } else if (/\bLMR\b/i.test(s)) {
+    loai = 'LMR E2'
+    s = s.replace(/\bLMR\b/gi, ' ').trim()
+  } else if (/\bMMR\b/i.test(s)) {
+    loai = 'MMR E2'
+    s = s.replace(/\bMMR\b/gi, ' ').trim()
+  } else if (/\bHMR\b/i.test(s)) {
+    loai = 'HMR E2'
+    s = s.replace(/\bHMR\b/gi, ' ').trim()
+  } else if (/\bLDF\b/i.test(s)) {
+    loai = 'LDF E2'
+    s = s.replace(/\bLDF\b/gi, ' ').trim()
+  }
+  s = s.replace(/\b(VC|TL|DW|MK|VCC|KG|TTD|TT|TB|KK|KGL|ECO|GC|2M)\b/g, ' ').trim()
+  const melM = s.match(/MEL\s+(.+)$/i)
+  let mau: string | null = null
+  if (melM) {
+    const after = melM[1].trim()
+    const m1 = after.match(/^([\w\u00C0-\u024F\u1E00-\u1EFF.][\w\u00C0-\u024F\u1E00-\u1EFF.-]*)\s+(.+)$/i)
+    mau = m1 ? m1[1].toUpperCase() : after.toUpperCase()
+  } else {
+    const parts = s.trim().split(/\s+/)
+    mau = parts[0]?.toUpperCase() || null
+  }
+  if (!mau) return null
+  return `${mm}|${loai}|${mau}|${soMat}`
+}
+
+// Map loai (từ ten_sp) → board_loai trong bang_gia_chuan_tinh_gia_vmh/_vdo
+// LMR/MMR/MDF/HMR thường là VN; Okal phân biệt theo loại ván trong ten_sp
+function loaiToBoardLoai(loai: string, ten: string): string | null {
+  const okal = /okal/i.test(ten || '')
+  if (okal) {
+    if (/carb p2/i.test(ten || '') || /cp2/i.test(ten || '')) return 'VECO CP2'
+    if (/f4s/i.test(ten || '')) return 'VECO F4S'
+    if (/hmr/i.test(ten || '')) return 'HMR E1'
+    return 'E2'
+  }
+  const map: Record<string, string> = {
+    'LMR E2': 'VN LMR E2',
+    'MMR E2': 'VN MMR E2',
+    'MDF E2': 'VN MDF E2',
+    'LDF E2': 'VN LDF E2',
+    'CP2': 'VN MDF CP2',
+    'HMR E2': 'VN HMR E2',
+    'HMR E1': 'VN HMR E1',
+    'HMR CP2': 'VN HMR CP2',
+  }
+  return map[loai] || null
+}
+
+// Parse ten_sp → { quyCach, boardLoai, mau, soMat } để khớp dòng tinh_gia
+function parseTinhGiaRow(ten: string | null): { quyCach: string; boardLoai: string; mau: string; soMat: number } | null {
+  if (!ten) return null
+  const k = parseMelKey(ten)
+  if (!k) return null
+  const [mm, loai, mau] = k.split('|')
+  const soMat = k.split('|')[3]
+  const boardLoai = loaiToBoardLoai(loai, ten)
+  if (!boardLoai) return null
+  return { quyCach: `${mm}mm`, boardLoai, mau, soMat: Number(soMat) }
+}
+
+const RESTORE_SOURCE_TABLES = [
+  { table: 'bang_gia_chuan_tinh_gia_vmh', nguon: 'tinh_gia_vmh' },
+  { table: 'bang_gia_chuan_tinh_gia_vdo', nguon: 'tinh_gia_vdo' },
+]
+
+// ====== FOIL ONE LAMINATE (LP/LE) ======
+// Mã LP*/LE* = "Tấm Foil One Laminate 0.7mm". Giá = gia_foil theo màu trong bảng One Laminate.
+// LE = LAMINATE ECONOMY, LP = LAMINATE PREMIUM; cùng màu có thể nằm ở cả 2 nhóm với giá khác nhau
+// nên phân nhóm theo tiền tố mã. Chuẩn hóa mã màu (bỏ dấu, hoa, bỏ space, ghép dải 104/101→101-104,
+// bỏ tail tên tiếng Anh sau '-', bỏ Y thừa) để khớp ma_mau trong bảng giá.
+function normFoilsMau(s: string): string {
+  return removeAccents(s).toUpperCase().replace(/[^A-Z0-9-]/g, '')
+}
+
+function parseFoilsColor(ten: string | null): string | null {
+  if (!ten) return null
+  const m = ten.match(/(?:LE|LP)\s*([^\s,]+)/i)
+  if (!m || m.index === undefined) return null
+  let tok = m[1]
+  // Màu 2 từ như "Metal goldY" → ghép từ kế tiếp
+  if (/^Metal/i.test(tok)) {
+    const rest = ten.slice(m.index + m[0].length)
+    const n = rest.match(/^\s*([A-Za-z\u00C0-\u024F\u0110\u0111]+)/)
+    if (n) tok = tok + n[1]
+  }
+  // Dải màu "104/101G" → "101-104G" (chuẩn hóa về thứ tự bảng giá)
+  const range = tok.match(/^(\d+)[\/-](\d+)([A-Z]{1,2})?$/i)
+  if (range) {
+    const a = parseInt(range[1]), b = parseInt(range[2])
+    tok = `${Math.min(a, b)}-${Math.max(a, b)}${(range[3] || '').toUpperCase()}`
+  }
+  let c = normFoilsMau(tok)
+  // Cắt tên tiếng Anh nối sau '-' (vd "004G-SNOW WHITE" → "004G"; "204-1T-" → "204T")
+  if (c.includes('-')) {
+    const prefix = c.split('-')[0]
+    if (/^\d{2,3}[A-Z]{1,2}$/.test(prefix)) c = prefix
+    else if (/^\d+-1[A-Z]{1,2}$/.test(prefix)) c = prefix.replace('-1', '')
+  }
+  c = c.replace(/-$/, '')
+  if (/^\d+-1[A-Z]{1,2}$/.test(c)) c = c.replace('-1', '')
+  if (c.length >= 4 && c.endsWith('Y')) c = c.slice(0, -1)
+  return /^[A-Z0-9-]+$/.test(c) ? c : null
+}
+
+app.post('/restore-gia-goc', async (c) => {
+  try {
+    const db = c.env.DB
+    const body = await c.req.json().catch(() => ({})) as any
+    const maxRows = Math.min(parseInt(body.max || '2000'), 10000)
+
+    const { results: missing } = await db.prepare(
+      `SELECT ma_sp, ten_sp FROM ma_misa
+       WHERE ((ma_sp LIKE 'ME%' OR ma_sp LIKE 'MEOK%')
+          OR (ma_sp LIKE 'LP%' OR ma_sp LIKE 'LE%') AND ten_sp LIKE '%Foil%'
+          OR ma_sp LIKE 'CHI%')
+         AND (gia_goc IS NULL OR gia_goc = 0 OR gia_goc = '')
+       ORDER BY ma_sp LIMIT ?`
+    ).bind(maxRows).all()
+    const rows = (missing || []) as any[]
+    if (rows.length === 0) return c.json({ success: true, exact: 0, sibling: 0, byColor: 0, computed: 0, foil: 0, chi: 0, remaining: 0, remainingList: [] })
+
+    // Global map key → tập giá trong ma_misa (để phát hiện key đa giá)
+    const { results: pricedRows } = await db.prepare(
+      `SELECT ten_sp, gia_goc FROM ma_misa WHERE gia_goc > 0 AND (ma_sp LIKE 'ME%' OR ma_sp LIKE 'MEOK%')`
+    ).all()
+    const priceByKey: Record<string, Map<number, number>> = {}
+    for (const r of (pricedRows || []) as any[]) {
+      const k = parseMelKey(r.ten_sp)
+      if (!k) continue
+      if (!priceByKey[k]) priceByKey[k] = new Map()
+      const g = Number(r.gia_goc)
+      priceByKey[k].set(g, (priceByKey[k].get(g) || 0) + 1)
+    }
+
+    // Tầng 1: exact ma_sp trong các bảng tinh_gia
+    const exactHits: { ma_sp: string; gia: number; nguon: string }[] = []
+    for (const cfg of RESTORE_SOURCE_TABLES) {
+      const IN_CHUNK = 90
+      for (let i = 0; i < rows.length; i += IN_CHUNK) {
+        const chunk = rows.slice(i, i + IN_CHUNK).map(r => r.ma_sp)
+        const ph = chunk.map(() => '?').join(',')
+        const { results } = await db.prepare(
+          `SELECT ma_sp, tong_gia FROM ${cfg.table} WHERE ma_sp IN (${ph})`
+        ).bind(...chunk).all()
+        for (const r of (results || []) as any[]) {
+          if (r.tong_gia > 0) exactHits.push({ ma_sp: r.ma_sp, gia: r.tong_gia, nguon: cfg.nguon })
+        }
+      }
+    }
+
+    // Tầng 2: anh em an toàn — key có đúng 1 giá
+    const afterExact = rows.filter(r => !exactHits.some(h => h.ma_sp === r.ma_sp))
+    const siblingHits: { ma_sp: string; gia: number }[] = []
+    for (const r of afterExact) {
+      const k = parseMelKey(r.ten_sp)
+      if (!k) continue
+      const m = priceByKey[k]
+      if (!m || m.size !== 1) continue
+      siblingHits.push({ ma_sp: r.ma_sp, gia: [...m.keys()][0] })
+    }
+
+    // Tầng 3: khớp (board_quy_cach, board_loai, ma_mau, so_mat) trong bảng tinh_gia
+    // Ghi giá chuẩn từ tinh_gia kể cả khi key đa giá; history lưu để rollback
+    const afterSibling = rows.filter(r =>
+      !exactHits.some(h => h.ma_sp === r.ma_sp) && !siblingHits.some(h => h.ma_sp === r.ma_sp)
+    )
+    const byColorHits: { ma_sp: string; gia: number; nguon: string }[] = []
+    for (const cfg of RESTORE_SOURCE_TABLES) {
+      const { results: tinhRows } = await db.prepare(
+        `SELECT board_quy_cach, board_loai, ma_mau, so_mat, tong_gia FROM ${cfg.table} WHERE tong_gia > 0`
+      ).all()
+      const rowByKey = new Map<string, number>()
+      for (const r of (tinhRows || []) as any[]) {
+        const key = `${r.board_quy_cach}|${r.board_loai}|${r.ma_mau}|${r.so_mat}`
+        if (!rowByKey.has(key)) rowByKey.set(key, r.tong_gia)
+      }
+      for (const r of afterSibling) {
+        const pr = parseTinhGiaRow(r.ten_sp)
+        if (!pr) continue
+        const tKey = `${pr.quyCach}|${pr.boardLoai}|${pr.mau}|${pr.soMat}`
+        const gia = rowByKey.get(tKey)
+        if (gia && gia > 0) byColorHits.push({ ma_sp: r.ma_sp, gia, nguon: cfg.nguon })
+      }
+    }
+
+    // Tầng 4: tính giá = board_gia (mdf_hdf / dam_okal) + phụ thu nhóm màu (phu_thu_melamine)
+    // Áp dụng cho màu đặc biệt (KEM/X.BIỂN/...) và loại ván thiếu dòng trực tiếp (15mm LMR)
+    const afterByColor = rows.filter(r =>
+      !exactHits.some(h => h.ma_sp === r.ma_sp) && !siblingHits.some(h => h.ma_sp === r.ma_sp)
+      && !byColorHits.some(h => h.ma_sp === r.ma_sp)
+    )
+    // màu → (loai Color/Wood/Art, nhom) ưu tiên bảng chuẩn, bổ sung bảng 220 màu
+    const colorMap = new Map<string, { loai: string; nhom: string }>()
+    {
+      const { results: cmRows } = await db.prepare(`SELECT ma_mau, loai, nhom FROM bang_gia_chuan_mau_melamine`).all()
+      for (const r of (cmRows || []) as any[]) {
+        if (!colorMap.has(r.ma_mau)) colorMap.set(r.ma_mau, { loai: r.loai || '', nhom: r.nhom })
+      }
+      const { results: cmRows2 } = await db.prepare(`SELECT ma_mau, nhom FROM bang_gia_ma_mau`).all()
+      for (const r of (cmRows2 || []) as any[]) {
+        if (!colorMap.has(r.ma_mau)) colorMap.set(r.ma_mau, { loai: '', nhom: r.nhom })
+      }
+    }
+    const { results: boardRows } = await db.prepare(
+      `SELECT quy_cach, vn_ldf_e2, vn_mdf_e2, vn_mdf_cp2, vn_hdf_hmr_e2, vn_hdf_hmr_e1,
+              th_mdf_e2, th_hdf_hmr_e2, vn_lmr_e2, vn_mmr_e2, vn_hmr_e2, vn_hmr_e1, vn_hmr_cp2,
+              th_mmr_e2, th_hmr_v313_e1 FROM bang_gia_chuan_mdf_hdf`
+    ).all()
+    const boardBase = new Map<string, Record<string, number | null>>()
+    for (const r of (boardRows || []) as any[]) {
+      boardBase.set(r.quy_cach, r)
+    }
+    const { results: okalRows } = await db.prepare(
+      `SELECT quy_cach, e2, veco_e1, veco_cp2, veco_f4s, hmr_e1 FROM bang_gia_chuan_dam_okal`
+    ).all()
+    const okalBase = new Map<string, Record<string, number | null>>()
+    for (const r of (okalRows || []) as any[]) {
+      okalBase.set(r.quy_cach, r)
+    }
+    const { results: ptRows } = await db.prepare(
+      `SELECT * FROM bang_gia_chuan_phu_thu_melamine WHERE mo_ta = 'Đơn giá' ORDER BY id LIMIT 1`
+    ).all()
+    const ptRow = (ptRows || [])[0] as any
+
+    // map nhóm → cột phụ thu
+    function phuThuCol(nhom: string, loai: string): string | null {
+      const n = (nhom || '').toUpperCase()
+      const l = (loai || '').toUpperCase()
+      if (n === 'BASIC' || n === 'BBG PREMIER BASIC') return 'basic'
+      if (n === 'ECONOMY' || n === 'BBG PREMIER ECONOMY') return 'eco'
+      if (n === 'STANDARD' || n === 'BBG PREMIER STANDARD') return 'standard'
+      if (n === 'SUPERB' || n === 'SUPERB HEAVY') return 'superb'
+      if (n === 'PREMIUM' || n === 'PREMIUM WOOD + ART') return l === 'COLOR' ? 'premium_color' : 'premium_wood_art'
+      if (n === 'PREMIUM COLOR') return 'premium_color'
+      return null
+    }
+
+    const computedHits: { ma_sp: string; gia: number; nguon: string }[] = []
+    for (const r of afterByColor) {
+      const k = parseMelKey(r.ten_sp)
+      if (!k) continue
+      const [mm, loai, mau, soMatS] = k.split('|')
+      const soMat = Number(soMatS)
+      const cm = colorMap.get(mau)
+      if (!cm) continue
+      const ptCol = phuThuCol(cm.nhom, cm.loai)
+      if (!ptCol || !ptRow) continue
+      const ptVal = Number(ptRow[`${ptCol}_${soMat}m`])
+      if (!ptVal || ptVal <= 0) continue
+      // board base: Okal dùng dam_okal, ván VN dùng mdf_hdf
+      let base: number | null = null
+      const isOkal = /okal/i.test(r.ten_sp || '')
+      if (isOkal) {
+        const ob = okalBase.get(`${mm}mm`)
+        if (!ob) continue
+        if (/carb p2|cp2/i.test(r.ten_sp)) base = ob.veco_cp2
+        else if (/f4s/i.test(r.ten_sp)) base = ob.veco_f4s
+        else if (/hmr/i.test(r.ten_sp)) base = ob.hmr_e1
+        else base = ob.e2
+      } else {
+        const bb = boardBase.get(`${mm}mm`)
+        if (!bb) continue
+        const colMap: Record<string, string> = {
+          'LMR E2': 'vn_lmr_e2', 'MMR E2': 'vn_mmr_e2', 'MDF E2': 'vn_mdf_e2',
+          'LDF E2': 'vn_ldf_e2', 'CP2': 'vn_mdf_cp2', 'HMR E2': 'vn_hmr_e2',
+          'HMR E1': 'vn_hmr_e1', 'HMR CP2': 'vn_hmr_cp2',
+        }
+        base = bb[colMap[loai]] ?? null
+        // LMR/MMR 15mm không có trong mdf_hdf → fallback TH HDF HMR E2 (theo tinh_gia_vmh)
+        if (base == null && (loai === 'LMR E2' || loai === 'MMR E2') && `${mm}mm` === '15mm') {
+          base = bb.th_hdf_hmr_e2
+        }
+      }
+      if (!base || base <= 0) continue
+      computedHits.push({ ma_sp: r.ma_sp, gia: base + ptVal, nguon: 'tinh_gia_board' })
+    }
+
+    // Tầng 5: Foil One Laminate (LP*/LE*) — giá = gia_foil theo màu (khớp qua chuẩn hóa màu)
+    const afterComputed = rows.filter(r =>
+      !exactHits.some(h => h.ma_sp === r.ma_sp) && !siblingHits.some(h => h.ma_sp === r.ma_sp)
+      && !byColorHits.some(h => h.ma_sp === r.ma_sp) && !computedHits.some(h => h.ma_sp === r.ma_sp)
+    )
+    // Bảng giá foil: màu → (nhóm, gia_foil). Cùng màu có thể ở economy + premium → phân theo tiền tố mã.
+    const { results: foilPriceRows } = await db.prepare(
+      `SELECT DISTINCT ma_mau, nhom, gia_foil FROM bang_gia_chuan_one_laminate WHERE gia_foil > 0`
+    ).all()
+    const foilByMau = new Map<string, { nhom: string; gia: number }[]>()
+    for (const r of (foilPriceRows || []) as any[]) {
+      const key = normFoilsMau(r.ma_mau)
+      if (!foilByMau.has(key)) foilByMau.set(key, [])
+      foilByMau.get(key)!.push({ nhom: String(r.nhom || ''), gia: Number(r.gia_foil) })
+    }
+    const foilHits: { ma_sp: string; gia: number; nguon: string }[] = []
+    for (const r of afterComputed) {
+      const isLe = /^\s*LE/i.test(r.ma_sp)
+      const isFoil = /Foil/i.test(r.ten_sp || '') && (isLe || /^\s*LP/i.test(r.ma_sp))
+      if (!isFoil) continue
+      const color = parseFoilsColor(r.ten_sp)
+      if (!color) continue
+      const cands = foilByMau.get(color) || []
+      // Fallback: lệch hậu tố EV/SN/WN/... (vd LP319SN vs bảng 319EV) — khớp theo số màu
+      // nếu trong đúng nhóm LE/LP chỉ có 1 mức giá.
+      if (cands.length === 0) {
+        const num = (color.match(/^\d+/) || [''])[0]
+        if (num) {
+          const wantNum = isLe ? /ECONOMY/i : /PREMIUM/i
+          const all = new Map<string, number>()
+          for (const [key, list] of foilByMau) {
+            if (key.startsWith(num)) for (const c of list) if (wantNum.test(c.nhom)) all.set(key + c.nhom, c.gia)
+          }
+          const uniq = new Set(all.values())
+          if (all.size > 0 && uniq.size === 1) {
+            foilHits.push({ ma_sp: r.ma_sp, gia: [...uniq][0], nguon: 'one_laminate' })
+          }
+        }
+        continue
+      }
+      // Chọn nhóm theo tiền tố: LE → economy, LP → premium. Nếu không rõ/không có nhóm tương ứng → 1 giá duy nhất.
+      const want = isLe ? /ECONOMY/i : /PREMIUM/i
+      const pick = cands.filter(c => want.test(c.nhom))
+      const chosen = pick.length > 0 ? pick : cands.length === 1 ? cands : []
+      if (chosen.length === 0) continue
+      const gia = Math.min(...chosen.map(c => c.gia))
+      foilHits.push({ ma_sp: r.ma_sp, gia, nguon: 'one_laminate' })
+    }
+
+    // Tầng 6: Chỉ nẹp (CHI*) — khớp ma_sp chính xác trong bang_gia_chuan_chi_nep
+    const afterFoil = rows.filter(r =>
+      !exactHits.some(h => h.ma_sp === r.ma_sp) && !siblingHits.some(h => h.ma_sp === r.ma_sp)
+      && !byColorHits.some(h => h.ma_sp === r.ma_sp) && !computedHits.some(h => h.ma_sp === r.ma_sp)
+      && !foilHits.some(h => h.ma_sp === r.ma_sp)
+    )
+    const { results: chiRowsAll } = await db.prepare(
+      `SELECT ma_sp, gia FROM bang_gia_chuan_chi_nep WHERE ma_sp != '' AND gia > 0`
+    ).all()
+    const chiByMa = new Map<string, number>()
+    for (const r of (chiRowsAll || []) as any[]) chiByMa.set(r.ma_sp, Number(r.gia))
+    const chiHits: { ma_sp: string; gia: number; nguon: string }[] = []
+    for (const r of afterFoil) {
+      if (!/^\s*CHI/i.test(r.ma_sp)) continue
+      const gia = chiByMa.get(r.ma_sp)
+      if (gia && gia > 0) chiHits.push({ ma_sp: r.ma_sp, gia, nguon: 'chi_nep' })
+    }
+
+    // Ghi: chỉ khi gia_goc đang NULL
+    const writes = [
+      ...exactHits.map(h => ({ ...h })),
+      ...siblingHits.map(h => ({ ma_sp: h.ma_sp, gia: h.gia, nguon: 'sibling' })),
+      ...byColorHits.map(h => ({ ...h })),
+      ...computedHits.map(h => ({ ...h })),
+      ...foilHits.map(h => ({ ...h })),
+      ...chiHits.map(h => ({ ...h })),
+    ]
+    const seen = new Set<string>()
+    const uniqueWrites = writes.filter(w => { if (seen.has(w.ma_sp)) return false; seen.add(w.ma_sp); return true })
+    let exactCount = 0
+    let siblingCount = 0
+    let byColorCount = 0
+    let computedCount = 0
+    let foilCount = 0
+    let chiCount = 0
+    const writeChunk = 100
+    const updStmts: D1PreparedStatement[] = []
+    const histStmts: D1PreparedStatement[] = []
+    const thang = currentThang()
+    for (const w of uniqueWrites) {
+      updStmts.push(
+        db.prepare(`UPDATE ma_misa SET gia_goc = ?, updated_at = datetime('now','+7 hours') WHERE ma_sp = ? AND (gia_goc IS NULL OR gia_goc = 0 OR gia_goc = '')`).bind(w.gia, w.ma_sp)
+      )
+      histStmts.push(
+        db.prepare(
+          'INSERT INTO ma_misa_gia_history (ma_sp, thang, gia_cu, gia_goc, nguon, updated_by) VALUES (?, ?, ?, ?, ?, ?)'
+        ).bind(w.ma_sp, thang, 0, w.gia, w.nguon, 'auto')
+      )
+      if (w.nguon === 'sibling') siblingCount++
+      else if (w.nguon === 'tinh_gia_board') computedCount++
+      else if (w.nguon === 'one_laminate') foilCount++
+      else if (w.nguon === 'chi_nep') chiCount++
+      else if (w.nguon === 'tinh_gia_vmh' || w.nguon === 'tinh_gia_vdo') {
+        // phân biệt exact vs byColor qua ma_sp có trong bảng tinh_gia hay không
+        const isExact = exactHits.some(h => h.ma_sp === w.ma_sp)
+        if (isExact) exactCount++; else byColorCount++
+      }
+    }
+    for (let i = 0; i < updStmts.length; i += writeChunk) {
+      await db.batch(updStmts.slice(i, i + writeChunk))
+    }
+    for (let i = 0; i < histStmts.length; i += writeChunk) {
+      await db.batch(histStmts.slice(i, i + writeChunk))
+    }
+
+    // Còn thiếu sau ghi
+    const done = new Set(uniqueWrites.map(w => w.ma_sp))
+    const remainingList = rows.filter(r => !done.has(r.ma_sp)).map(r => r.ma_sp)
+    return c.json({
+      success: true,
+      scanned: rows.length,
+      exact: exactCount,
+      sibling: siblingCount,
+      byColor: byColorCount,
+      computed: computedCount,
+      foil: foilCount,
+      chi: chiCount,
+      totalWritten: uniqueWrites.length,
+      remaining: remainingList.length,
+      remainingList,
+    })
+  } catch (e: any) {
+    return c.json({ error: e.message, stack: e.stack }, 500)
   }
 })
 

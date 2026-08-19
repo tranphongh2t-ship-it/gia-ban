@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { crudRoutes } from '../helpers/crud'
+import { tinhCKChoDong, buildLop2Ctx } from './chiet-khau'
 import * as XLSX from 'xlsx'
 
 type Env = { Bindings: { DB: D1Database } }
@@ -50,6 +51,42 @@ const crud = crudRoutes({
   listQuery: LIST_QUERY,
 })
 
+// GET /api/so-chi-tiet-ban-hang/doi-chieu — đối chiếu CK thực tế vs CK tính (5 lớp)
+router.get('/doi-chieu', async (c) => {
+  try {
+    const db = c.env.DB
+    const limit = Math.min(parseInt(c.req.query('limit') || '200'), 2000)
+    const offset = parseInt(c.req.query('offset') || '0')
+    const search = (c.req.query('search') || '').trim()
+
+    let where = 'WHERE 1=1'
+    const params: any[] = []
+    if (search) {
+      where += ' AND (t.ma_kh LIKE ? OR t.ten_kh LIKE ? OR t.ma_hang LIKE ? OR t.so_ct LIKE ?)'
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`)
+    }
+
+    const { results: rows } = await db.prepare(
+      `${LIST_QUERY} ${where} ORDER BY t.id DESC LIMIT ? OFFSET ?`
+    ).bind(...params, limit, offset).all()
+
+    const { results: cnt } = await db.prepare(
+      `SELECT COUNT(*) as total FROM so_chi_tiet_ban_hang t ${where}`
+    ).bind(...params).all()
+
+    const out: any[] = []
+    const ctx = await buildLop2Ctx(db)
+    for (const row of rows as any[]) {
+      const tinh = await tinhCKChoDong(db, row, ctx)
+      out.push({ ...row, ...tinh })
+    }
+
+    return c.json({ data: out, total: (cnt as any)?.[0]?.total || 0, limit, offset })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 router.route('/', crud)
 
 const COL_MAP = [
@@ -69,6 +106,27 @@ const COL_MAP = [
   { db: 'gt_giam', idx: 13 },
   { db: 'thue', idx: 14 },
 ]
+
+// Sau import: tự thêm khách mới vào bảng chiết khấu (danh_sach_khach) nếu chưa có
+// — mặc định Xưởng thường (PREMIUM/Thuong/XUONG_THUONG, CK 20%/7%) theo chính sách 2026.
+async function themKhachMoiVaoBangCK(db: D1Database): Promise<number> {
+  const { results } = await db.prepare(
+    `SELECT t.ma_kh, MAX(t.ten_kh) AS ten_kh
+     FROM so_chi_tiet_ban_hang t
+     WHERE t.ma_kh IS NOT NULL AND t.ma_kh != ''
+       AND t.ma_kh NOT IN (SELECT ma_kh FROM danh_sach_khach)
+     GROUP BY t.ma_kh`
+  ).all()
+  let so = 0
+  for (const r of results as any[]) {
+    await db.prepare(
+      `INSERT INTO danh_sach_khach (ma_kh, ten_kh, doi_tuong, hang, nhom, ck_ds_98mau_pct, ck_ds_khac_pct)
+       VALUES (?, ?, 'PREMIUM', 'Thuong', 'XUONG_THUONG', 0.20, 0.07)`
+    ).bind(String(r.ma_kh), String(r.ten_kh || '')).run()
+    so++
+  }
+  return so
+}
 
 // POST /api/so-chi-tiet-ban-hang/import-excel
 router.post('/import-excel', async (c) => {
@@ -182,12 +240,16 @@ router.post('/import-excel', async (c) => {
       await c.env.DB.batch(updateStmts.slice(i, i + BATCH))
     }
 
+    // Tự thêm khách mới vào bảng chiết khấu
+    const soKhachMoi = await themKhachMoiVaoBangCK(c.env.DB)
+
     return c.json({
       success: true,
       total: records.length,
       imported,
       skipped,
-      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng` : ''}`,
+      so_khach_moi: soKhachMoi,
+      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng` : ''}. Tự thêm ${soKhachMoi} khách mới vào bảng chiết khấu.`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -254,12 +316,16 @@ router.post('/import-rows', async (c) => {
       await c.env.DB.batch(insertStmts.slice(i, i + BATCH))
     }
 
+    // Tự thêm khách mới vào bảng chiết khấu
+    const soKhachMoi = await themKhachMoiVaoBangCK(c.env.DB)
+
     return c.json({
       success: true,
       total: records.length,
       imported,
       skipped,
-      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng` : ''}`,
+      so_khach_moi: soKhachMoi,
+      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng` : ''}. Tự thêm ${soKhachMoi} khách mới vào bảng chiết khấu.`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)

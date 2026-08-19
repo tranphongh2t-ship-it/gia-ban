@@ -484,7 +484,7 @@ export async function calculateAnyBasePrice(
               gia_goc_tinh: bp.tong_gia,
               cot_go_match: bp.cot_go_match?.cap || null,
               be_mat_match: bp.be_mat_match?.nhom || null,
-              chech_lech: donGia !== null ? donGia - bp.tong_gia : null,
+              chech_lech: donGia !== null && bp.tong_gia != null ? donGia - bp.tong_gia : null,
               parse_info: { loai_cot_go, do_day, cap, tier, colorCode, so_mat: so_mat || 1 }
             }
             break
@@ -503,7 +503,7 @@ export async function calculateAnyBasePrice(
                 gia_goc_tinh: bp.tong_gia,
                 cot_go_match: bp.cot_go_match?.cap || null,
                 be_mat_match: bp.be_mat_match?.nhom || null,
-                chech_lech: donGia !== null ? donGia - bp.tong_gia : null,
+                chech_lech: donGia !== null && bp.tong_gia != null ? donGia - bp.tong_gia : null,
                 parse_info: { loai_cot_go, do_day, cap, tier, colorCode, so_mat: so_mat || 1 }
               }
               break

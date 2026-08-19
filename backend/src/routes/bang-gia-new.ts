@@ -23,7 +23,7 @@ const tables = [
   { path: 'osb-laminate', table: 'bang_gia_osb_laminate', search: ['loai_cot', 'ma_sp'], listQuery: joinQuery('bang_gia_osb_laminate'), defaultFilters: { ma_sp: 'LP%|LE%' } },
   { path: 'mirror', table: 'bang_gia_mirror', search: ['loai', 'ten', 'ma_sp'], listQuery: joinQuery('bang_gia_mirror') },
   { path: 'gia-ban', table: 'gia_ban', search: ['ma_sp', 'ten_sp'], listQuery: `SELECT t.*, m.gia_goc AS gia_goc FROM gia_ban t LEFT JOIN ma_misa m ON t.ma_sp = m.ma_sp` },
-  { path: 'ma-misa', table: 'ma_misa', search: ['ma_sp', 'ten_sp'], priceHistory: { historyTable: 'ma_misa_gia_history', priceCol: 'gia_goc', refCol: 'ma_sp' } },
+  { path: 'ma-misa', table: 'ma_misa', search: ['ma_sp', 'ten_sp'], priceHistory: { historyTable: 'ma_misa_gia_history', priceCol: 'gia_goc', refCol: 'ma_sp' }, misaGiaSync: true },
 ]
 
 tables.forEach(t => {
@@ -33,6 +33,7 @@ tables.forEach(t => {
     listQuery: t2.listQuery, extraFilterMap: { ten_sp: 'm.ten_sp' },
     defaultFilters: t2.defaultFilters,
     ...(t2.priceHistory ? { priceHistory: t2.priceHistory } : {}),
+    ...(t2.misaGiaSync ? { misaGiaSync: true } : {}),
   })
   app.route(`/${t2.path}`, crud)
 })

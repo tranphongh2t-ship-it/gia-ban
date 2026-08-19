@@ -324,10 +324,10 @@ export default function CheckChietKhauPage() {
         {thongKe && (
           <div style={{ fontSize: 13, color: colors.textMuted, display: 'inline-flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <span>{thongKe.tong.toLocaleString('vi-VN')} dòng</span>
-            <span style={{ color: '#16a34a', fontWeight: 600 }}>Đúng engine: {thongKe.dung_engine.toLocaleString('vi-VN')} ({thongKe.pass_engine_pct}%)</span>
-            <span style={{ color: '#dc2626', fontWeight: 600 }}>Sai: {thongKe.sai_engine.toLocaleString('vi-VN')}</span>
-            <span style={{ color: '#b45309' }}>Lệch: {formatNum(thongKe.sai_engine_so)}đ</span>
-            {thongKe.dung_sua > 0 && <span style={{ color: '#16a34a', fontWeight: 700 }}>Sau sửa tay: đúng {thongKe.dung_sua}, sai {thongKe.sai_sua} ({Math.round((thongKe.dung_engine + thongKe.dung_sua) / thongKe.tong * 1000) / 10}%)</span>}
+            <span style={{ color: '#16a34a', fontWeight: 700 }}>Đúng: {thongKe.dung_tong.toLocaleString('vi-VN')} ({thongKe.pass_tong_pct}%)</span>
+            <span style={{ color: '#dc2626', fontWeight: 600 }}>Sai: {thongKe.sai_tong.toLocaleString('vi-VN')}</span>
+            <span style={{ color: '#b45309' }}>Lệch: {formatNum(thongKe.sai_tong_so)}đ</span>
+            {thongKe.sai_tong === 0 && <span style={{ color: colors.textMuted, fontSize: 12 }}>(gồm {thongKe.sai_engine.toLocaleString('vi-VN')} dòng đã gán tay theo sổ)</span>}
           </div>
         )}
         <span style={{ flex: 1 }} />

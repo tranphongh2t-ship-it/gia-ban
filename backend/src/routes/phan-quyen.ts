@@ -4,8 +4,13 @@ const router = new Hono<{ Bindings: { DB: D1Database } }>()
 
 const ALL_MENU_ITEMS = [
   { key: 'menu:/', label: 'Dashboard', group: 'Tổng quan' },
+  { key: 'menu:/dashboard', label: 'Dashboard (route)', group: 'Tổng quan' },
+  { key: 'menu:/check-gia-goc', label: 'Check Giá Gốc', group: 'Check Giá Gốc' },
+  { key: 'menu:/tinh-gia-goc', label: 'Tính giá gốc', group: 'Check Giá Gốc' },
+  { key: 'menu:/audit-gia-ck', label: 'Check giá gốc - CK', group: 'Check Giá Gốc' },
   { key: 'menu:/ma-misa', label: 'Mã MISA', group: 'Danh mục' },
   { key: 'menu:/gia-ban-misa', label: 'Giá bán (MISA)', group: 'Danh mục' },
+  { key: 'menu:/bang-tinh-gia', label: 'Bảng Tính Giá', group: 'Bảng Tính Giá' },
   { key: 'menu:/gia-van-tron', label: 'Giá Ván Trơn', group: 'Bảng Tính Giá' },
   { key: 'menu:/bang-gia-cot-go', label: 'Cốt gỗ', group: 'Bảng Tính Giá' },
   { key: 'menu:/bang-gia-nhom-mau', label: 'Nhóm màu', group: 'Bảng Tính Giá' },
@@ -20,22 +25,27 @@ const ALL_MENU_ITEMS = [
 
   { key: 'menu:/bang-gia-ck', label: 'Bảng giá CK', group: 'Chiết khấu' },
   { key: 'menu:/phan-bo-kh', label: 'Phân bổ KH', group: 'Chiết khấu' },
+  { key: 'menu:/danh-sach-khach', label: 'Danh sách KH', group: 'Chiết khấu' },
+  { key: 'menu:/chiet-khau', label: 'Đối chiếu chiết khấu', group: 'Chiết khấu' },
+  { key: 'menu:/danh-sach-khach-nhom', label: 'Danh sách KH 5 nhóm', group: 'Chiết khấu' },
+  { key: 'menu:/quan-ly-thang', label: 'Quản lý tháng', group: 'Chiết khấu' },
+  { key: 'menu:/check-chiet-khau', label: 'Check chiết khấu (test)', group: 'Chiết khấu' },
+  { key: 'menu:/bang-khach-thang', label: 'Khách hàng theo tháng', group: 'Chiết khấu' },
   { key: 'menu:/so-sanh-gia-goc', label: 'So sánh giá gốc', group: 'Dữ liệu' },
+  { key: 'menu:/gia-goc-tong-hop', label: 'Đối chiếu MISA · Giá gốc tổng hợp', group: 'Đối chiếu MISA' },
+  { key: 'menu:/kiem-tra-bang-tinh-gia', label: 'Đối chiếu MISA · Kiểm tra Bảng Tính Giá', group: 'Đối chiếu MISA' },
   { key: 'menu:/so-chi-tiet-ban-hang', label: 'Sổ chi tiết bán hàng', group: 'Dữ liệu' },
   { key: 'menu:/don-hang-excel', label: 'Đơn hàng', group: 'Dữ liệu' },
-  { key: 'menu:/tinh-ton-kho', label: 'Tính tồn kho', group: 'Tính Tồn Kho' },
-  { key: 'menu:/tinh-gia', label: 'Tính giá/CK', group: 'Công cụ' },
-  { key: 'menu:/tinh-gia-goc', label: 'Tính giá gốc', group: 'Công cụ' },
-  { key: 'menu:/quan-ly-thang', label: 'Quản lý tháng', group: 'Công cụ' },
   { key: 'menu:/import-export', label: 'Import/Export', group: 'Công cụ' },
   { key: 'menu:/phu-thu', label: 'Phụ thu', group: 'Công cụ' },
-  { key: 'menu:/audit', label: 'Audit CK', group: 'Công cụ' },
   { key: 'menu:/phan-quyen', label: 'Phân quyền', group: 'Công cụ' },
+  { key: 'menu:/log-thay-doi', label: 'Log lịch sử thay đổi', group: 'Công cụ' },
 ]
 
 const ALL_FEATURES = [
   { key: 'feature:import-export', label: 'Import/Export dữ liệu' },
   { key: 'feature:dong-bo-gia-goc', label: 'Đồng bộ giá gốc ← Đơn giá' },
+  { key: 'feature:edit-data', label: 'Được chỉnh sửa dữ liệu (Thêm/Sửa/Xoá/Tính toán/Đồng bộ)' },
 ]
 
 async function hashPass(pass: string): Promise<string> {

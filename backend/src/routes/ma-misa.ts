@@ -1,9 +1,12 @@
 import { crudRoutes } from '../helpers/crud'
+import { syncMisaToBangs } from '../helpers/giaGocSync'
 
 const app = crudRoutes({
   table: 'ma_misa',
   searchFields: ['ma_sp', 'ten_sp'],
   priceHistory: { historyTable: 'ma_misa_gia_history', priceCol: 'gia_goc', refCol: 'ma_sp' },
+  // Chiều B: đổi giá trên ma_misa → tự đẩy xuống các bảng giá gốc cùng mã + lịch sử
+  misaGiaSync: true,
 })
 
 const today = new Date()
@@ -37,7 +40,10 @@ app.post('/doi-gia', async (c) => {
       'INSERT INTO ma_misa_gia_history (ma_sp, thang, gia_cu, gia_goc, nguon, updated_by) VALUES (?, ?, ?, ?, ?, ?)'
     ).bind(ma_sp, thang, giaCu, gia, body.nguon || 'manual', body.updated_by || null).run()
 
-    return c.json({ success: true, changed: true, ma_sp, thang, gia_cu: giaCu, gia_goc: gia })
+    // Chiều B: đẩy giá mới xuống mọi bảng giá gốc có cùng mã + lịch sử
+    const synced = await syncMisaToBangs(c.env.DB, ma_sp, gia, body.updated_by || null)
+
+    return c.json({ success: true, changed: true, ma_sp, thang, gia_cu: giaCu, gia_goc: gia, synced })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }

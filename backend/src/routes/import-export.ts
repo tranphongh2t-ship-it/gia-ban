@@ -11,6 +11,9 @@ interface TableMeta {
   allColumns: string[]
   keyFields: string[]
   salesField?: string
+  exportQuery?: string
+  exportColumns?: string[]
+  exportAllColumns?: string[]
 }
 
 const DB_TABLES: TableMeta[] = [
@@ -41,6 +44,46 @@ const DB_TABLES: TableMeta[] = [
     columns: ['ma_kh', 'thang', 'nam', 'loai_op'],
     allColumns: ['id', 'ma_kh', 'thang', 'nam', 'loai_op', 'created_at', 'updated_at', 'updated_by'],
     keyFields: ['ma_kh', 'thang', 'nam'] },
+  { table: 'danh_sach_khach', label: 'Danh sách khách', group: 'Chiết khấu',
+    columns: ['ma_kh', 'ten_kh', 'loai_op', 'vung', 'doi_tuong', 'hang', 'nhom', 'tu_lay', 'ck_vc_pct', 'ck_ds_98mau_pct', 'ck_ds_khac_pct', 'ghi_chu'],
+    allColumns: ['id', 'ma_kh', 'ten_kh', 'loai_op', 'nguon', 'vung', 'doi_tuong', 'hang', 'nhom', 'tu_lay', 'ck_vc_pct', 'ck_ds_98mau_pct', 'ck_ds_khac_pct', 'ghi_chu', 'created_at', 'updated_at', 'updated_by'],
+    keyFields: ['ma_kh'] },
+  { table: 'policy_rules', label: 'Lớp 1 - CK bảng giá', group: 'Chiết khấu',
+    columns: ['nhom_sp', 'doi_tuong', 'tu_ngay', 'den_ngay', 'nguong_kien', 'pct_le', 'pct_kien', 'nguong_tier2', 'pct_tier2', 'nguong_tier3', 'pct_tier3', 'ghi_chu'],
+    allColumns: ['id', 'nhom_sp', 'doi_tuong', 'tu_ngay', 'den_ngay', 'nguong_kien', 'pct_le', 'pct_kien', 'nguong_tier2', 'pct_tier2', 'nguong_tier3', 'pct_tier3', 'ghi_chu'],
+    keyFields: ['nhom_sp', 'doi_tuong', 'tu_ngay'] },
+  { table: 'ck_van_chuyen', label: 'Lớp 2 - CK vận chuyển', group: 'Chiết khấu',
+    columns: ['doi_tuong', 'vung', 'pct_mdf_mel', 'pct_khac', 'nguong_kien', 'tu_ngay', 'den_ngay'],
+    allColumns: ['id', 'doi_tuong', 'vung', 'pct_mdf_mel', 'pct_khac', 'nguong_kien', 'tu_ngay', 'den_ngay'],
+    keyFields: ['doi_tuong', 'vung'] },
+  { table: 'policy_revenue_tiers', label: 'Lớp 3 - CK doanh số Mel', group: 'Chiết khấu',
+    columns: ['vung', 'hang', 'bac_tu', 'pct_98mau', 'pct_khac', 'tu_ngay', 'den_ngay'],
+    allColumns: ['id', 'vung', 'hang', 'bac_tu', 'pct_98mau', 'pct_khac', 'tu_ngay', 'den_ngay'],
+    keyFields: ['vung', 'hang', 'bac_tu'] },
+  { table: 'policy_annual_tiers', label: 'Lớp 5 - CK năm', group: 'Chiết khấu',
+    columns: ['bac_tu', 'pct', 'tu_ngay', 'den_ngay'],
+    allColumns: ['id', 'bac_tu', 'pct', 'tu_ngay', 'den_ngay'],
+    keyFields: ['bac_tu'] },
+  { table: 'op2_bac_thang', label: 'OP2 - bậc theo tháng', group: 'Chiết khấu',
+    columns: ['ma_kh', 'thang', 'pct_98mau', 'pct_khac'],
+    allColumns: ['ma_kh', 'thang', 'pct_98mau', 'pct_khac'],
+    keyFields: ['ma_kh', 'thang'] },
+  { table: 'ck_op1', label: 'Bảng CK OP1 theo tháng', group: 'Chiết khấu',
+    columns: ['thang', 'nhom_sp', 'dieu_kien', 'dl_tinh', 'dl_nt', 'dl_sg', 'xuong_thuong', 'xuong_premium', 'loai_don_vi', 'don_vi_tinh', 'nguong', 'ghi_chu'],
+    allColumns: ['id', 'thang', 'nhom_sp', 'dieu_kien', 'dl_tinh', 'dl_nt', 'dl_sg', 'xuong_thuong', 'xuong_premium', 'loai_don_vi', 'don_vi_tinh', 'nguong', 'ghi_chu', 'created_at', 'updated_at', 'updated_by'],
+    keyFields: ['thang', 'nhom_sp', 'dieu_kien'] },
+  { table: 'ck_op2', label: 'Bảng CK OP2 theo tháng', group: 'Chiết khấu',
+    columns: ['thang', 'vung', 'bac_tu', 'pct_98mau', 'pct_khac', 'pct_vc_mel', 'pct_vc_khac'],
+    allColumns: ['id', 'thang', 'vung', 'bac_tu', 'pct_98mau', 'pct_khac', 'pct_vc_mel', 'pct_vc_khac', 'created_at', 'updated_at', 'updated_by'],
+    keyFields: ['thang', 'vung', 'bac_tu'] },
+  { table: 'monthly_summary', label: 'Tổng hợp tháng (Lớp 4+5)', group: 'Chiết khấu',
+    columns: ['ma_kh', 'thang', 'ds_mel_thang', 'ds_mel_luy_ke_nam', 'ck_thang_pct', 'ck_nam_pct'],
+    allColumns: ['ma_kh', 'thang', 'ds_mel_thang', 'ds_mel_luy_ke_nam', 'ck_thang_pct', 'ck_nam_pct', 'updated_at'],
+    keyFields: ['ma_kh', 'thang'] },
+  { table: 'ma_hang_nhom_mau', label: 'Mã hàng - nhóm màu', group: 'Chiết khấu',
+    columns: ['ma_hang', 'nhom_mau'],
+    allColumns: ['ma_hang', 'nhom_mau'],
+    keyFields: ['ma_hang'] },
 
   // ===== Bảng Tính Giá Chi Tiết - Ván Phủ =====
   { table: 'bang_gia_cot_go', label: 'Cốt gỗ', group: 'Bảng giá ván phủ',
@@ -120,6 +163,19 @@ const DB_TABLES: TableMeta[] = [
     columns: ['ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue'],
     allColumns: ['id', 'ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'created_at'],
     keyFields: ['id'] },
+  { table: 'check_gia_goc_ck', label: 'Check giá gốc - CK', group: 'Dữ liệu',
+    columns: ['ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue'],
+    allColumns: ['id', 'ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'created_at'],
+    exportColumns: ['ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'gia_goc', 'gia_goc_ngay', 'gia_misa', 'chech_lech', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue'],
+    exportAllColumns: ['id', 'ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'gia_goc', 'gia_goc_ngay', 'gia_misa', 'chech_lech', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'created_at'],
+    exportQuery: `SELECT t.*,
+        m.gia_goc AS gia_goc,
+        t.gia_goc_ngay,
+        m.gia_goc AS gia_misa,
+        (COALESCE(t.gia_goc_ngay, m.gia_goc, 0) - t.don_gia) AS chech_lech
+      FROM check_gia_goc_ck t
+      LEFT JOIN ma_misa m ON m.ma_sp = t.ma_hang`,
+    keyFields: ['id'] },
   { table: 'don_hang', label: 'Đơn hàng', group: 'Dữ liệu',
     columns: ['nv_sale', 'dh', 'kho', 'ngay', 'tinh_hinh', 'ma_kh', 'khach', 'ma_hang', 'dien_giai', 'sl_dat', 'tien_ck', 'dso', 'ty_le_ck', 'don_gia_ban', 'nhom_gia', 'es', 'hang_khach', 'giay', 'phim', 'mau', 'sl_mat', 'van_tron_chi', 'con_lai', 'gia_dung_kiem_lai', 'cl_sai_tam', 'tong_cl', 'dh_chieu', 'ck_dung', 'pt', 'cl_ck', 'hk', 'n', 'ck_vc', 'khach_text', 'kln', 'cl_ck2', 'gia_dh', 'cl', 'ghi_chu', 'mau_sang_trung_toi', 'vt', 'sai_ma', 'ten_hang', 'dd_chung', 'so_ct', 'dvt', 'sl_tra', 'gt_tra', 'gt_giam'],
     allColumns: ['id', 'nv_sale', 'dh', 'kho', 'ngay', 'tinh_hinh', 'ma_kh', 'khach', 'ma_hang', 'dien_giai', 'sl_dat', 'tien_ck', 'dso', 'ty_le_ck', 'don_gia_ban', 'nhom_gia', 'es', 'hang_khach', 'giay', 'phim', 'mau', 'sl_mat', 'van_tron_chi', 'con_lai', 'gia_dung_kiem_lai', 'cl_sai_tam', 'tong_cl', 'dh_chieu', 'ck_dung', 'pt', 'cl_ck', 'hk', 'n', 'ck_vc', 'khach_text', 'kln', 'cl_ck2', 'gia_dh', 'cl', 'ghi_chu', 'mau_sang_trung_toi', 'vt', 'sai_ma', 'ten_hang', 'dd_chung', 'so_ct', 'dvt', 'sl_tra', 'gt_tra', 'gt_giam', 'sales_id', 'created_at', 'updated_at', 'updated_by'],
@@ -168,6 +224,7 @@ router.get('/template/:table', async (c) => {
         loai: 'Loại *', key_match: 'Key *', loai_kh: 'Loại KH',
         cot_index: 'Cột CK', gia_tri: 'Giá trị *', loai_don_vi: 'Đơn vị',
         thang: 'Tháng *', nam: 'Năm *', loai_op: 'Loại OP *',
+        nguon: 'Nguồn',
         ma_hang: 'Mã hàng *', ten_hang: 'Tên hàng', phi: 'Phí',
         ma_mau: 'Mã màu', ten_mau: 'Tên màu', ma_vt: 'Mã ván trơn',
         ten_vt: 'Tên ván trơn', email: 'Email *', ten: 'Tên *',
@@ -198,6 +255,15 @@ router.get('/template/:table', async (c) => {
         pvc_standard_1m: 'PVC Standard 1m', pvc_standard_2m: 'PVC Standard 2m',
         pvc_premium_1m: 'PVC Premium 1m', pvc_premium_2m: 'PVC Premium 2m',
         petg_1m: 'PETG 1m', petg_2m: 'PETG 2m',
+        vung: 'Vùng', doi_tuong: 'Đối tượng', hang: 'Hạng', nhom_sp: 'Nhóm SP',
+        tu_lay: 'Tự lấy', tu_ngay: 'Từ ngày', den_ngay: 'Đến ngày',
+        pct_le: 'CK lẻ', pct_kien: 'CK kiện', pct_tier2: 'CK bậc 2', pct_tier3: 'CK bậc 3',
+        nguong_kien: 'Ngưỡng kiện', nguong_tier2: 'Ngưỡng bậc 2', nguong_tier3: 'Ngưỡng bậc 3',
+        pct_mdf_mel: 'CK MDF/Mel', pct_khac: 'CK khác', bac_tu: 'Bậc từ',
+        pct_98mau: 'CK 98 màu', ck_vc_pct: 'CK vận chuyển',
+        ck_ds_98mau_pct: 'CK DS 98 màu', ck_ds_khac_pct: 'CK DS màu khác',
+        ds_mel_thang: 'DS Mel tháng', ds_mel_luy_ke_nam: 'DS Mel lũy kế năm',
+        ck_thang_pct: 'CK tháng', ck_nam_pct: 'CK năm',
       }
       return labels[c] || c
     })
@@ -241,6 +307,7 @@ const HEADER_LABELS: Record<string, string> = {
   'Tháng *': 'thang', 'Tháng': 'thang',
   'Năm *': 'nam', 'Năm': 'nam',
   'Loại OP *': 'loai_op', 'Loại OP': 'loai_op',
+  'Nguồn': 'nguon',
   'Mã hàng *': 'ma_hang', 'Mã hàng': 'ma_hang',
   'Phí': 'phi', 'Mã màu': 'ma_mau', 'Tên màu': 'ten_mau',
   'Mã ván trơn': 'ma_vt', 'Tên ván trơn': 'ten_vt',
@@ -254,6 +321,15 @@ const HEADER_LABELS: Record<string, string> = {
   'Tên hàng': 'ten_hang', 'SL bán': 'sl_ban', 'Đơn giá': 'don_gia',
   'Doanh số': 'doanh_so', 'CK': 'ck', 'SL trả': 'sl_tra',
   'GT trả': 'gt_tra', 'GT giảm': 'gt_giam', 'Thuế': 'thue',
+  'Vùng': 'vung', 'Đối tượng': 'doi_tuong', 'Hạng': 'hang', 'Nhóm SP': 'nhom_sp',
+  'Tự lấy': 'tu_lay', 'Từ ngày': 'tu_ngay', 'Đến ngày': 'den_ngay',
+  'CK lẻ': 'pct_le', 'CK kiện': 'pct_kien', 'CK bậc 2': 'pct_tier2', 'CK bậc 3': 'pct_tier3',
+  'Ngưỡng kiện': 'nguong_kien', 'Ngưỡng bậc 2': 'nguong_tier2', 'Ngưỡng bậc 3': 'nguong_tier3',
+  'CK MDF/Mel': 'pct_mdf_mel', 'CK khác': 'pct_khac', 'Bậc từ': 'bac_tu',
+  'CK 98 màu': 'pct_98mau', 'CK vận chuyển': 'ck_vc_pct',
+  'CK DS 98 màu': 'ck_ds_98mau_pct', 'CK DS màu khác': 'ck_ds_khac_pct',
+  'DS Mel tháng': 'ds_mel_thang', 'DS Mel lũy kế năm': 'ds_mel_luy_ke_nam',
+  'CK tháng': 'ck_thang_pct', 'CK năm': 'ck_nam_pct',
 }
 
 router.post('/preview', async (c) => {
@@ -453,6 +529,64 @@ router.post('/confirm', async (c) => {
 
 // ============ EXPORT ============
 
+// ============ IMPORT JSON ============
+// Upsert dữ liệu JSON (array các object) vào bảng theo keyFields.
+// Body: { rows: [ { col: val, ... }, ... ] } — nếu keyFields tồn tại trong row → UPDATE, ngược lại INSERT.
+router.post('/json/:table', async (c) => {
+  try {
+    const { table } = c.req.param()
+    const meta = TABLE_META[table]
+    if (!meta) return c.json({ error: `Unknown table: ${table}` }, 400)
+
+    const body = await c.req.json() as any
+    const rows: any[] = Array.isArray(body.rows) ? body.rows : (Array.isArray(body) ? body : [])
+    if (rows.length === 0) return c.json({ error: 'Không có dữ liệu' }, 400)
+
+    const db = c.env.DB
+    const allowed = new Set(meta.allColumns)
+    let inserted = 0, updated = 0, skipped = 0
+
+    for (const row of rows) {
+      const data: Record<string, any> = {}
+      for (const [k, v] of Object.entries(row)) {
+        if (allowed.has(k) && v !== undefined && v !== null && v !== '') data[k] = v
+      }
+      if (Object.keys(data).length === 0) { skipped++; continue }
+
+      // keyFields có giá trị trong row → tìm bản ghi cũ để UPDATE, ngược lại INSERT
+      const keyVals = meta.keyFields.map(k => data[k])
+      const hasKey = keyVals.every(v => v !== undefined && v !== null && v !== '')
+
+      let exists = null
+      if (hasKey) {
+        const keyConds = meta.keyFields.map(k => `${k} = ?`).join(' AND ')
+        exists = await db.prepare(`SELECT ${meta.keyFields.join(', ')} FROM ${meta.table} WHERE ${keyConds} LIMIT 1`).bind(...keyVals).first()
+      }
+
+      if (exists) {
+        const updateKeys = Object.keys(data).filter(k => !meta.keyFields.includes(k))
+        if (updateKeys.length === 0) { skipped++; continue }
+        const setClause = updateKeys.map(k => `${k} = ?`).join(', ')
+        await db.prepare(`UPDATE ${meta.table} SET ${setClause} WHERE ${meta.keyFields.map(k => `${k} = ?`).join(' AND ')}`)
+          .bind(...updateKeys.map(k => data[k]), ...keyVals).run()
+        updated++
+      } else {
+        const cols = Object.keys(data).filter(k => !meta.allColumns.includes('id') || k !== 'id')
+        const insCols = cols.filter(k => allowed.has(k))
+        if (insCols.length === 0) { skipped++; continue }
+        await db.prepare(
+          `INSERT OR IGNORE INTO ${meta.table} (${insCols.join(', ')}) VALUES (${insCols.map(() => '?').join(', ')})`
+        ).bind(...insCols.map(k => data[k])).run()
+        inserted++
+      }
+    }
+
+    return c.json({ success: true, table, results: { inserted, updated, skipped } })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 router.get('/excel/:table', async (c) => {
   try {
     const { table } = c.req.param()
@@ -460,14 +594,17 @@ router.get('/excel/:table', async (c) => {
     if (!meta) return c.json({ error: `Unknown table: ${table}` }, 400)
 
     const colsParam = c.req.query('columns') || ''
-    const exportCols = colsParam ? colsParam.split(',').filter(Boolean) : meta.columns
+    const defCols = meta.exportColumns || meta.columns
+    const exportCols = colsParam ? colsParam.split(',').filter(Boolean) : defCols
+    const allowedCols = meta.exportAllColumns || meta.allColumns
 
     // Validate requested columns
-    const validCols = exportCols.filter((col: string) => meta.allColumns.includes(col))
+    const validCols = exportCols.filter((col: string) => allowedCols.includes(col))
     if (validCols.length === 0) return c.json({ error: 'No valid columns selected' }, 400)
 
     const selectCols = validCols.join(', ')
-    const result = await c.env.DB.prepare(`SELECT ${selectCols} FROM ${meta.table} ORDER BY id`).all()
+    const fromSql = meta.exportQuery ? `(${meta.exportQuery})` : meta.table
+    const result = await c.env.DB.prepare(`SELECT ${selectCols} FROM ${fromSql} ORDER BY id`).all()
     const rows = result.results || []
 
     // Resolve sales_id → name if applicable
@@ -508,13 +645,16 @@ router.get('/json/:table', async (c) => {
     if (!meta) return c.json({ error: `Unknown table: ${table}` }, 400)
 
     const colsParam = c.req.query('columns') || ''
-    const exportCols = colsParam ? colsParam.split(',').filter(Boolean) : meta.columns
+    const defCols = meta.exportColumns || meta.columns
+    const exportCols = colsParam ? colsParam.split(',').filter(Boolean) : defCols
+    const allowedCols = meta.exportAllColumns || meta.allColumns
 
-    const validCols = exportCols.filter((col: string) => meta.allColumns.includes(col))
+    const validCols = exportCols.filter((col: string) => allowedCols.includes(col))
     if (validCols.length === 0) return c.json({ error: 'No valid columns selected' }, 400)
 
     const selectCols = validCols.join(', ')
-    const result = await c.env.DB.prepare(`SELECT ${selectCols} FROM ${meta.table} ORDER BY id`).all()
+    const fromSql = meta.exportQuery ? `(${meta.exportQuery})` : meta.table
+    const result = await c.env.DB.prepare(`SELECT ${selectCols} FROM ${fromSql} ORDER BY id`).all()
 
     return c.json({ data: result.results || [], total: (result.results || []).length })
   } catch (e: any) {
