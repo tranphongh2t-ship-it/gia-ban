@@ -28,10 +28,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUser = useCallback(async () => {
     const stored = localStorage.getItem('auth_user')
     if (!stored) { setLoading(false); return }
-    let parsed: AuthUser
+    let parsed: AuthUser | undefined
     try {
       parsed = JSON.parse(stored)
-      const res = await apiGet('/auth/me', { 'x-user-id': String(parsed.id) })
+      const parsedId = parsed!.id
+      const res = await apiGet('/auth/me', { 'x-user-id': String(parsedId) })
       setUser({ ...res, is_admin: res.is_admin })
     } catch (e: any) {
       if (e.message?.includes('Unauthorized') || e.message?.includes('User not found')) {

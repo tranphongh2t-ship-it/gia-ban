@@ -214,7 +214,7 @@ function TaoThangTab({ thangs, baseThang, onMsg }: { thangs: string[]; baseThang
 }
 
 // ============ BƯỚC 3: Tính toán & chốt ============
-type TK = { tong: number; dung: number; sai: number; sai_lech: number; pass_pct: number }
+type TK = { tong: number; dung: number; sai: number; sai_lech: number; pass_pct: number; nguon: string }
 
 function TinhToanTab({ thang, onMsg }: { thang: string; onMsg: (m: { type: 'ok' | 'err'; text: string } | null) => void }) {
   const [busy, setBusy] = useState<string | null>(null)
