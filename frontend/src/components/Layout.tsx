@@ -166,6 +166,11 @@ export default function Layout() {
   if (!user) return <LoginOverlay />
 
   const navGroups: NavGroup[] = [
+    { section: 'Tổng quan', items: [{ label: 'Dashboard', path: '/dashboard', perm: 'menu:/dashboard' }] },
+    { section: 'Danh mục', items: [
+      { label: 'Mã MISA', path: '/ma-misa', perm: 'menu:/ma-misa' },
+      { label: 'Giá bán (MISA)', path: '/gia-ban-misa', perm: 'menu:/gia-ban-misa' },
+    ]},
     { section: 'Check Giá Gốc', items: [
       { label: 'Check Giá Gốc', path: '/check-gia-goc', perm: 'menu:/check-gia-goc' },
       { label: 'Máy tính giá', path: '/tinh-gia-goc', perm: 'menu:/tinh-gia-goc' },
@@ -241,11 +246,6 @@ export default function Layout() {
         { label: 'Mirror', path: '/bang-tinh-gia/mirror', perm: 'menu:/bang-tinh-gia' },
         { label: 'Tính giá gốc Mirror', path: '/tinh-gia-mirror', perm: 'menu:/bang-tinh-gia' },
       ]},
-    ]},
-    { section: 'Tổng quan', items: [{ label: 'Dashboard', path: '/dashboard', perm: 'menu:/dashboard' }] },
-    { section: 'Danh mục', items: [
-      { label: 'Mã MISA', path: '/ma-misa', perm: 'menu:/ma-misa' },
-      { label: 'Giá bán (MISA)', path: '/gia-ban-misa', perm: 'menu:/gia-ban-misa' },
     ]},
     { section: 'Bảng Tính Giá Chi Tiết', subGroups: [
       { label: 'Tính Giá Ván Phủ', items: [
