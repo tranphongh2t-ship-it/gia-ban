@@ -27,4 +27,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           workingDirectory: frontend
-          command: pages deploy dist --project-name=gia-ban-frontend
+          command: pages deploy dist --project-name=gia-ban-web
