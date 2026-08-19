@@ -79,6 +79,7 @@ function buildDemoRows(): any[] {
       ck_tinh: ckTinhFinal,
       dieu_kien: dieuKien,
       sua_ghichu: modCk === 2 && ck > 0 ? 'Thêm 1% vận chuyển (đơn tự lấy)' : null,
+      updated_by: modCk === 2 && ck > 0 ? (i % 2 === 0 ? 'Huỳnh Nhật Minh' : 'Nguyễn Thúy An') : null,
     }
   })
 }
@@ -178,9 +179,10 @@ const columns: Column[] = [
   },
   { key: 'dieu_kien', label: 'Điều kiện CK', width: '160', computed: true, render: (v) => v ? v : '—' },
   {
-    key: 'sua_ghichu', label: 'Ghi chú sử dụng', width: '180', computed: true,
+    key: 'sua_ghichu', label: 'Ghi chú sửa', width: '180', computed: true,
     render: (v) => v ? <span style={{ color: '#b45309' }}>{v}</span> : '—',
   },
+  { key: 'updated_by', label: 'Người sửa', type: 'text', width: '150' },
 
   { key: 'sl_tra', label: 'Tổng SL trả lại', type: 'number', width: '110' },
   { key: 'gt_tra', label: 'Giá trị trả lại', type: 'number', width: '120' },

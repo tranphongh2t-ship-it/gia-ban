@@ -128,7 +128,10 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
 
 export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, rowActions, logBang, historyInForm, demoRows }: DataGridProps) {
   const { hasPermission, user } = useAuth()
-  const canEdit = hasPermission('feature:edit-data') && !demoRows
+  const canEdit = hasPermission('feature:edit-data')
+  // Bản sao dữ liệu mẫu để sửa/xóa trực tiếp ở chế độ demo (đợi backend)
+  const [localRows, setLocalRows] = useState<any[] | null>(demoRows || null)
+  const demoMode = !!demoRows
   const [data, setData] = useState<any[]>([])
   const [total, setTotal] = useState(0)
   const [limit] = useState(defaultLimit)
@@ -262,10 +265,10 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   }
 
   const fetchData = useCallback(async () => {
-    if (demoRows) {
+    if (demoMode) {
       // Chế độ demo: lọc + phân trang ngay trên dữ liệu mẫu, không gọi backend
       setLoading(false); setError(null)
-      let rows = demoRows.slice()
+      let rows = (localRows || []).slice()
       if (search) {
         const q = search.toLowerCase()
         rows = rows.filter(r => Object.values(r).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(q)))
@@ -307,7 +310,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       setData(res.data || []); setTotal(res.total || 0)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
-  }, [apiPath, search, limit, offset, filters, extraFilters, demoRows])
+  }, [apiPath, search, limit, offset, filters, extraFilters, demoMode, localRows])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -317,7 +320,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     setExporting(true)
     try {
       const exportFormat = format === 'excel' ? 'excel' : 'json'
-      if (demoRows) {
+      if (demoMode) {
         // Chế độ demo: xuất file từ dữ liệu hiện có, không gọi backend
         const rows: any[] = data
         if (rows.length === 0) throw new Error('Không có dữ liệu để xuất')
@@ -358,7 +361,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     setExportingCsv(true)
     try {
       let rows: any[]
-      if (demoRows) {
+      if (demoMode) {
         rows = data
       } else {
         const res = await fetch(`${API_BASE}/export/json${apiPath}`)
@@ -418,7 +421,15 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     payload.updated_by = user?.ten || null
     setSaving(true); setFormError(null)
     try {
-      if (editItem) { await apiPatch(`${apiPath}/${editItem.id}`, payload) }
+      if (demoMode) {
+        if (editItem) {
+          setLocalRows(prev => (prev || []).map(r => (r.id === editItem.id ? { ...r, ...payload } : r)))
+        } else {
+          const cur = localRows || []
+          const newId = cur.length ? Math.max(...cur.map(r => Number(r.id) || 0)) + 1 : 1
+          setLocalRows([...cur, { ...payload, id: newId }])
+        }
+      } else if (editItem) { await apiPatch(`${apiPath}/${editItem.id}`, payload) }
       else { await apiPost(apiPath, payload) }
       setModalOpen(false); fetchData()
     } catch (e: any) { setFormError(e.message) }
@@ -429,7 +440,11 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     if (!confirmDelete) return
     setDeleting(true)
     try {
-      await apiDelete(`${apiPath}/${confirmDelete.id}`)
+      if (demoMode) {
+        setLocalRows(prev => (prev || []).filter(r => r.id !== confirmDelete.id))
+      } else {
+        await apiDelete(`${apiPath}/${confirmDelete.id}`)
+      }
       setConfirmDelete(null)
       if (data.length === 1 && offset > 0) setOffset(offset - fetchLimit)
       else fetchData()
@@ -453,7 +468,11 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     payload[inlineEdit.colKey] = inlineEdit.value
     payload.updated_by = user?.ten || null
     try {
-      await apiPatch(`${apiPath}/${inlineEdit.rowId}`, payload)
+      if (demoMode) {
+        setLocalRows(prev => (prev || []).map(r => (r.id === inlineEdit.rowId ? { ...r, ...payload } : r)))
+      } else {
+        await apiPatch(`${apiPath}/${inlineEdit.rowId}`, payload)
+      }
       setInlineEdit(null)
       fetchData()
     } catch (e: any) {
