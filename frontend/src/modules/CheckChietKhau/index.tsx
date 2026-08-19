@@ -300,7 +300,7 @@ export default function CheckChietKhauPage() {
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: '0 24px', marginBottom: 12 }}>
         {canImport && (
           <>
-            <div style={{ fontSize: 13, color: colors.textMuted }}>Import file "Sổ chi tiết bán hàng.xlsx" (test CK, tự xóa sau 6h):</div>
+            <div style={{ fontSize: 13, color: colors.textMuted }}>Import file "Sổ chi tiết bán hàng.xlsx" (tự xóa sau 6h):</div>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ fontSize: 13 }} />
             <button style={{ ...btn(colors.primary), fontSize: 12, height: 32 }} onClick={handleImport} disabled={importing}>
               {importing ? 'Đang import...' : 'Import + Tính CK'}
@@ -335,7 +335,7 @@ export default function CheckChietKhauPage() {
           <button
             style={{ ...btn(colors.danger, '#fff'), fontSize: 12, height: 32 }}
             onClick={async () => {
-              if (!confirm('Xóa toàn bộ dữ liệu Check chiết khấu (test)?')) return
+              if (!confirm('Xóa toàn bộ dữ liệu Check chiết khấu?')) return
               try {
                 const d = await apiDelete(`${API_PATH}/clear`)
                 if (d.success) { setResult(d.message); setThongKe(null); refresh() }
@@ -347,7 +347,7 @@ export default function CheckChietKhauPage() {
       </div>
       <DataGrid
         key={gridKey}
-        title="Check chiết khấu (test)"
+        title="Check chiết khấu"
         columns={columns}
         apiPath={API_PATH}
         searchable
