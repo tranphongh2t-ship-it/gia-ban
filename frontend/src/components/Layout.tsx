@@ -363,15 +363,16 @@ export default function Layout() {
               <div style={brandSub}>HỆ THỐNG GIÁ</div>
             </div>
           )}
-          <button onClick={toggleCollapsed} title={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
+          <button onClick={toggleCollapsed} title={collapsed ? 'Xổ menu ra (mở rộng)' : 'Thu menu vào (gọn)'}
             style={{
               position: collapsed ? 'absolute' as const : 'static',
-              right: 8, top: '50%', transform: collapsed ? 'translateY(-50%)' : 'none',
-              width: 26, height: 26, border: 'none', borderRadius: 6, cursor: 'pointer',
-              background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 13,
+              right: 8, top: collapsed ? 16 : '50%', transform: collapsed ? 'none' : 'translateY(-50%)',
+              width: 30, height: 30, border: 'none', borderRadius: 8, cursor: 'pointer',
+              background: `linear-gradient(135deg, ${colors.primary}, #0d6a5c)`, color: '#fff', fontSize: 15,
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               marginLeft: collapsed ? 0 : 'auto',
-            }}>{collapsed ? '▸' : '◂'}</button>
+              boxShadow: '0 2px 8px rgba(26,187,156,0.35)',
+            }}>{collapsed ? '⮞' : '⮜'}</button>
         </div>
         <div style={navStyle}>
           {navGroups.map((group) => {

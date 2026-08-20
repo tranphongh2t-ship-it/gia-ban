@@ -427,18 +427,20 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   }
   const isPinned = (c: Column) => (pinnedOffsets[c.key] ?? -1) >= 0
   // style bổ sung cho header + ô dữ liệu cột ghim: sticky, nền đục (che cột cuộn phía sau), vạch phải.
-  const pinThStyle = (c: Column): React.CSSProperties => isPinned(c)
-    ? { position: 'sticky', left: pinnedOffsets[c.key], zIndex: 30, boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.08)' }
-    : {}
+  const pinThStyle = (c: Column): React.CSSProperties => ({
+    position: 'sticky',
+    top: 0,
+    zIndex: isPinned(c) ? 30 : 20,
+    ...(isPinned(c) ? { left: pinnedOffsets[c.key], boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.08)' } : {}),
+  })
   const pinTdStyle = (c: Column): React.CSSProperties => isPinned(c)
     ? { position: 'sticky', left: pinnedOffsets[c.key], zIndex: 10, boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.08)' }
     : {}
 
   // Màu nền nhóm cột (tint cấu hình trên Column): header đậm hơn, ô dữ liệu nhạt hơn.
   // Cột ghim cần nền ĐỤC (trộn tint với nền nền, không có tint thì dùng màu nền gốc) để che cột cuộn phía sau.
-  const groupThBg = (c: Column) => isPinned(c)
-    ? solidMix(colors.surfaceSecondary, c.tint, 0.18)
-    : tintBg(c.tint, 0.14)
+  // Header luôn dùng nền đục để che hàng cuộn phía sau khi giữ đầu bảng.
+  const groupThBg = (c: Column) => solidMix(colors.surfaceSecondary, c.tint, 0.18)
   const groupTdBg = (c: Column) => isPinned(c)
     ? solidMix(colors.card, c.tint, 0.08)
     : tintBg(c.tint, 0.06)
@@ -907,13 +909,13 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       ) : (
         <>
           <style>{`.dg-tbl tbody tr:hover{background:${colors.surfaceSecondary}} .dg-tbl tbody tr:last-child td{border-bottom:none}`}</style>
-          <div className="dg-wrap" style={{ overflowX: 'auto', background: colors.card, borderRadius: radius.lg, boxShadow: shadow.card, border: `1px solid ${colors.border}` }}>
-            <table className="dg-tbl" style={{ borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed', minWidth: '100%', width: 'max-content' }}>
+          <div className="dg-wrap" style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 230px)', background: colors.card, borderRadius: radius.lg, boxShadow: shadow.card, border: `1px solid ${colors.border}` }}>
+            <table className="dg-tbl" style={{ borderCollapse: 'separate', borderSpacing: 0, fontSize: 13, tableLayout: 'fixed', minWidth: '100%', width: 'max-content' }}>
               <thead>
                 <tr>
                   {perRow > 1 ? Array.from({ length: perRow }).map((_, b) => (
                     <Fragment key={`hdr-${b}`}>
-                      {b > 0 && <th style={{ ...tHead, width: 14, ...thPad, background: colors.surfaceSecondary, fontSize: 9, textAlign: 'center', color: colors.textMuted }} />}
+                      {b > 0 && <th style={{ ...tHead, width: 14, ...thPad, background: colors.surfaceSecondary, fontSize: 9, textAlign: 'center', color: colors.textMuted, position: 'sticky', top: 0, zIndex: 20 }} />}
                       {visibleCols.map((c, idx) => {
                         const isLastCol = b === perRow - 1 && idx === visibleCols.length - 1 && !hasAction
                         const w = getColWidth(c)
