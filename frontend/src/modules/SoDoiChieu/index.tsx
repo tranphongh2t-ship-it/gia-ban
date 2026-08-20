@@ -200,6 +200,7 @@ export default function SoDoiChieuPage() {
       searchable
       defaultLimit={50}
       exportName="SoDoiChieu"
+      defaultSort="so_chung_tu"
       demoRows={demoRows}
     />
   )

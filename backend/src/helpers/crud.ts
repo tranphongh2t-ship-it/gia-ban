@@ -80,9 +80,16 @@ export function crudRoutes(opts: CrudOptions) {
             conditions.push(`${col} = 0`)
           } else if (val === '__ne0') {
             conditions.push(`${col} != 0`)
+          } else if (val.startsWith('=')) {
+            conditions.push(`${col} = ?`)
+            params.push(val.slice(1))
+          } else if (val.includes('|')) {
+            const [from, to] = val.split('|')
+            if (from !== '') { conditions.push(`${col} >= ?`); params.push(Number(from) || 0) }
+            if (to !== '') { conditions.push(`${col} <= ?`); params.push(Number(to) || 0) }
           } else {
-            conditions.push(`INSTR(${col}, ?) > 0`)
-            params.push(val)
+            conditions.push(`LOWER(COALESCE(CAST(${col} AS TEXT),'')) LIKE ?`)
+            params.push(`%${val.toLowerCase()}%`)
           }
         }
       }
@@ -104,9 +111,10 @@ export function crudRoutes(opts: CrudOptions) {
       }
 
       if (search && searchFields.length > 0) {
-        const searchConds = searchFields.map(f => `INSTR(${pfx(f)}, ?) > 0`)
+        const q = search.toLowerCase()
+        const searchConds = searchFields.map(f => `LOWER(COALESCE(CAST(${pfx(f)} AS TEXT),'')) LIKE ?`)
         conditions.push(`(${searchConds.join(' OR ')})`)
-        searchFields.forEach(() => params.push(search))
+        searchFields.forEach(() => params.push(`%${q}%`))
       }
 
       if (conditions.length > 0) {
@@ -115,7 +123,13 @@ export function crudRoutes(opts: CrudOptions) {
         countSql += whereClause
       }
 
-      dataSql += ` ORDER BY ${orderBy} LIMIT ? OFFSET ?`
+      const sortCol = (query.sort_col as string) || null
+      const sortDirSql = query.sort_dir === 'asc' ? 'ASC' : (query.sort_dir === 'desc' ? 'DESC' : null)
+      const orderSql = (sortCol && /^[a-zA-Z0-9_.]+$/.test(sortCol))
+        ? ` ORDER BY ${pfx(sortCol)} ${sortDirSql || 'DESC'}`
+        : ` ORDER BY ${orderBy}`
+
+      dataSql += orderSql + ' LIMIT ? OFFSET ?'
       const [data, total] = await Promise.all([
         c.env.DB.prepare(dataSql).bind(...params, limitNum, offsetNum).all(),
         c.env.DB.prepare(countSql).bind(...params).first(),

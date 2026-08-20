@@ -79,11 +79,36 @@ function buildPageList(current: number, total: number): number[] {
   return pages
 }
 
-function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value: string; onChange: (v: string) => void; onClose: () => void }) {
+// So sánh "tự nhiên" giống Excel: tách phần số trong chuỗi (BH09089 → số 9089) để sắp theo số, không sắp theo chữ.
+function naturalCompare(a: any, b: any): number {
+  const sa = (a === null || a === undefined) ? '' : String(a)
+  const sb = (b === null || b === undefined) ? '' : String(b)
+  const re = /(\d+|\D+)/g
+  const aa = sa.match(re) || []
+  const bb = sb.match(re) || []
+  const n = Math.min(aa.length, bb.length)
+  for (let i = 0; i < n; i++) {
+    const x = aa[i]; const y = bb[i]
+    const xn = /^\d+$/.test(x); const yn = /^\d+$/.test(y)
+    if (xn && yn) {
+      const dx = parseInt(x, 10); const dy = parseInt(y, 10)
+      if (dx !== dy) return dx - dy
+    } else if (x !== y) {
+      return x < y ? -1 : 1
+    }
+  }
+  return aa.length - bb.length
+}
+
+function FilterDropdown({ col, value, onChange, onClose, values }: { col: Column; value: string; onChange: (v: string) => void; onClose: () => void; values?: string[] }) {
   const [val, setVal] = useState(value || '')
+  const isExact = val.startsWith('=')
+  const displayText = isExact ? val.slice(1) : val
+  const inputStyle = { ...input, width: '100%', padding: '6px 10px', fontSize: 13, boxSizing: 'border-box' as const }
   const handleApply = () => { onChange(val); onClose() }
   const handleClear = () => { setVal(''); onChange(''); onClose() }
-  const inputStyle = { ...input, width: '100%', padding: '6px 10px', fontSize: 13, boxSizing: 'border-box' as const }
+  const setExact = (v: string) => { setVal('=' + v); onChange('=' + v); onClose() }
+  const listValues = values ? values.filter(v => v.toLowerCase().includes(displayText.toLowerCase())) : []
 
   if (col.type === 'select' && col.options) {
     return (
@@ -101,11 +126,19 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
   }
 
   if (col.type === 'number') {
+    const chip = (token: string, label: string) => (
+      <div style={{ padding: '3px 8px', borderRadius: radius.sm, cursor: 'pointer', fontSize: 11, fontWeight: 500, background: val === token ? colors.primary : colors.surfaceSecondary, color: val === token ? '#fff' : colors.textMuted, textTransform: 'none' }} onClick={() => { setVal(token); onChange(token); onClose() }}>
+        {label}
+      </div>
+    )
     return (
-      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 220, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadow.dropdown, padding: 12 }}>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-          <input type="number" style={inputStyle} placeholder="Từ" value={val.split('|')[0] || ''} onChange={e => setVal(e.target.value + '|' + (val.split('|')[1] || ''))} />
-          <input type="number" style={inputStyle} placeholder="Đến" value={val.split('|')[1] || ''} onChange={e => setVal((val.split('|')[0] || '') + '|' + e.target.value)} />
+      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 240, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadow.dropdown, padding: 12 }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          <input type="number" style={inputStyle} placeholder="Từ" value={val.includes('|') ? val.split('|')[0] : ''} onChange={e => setVal(e.target.value + '|' + (val.split('|')[1] || ''))} />
+          <input type="number" style={inputStyle} placeholder="Đến" value={val.includes('|') ? val.split('|')[1] : ''} onChange={e => setVal((val.split('|')[0] || '') + '|' + e.target.value)} />
+        </div>
+        <div style={{ display: 'flex', gap: 5, marginBottom: 8, flexWrap: 'wrap' }}>
+          {chip('__gt0', '> 0')}{chip('__gte0', '≥ 0')}{chip('__eq0', '= 0')}{chip('__lt0', '< 0')}{chip('__notnull', 'Có giá trị')}
         </div>
         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
           <button style={{ ...btn(colors.textMuted, '#fff', 'sm'), fontSize: 12 }} onClick={handleClear}>Xoá</button>
@@ -116,9 +149,22 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
   }
 
   return (
-    <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 200, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadow.dropdown, padding: 12 }}>
-      <input style={inputStyle} placeholder={`Lọc ${col.label}...`} value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleApply() }} autoFocus />
-      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+    <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 50, minWidth: 240, background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadow.dropdown, padding: 12 }}>
+      <input style={inputStyle} placeholder={`Lọc ${col.label}...`} value={displayText} onChange={e => { setVal(e.target.value); onChange(e.target.value) }} onKeyDown={e => { if (e.key === 'Enter') handleApply() }} autoFocus />
+      {values && values.length > 0 && (
+        <div style={{ marginTop: 6, border: `1px solid ${colors.borderLight}`, borderRadius: radius.sm, maxHeight: 200, overflowY: 'auto' }}>
+          {listValues.slice(0, 300).map(v => {
+            const active = isExact && val.slice(1) === v
+            return (
+              <div key={v} onClick={() => setExact(v)} style={{ padding: '5px 8px', cursor: 'pointer', fontSize: 12, borderRadius: radius.sm, margin: 2, background: active ? colors.primaryLight : 'transparent', color: active ? colors.primary : colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={v}>
+                {active && <span style={{ marginRight: 4 }}>✓</span>}{v}
+              </div>
+            )
+          })}
+          {listValues.length === 0 && <div style={{ padding: '6px 8px', fontSize: 12, color: colors.textMuted }}>Không có giá trị phù hợp</div>}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 8 }}>
         <button style={{ ...btn(colors.textMuted, '#fff', 'sm'), fontSize: 12 }} onClick={handleClear}>Xoá</button>
         <button style={{ ...btn(colors.primary, '#fff', 'sm'), fontSize: 12 }} onClick={handleApply}>Lọc</button>
       </div>
@@ -126,7 +172,7 @@ function FilterDropdown({ col, value, onChange, onClose }: { col: Column; value:
   )
 }
 
-export default function DataGrid({ title, columns, apiPath, searchable = true, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, rowActions, logBang, historyInForm, demoRows }: DataGridProps) {
+export default function DataGrid({ title, columns, apiPath, searchable = true, defaultSort, defaultLimit = 50, extraFilters, exportName, columnsPerRow = 1, rowActionLabel, onRowAction, rowActions, logBang, historyInForm, demoRows }: DataGridProps) {
   const { hasPermission, user } = useAuth()
   const canEdit = hasPermission('feature:edit-data')
   // Bản sao dữ liệu mẫu để sửa/xóa trực tiếp ở chế độ demo (đợi backend)
@@ -153,6 +199,34 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const [confirmDelete, setConfirmDelete] = useState<any | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [openFilter, setOpenFilter] = useState<string | null>(null)
+
+  // Sắp xếp cột (giống Excel: click header để đổi hướng, hỗ trợ sắp theo số tự nhiên)
+  const [sortKey, setSortKey] = useState<string | null>(defaultSort || null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const toggleSort = (key: string) => {
+    setOpenFilter(null)
+    if (sortKey === key) {
+      if (sortDir === 'desc') setSortDir('asc')
+      else { setSortKey(null); setSortDir('desc') }
+    } else { setSortKey(key); setSortDir('desc') }
+    setOffset(0)
+  }
+
+  // Danh sách giá trị có trong cột để hiển thị "lọc nhanh" (giống list model trong Excel)
+  const colValues = (col: Column): string[] => {
+    const source = demoMode ? (localRows || []) : data
+    const keys = col.key.split(';')
+    const set = new Set<string>()
+    for (const r of source) {
+      for (const k of keys) {
+        const v = (r as any)[k]
+        if (v === null || v === undefined || v === '') continue
+        set.add(String(v))
+      }
+    }
+    return Array.from(set).sort((a, b) => naturalCompare(a, b))
+  }
 
   // Inline editing state
   const [inlineEdit, setInlineEdit] = useState<{ rowId: number; colKey: string; value: any } | null>(null)
@@ -284,8 +358,21 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
             if (to !== '' && (isNaN(n) || n > Number(to))) return false
             return true
           }
+          if (val === '__gt0') return Number(rv) > 0
+          if (val === '__gte0') return Number(rv) >= 0
+          if (val === '__eq0') return Number(rv) === 0
+          if (val === '__lt0') return Number(rv) < 0
+          if (val === '__lte0') return Number(rv) <= 0
+          if (val === '__notnull') return rv !== null && rv !== undefined && rv !== ''
+          if (val === '__null') return rv === null || rv === undefined
+          if (val === '__empty') return rv === null || rv === undefined || rv === '' || rv === 0
+          if (val.startsWith('=')) return String(rv ?? '') === val.slice(1)
           return String(rv ?? '').toLowerCase().includes(val.trim().toLowerCase())
         })
+      }
+      if (sortKey) {
+        const dir = sortDir === 'desc' ? -1 : 1
+        rows.sort((a, b) => naturalCompare(a[sortKey], b[sortKey]) * dir)
       }
       setTotal(rows.length)
       setData(rows.slice(offset, offset + fetchLimit))
@@ -300,6 +387,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       for (const [key, val] of Object.entries(filters)) {
         if (val.trim()) params.set(`filter_${key}`, val.trim())
       }
+      if (sortKey) { params.set('sort_col', sortKey); params.set('sort_dir', sortDir) }
       if (extraFilters) {
         for (const [key, val] of Object.entries(extraFilters)) {
           if (val) params.set(`filter_${key}`, val)
@@ -310,7 +398,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       setData(res.data || []); setTotal(res.total || 0)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
-  }, [apiPath, search, limit, offset, filters, extraFilters, demoMode, localRows])
+  }, [apiPath, search, limit, offset, filters, extraFilters, demoMode, localRows, sortKey, sortDir])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -627,18 +715,22 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                         const isLastCol = b === perRow - 1 && idx === visibleCols.length - 1 && !hasAction
                         const w = getColWidth(c)
                         const canFilter = b === 0 && (!c.computed || (c.computed && c.type === 'select'))
+                        const activeSort = sortKey === c.key
+                        const sortMark = activeSort ? (sortDir === 'desc' ? '▼' : '▲') : '⇅'
+                        const vals = canFilter ? colValues(c) : []
                         return (
                            <th key={`${b}-${c.key}`} style={{ ...(isLastCol ? tHeadLast : { ...tHead, width: w }), ...thPad, position: 'relative', userSelect: 'none' }}>
-                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: canFilter ? 'pointer' : 'default' }} onClick={() => { if (canFilter) setOpenFilter(openFilter === c.key ? null : c.key) }}>
-                               <div style={{ flex: 1, minWidth: 0 }}>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                               <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => toggleSort(c.key)} title="Bấm để sắp xếp">
                                  {c.label}
                                  {c.unit && <span style={{ fontWeight: 400, fontSize: 10, color: colors.textMuted, display: 'block', marginTop: 1 }}>{c.unit}</span>}
                                </div>
-                               {canFilter && <span style={{ fontSize: 9, color: filters[c.key] ? colors.primary : colors.textMuted, opacity: 0.5, flexShrink: 0 }}>▼</span>}
+                               <span style={{ fontSize: 9, color: activeSort ? colors.primary : colors.textMuted, flexShrink: 0, fontWeight: activeSort ? 700 : 400, cursor: 'pointer' }} onClick={() => toggleSort(c.key)}>{sortMark}</span>
+                               {canFilter && <span style={{ fontSize: 9, color: filters[c.key] ? colors.primary : colors.textMuted, opacity: 0.5, flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === c.key ? null : c.key) }}>▼</span>}
                                {canFilter && filters[c.key] && <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.primary, display: 'inline-block', flexShrink: 0 }} />}
                              </div>
                              {canFilter && openFilter === c.key && (
-                               <FilterDropdown col={c} value={filters[c.key] || ''} onChange={(v) => { setFilters(prev => ({ ...prev, [c.key]: v })); setOffset(0) }} onClose={() => setOpenFilter(null)} />
+                               <FilterDropdown col={c} value={filters[c.key] || ''} values={vals} onChange={(v) => { setFilters(prev => ({ ...prev, [c.key]: v })); setOffset(0) }} onClose={() => setOpenFilter(null)} />
                              )}
                              {b === 0 && <div className="dg-rz" onMouseDown={(e) => startColResize(c.key, e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 10, zIndex: 10, cursor: 'col-resize' }} />}
                            </th>
@@ -653,18 +745,22 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                   {visibleCols.map((c, idx) => {
                     const w = getColWidth(c)
                     const canFilter = !c.computed || (c.computed && c.type === 'select')
+                    const activeSort = sortKey === c.key
+                    const sortMark = activeSort ? (sortDir === 'desc' ? '▼' : '▲') : '⇅'
+                    const vals = canFilter ? colValues(c) : []
                     return (
                        <th key={c.key} style={{ ...(idx === visibleCols.length - 1 ? tHeadLast : { ...tHead, width: w }), ...thPad, position: 'relative', userSelect: 'none' }}>
-                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: canFilter ? 'pointer' : 'default' }} onClick={() => { if (canFilter) setOpenFilter(openFilter === c.key ? null : c.key) }}>
-                           <div style={{ flex: 1, minWidth: 0 }}>
+                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                           <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => toggleSort(c.key)} title="Bấm để sắp xếp">
                              {c.label}
                              {c.unit && <span style={{ fontWeight: 400, fontSize: 10, color: colors.textMuted, display: 'block', marginTop: 1 }}>{c.unit}</span>}
                            </div>
-                           {canFilter && <span style={{ fontSize: 9, color: filters[c.key] ? colors.primary : colors.textMuted, opacity: 0.5, flexShrink: 0 }}>▼</span>}
+                           <span style={{ fontSize: 9, color: activeSort ? colors.primary : colors.textMuted, flexShrink: 0, fontWeight: activeSort ? 700 : 400, cursor: 'pointer' }} onClick={() => toggleSort(c.key)}>{sortMark}</span>
+                           {canFilter && <span style={{ fontSize: 9, color: filters[c.key] ? colors.primary : colors.textMuted, opacity: 0.5, flexShrink: 0, cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setOpenFilter(openFilter === c.key ? null : c.key) }}>▼</span>}
                            {canFilter && filters[c.key] && <span style={{ width: 6, height: 6, borderRadius: '50%', background: colors.primary, display: 'inline-block', flexShrink: 0 }} />}
                          </div>
                          {canFilter && openFilter === c.key && (
-                           <FilterDropdown col={c} value={filters[c.key] || ''} onChange={(v) => { setFilters(prev => ({ ...prev, [c.key]: v })); setOffset(0) }} onClose={() => setOpenFilter(null)} />
+                           <FilterDropdown col={c} value={filters[c.key] || ''} values={vals} onChange={(v) => { setFilters(prev => ({ ...prev, [c.key]: v })); setOffset(0) }} onClose={() => setOpenFilter(null)} />
                          )}
                          <div className="dg-rz" onMouseDown={(e) => startColResize(c.key, e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 10, zIndex: 10, cursor: 'col-resize' }} />
                        </th>
