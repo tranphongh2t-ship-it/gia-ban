@@ -28,3 +28,4 @@ backend/vk.json
 frontend/release-new/
 frontend/scan.js
 scripts/
+"backend/dist-worker/"  

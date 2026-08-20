@@ -1,1 +1,0 @@
-This folder contains the built output assets for the worker "gia-ban-backend" generated at 2026-08-20T01:25:08.129Z.
