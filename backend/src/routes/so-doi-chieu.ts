@@ -82,6 +82,9 @@ const THUE_PCT_EXPR = `(CASE WHEN t.doanh_so > t.ck THEN (t.thue / (t.doanh_so -
 // Thuế Đúng/Sai: % thuế xấp xỉ 8% (±0.05) so với base (DS - CK) → Đúng; dòng không có doanh số → NULL
 const THUE_DUNG_EXPR = `(CASE WHEN t.doanh_so > t.ck AND ABS(t.thue / (t.doanh_so - t.ck) * 100 - 8) < 0.05 THEN 'dung' WHEN t.doanh_so > t.ck THEN 'sai' ELSE NULL END)`
 
+// CK Đúng/Sai: khớp giữa cột CK thực tế và CK engine (sai số <1) → Đúng; mã Z* / không doanh số → NULL
+const CK_KQ_EXPR = `(CASE WHEN t.ma_hang NOT LIKE 'Z%' AND t.don_gia > 0 AND ABS(COALESCE(t.ck, 0) - COALESCE(t.ck_tinh, 0)) < 1 THEN 'dung' WHEN t.ma_hang NOT LIKE 'Z%' AND t.don_gia > 0 THEN 'sai' ELSE NULL END)`
+
 const crud = crudRoutes({
   table: TABLE,
   idField: 'id',
@@ -92,6 +95,7 @@ const crud = crudRoutes({
     chech_lech: CHENH_LECH_EXPR,
     thue_pct: THUE_PCT_EXPR,
     thue_dung: THUE_DUNG_EXPR,
+    ck_kq: CK_KQ_EXPR,
   },
 })
 
