@@ -166,7 +166,10 @@ export default function Layout() {
   if (!user) return <LoginOverlay />
 
   const navGroups: NavGroup[] = [
-    { section: 'Tổng quan', items: [{ label: 'Dashboard', path: '/dashboard', perm: 'menu:/dashboard' }] },
+    { section: 'Tổng quan', items: [
+      { label: 'Dashboard', path: '/dashboard', perm: 'menu:/dashboard' },
+      { label: 'Sổ đối chiếu Giá Gốc - CK - VAT', path: '/so-doi-chieu', perm: 'menu:/so-doi-chieu' },
+    ]},
     { section: 'Danh mục', items: [
       { label: 'Mã MISA', path: '/ma-misa', perm: 'menu:/ma-misa' },
       { label: 'Giá bán (MISA)', path: '/gia-ban-misa', perm: 'menu:/gia-ban-misa' },
@@ -175,7 +178,6 @@ export default function Layout() {
       { label: 'Check Giá Gốc', path: '/check-gia-goc', perm: 'menu:/check-gia-goc' },
       { label: 'Máy tính giá', path: '/tinh-gia-goc', perm: 'menu:/tinh-gia-goc' },
       { label: 'Check giá gốc - CK', path: '/audit-gia-ck', perm: 'menu:/audit-gia-ck' },
-      { label: 'Sổ đối chiếu', path: '/so-doi-chieu', perm: 'menu:/so-doi-chieu' },
     ]},
     { section: 'Chiết khấu', items: [
       { label: 'Check chiết khấu', path: '/check-chiet-khau', perm: 'menu:/check-chiet-khau' },

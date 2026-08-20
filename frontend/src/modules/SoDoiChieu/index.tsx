@@ -426,7 +426,7 @@ export default function SoDoiChieuPage() {
       </div>
       <DataGrid
         key={gridKey}
-        title="Sổ đối chiếu"
+        title="Sổ đối chiếu Giá Gốc - CK - VAT"
         columns={columns}
         apiPath={API_PATH}
         searchable
