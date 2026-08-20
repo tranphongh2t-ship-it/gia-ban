@@ -574,4 +574,120 @@ router.post('/dong-bo-tat-ca', async (c) => {
   }
 })
 
+// POST /dong-bo-ma-misa — phát hiện mã hàng mới (chưa có trong ma_misa) trong file,
+// bổ sung đầy đủ thông tin vào ma_misa (mã, tên, đvt, giá gốc) + gia_ban, rồi tính lại cột Giá gốc (chỉ Admin).
+router.post('/dong-bo-ma-misa', async (c) => {
+  try {
+    const { DB } = c.env
+    const userId = c.req.header('x-user-id')
+    if (!userId) return c.json({ error: 'Unauthorized' }, 401)
+    const user = await DB.prepare(`SELECT id, ten, vai_tro FROM nhan_vien WHERE id = ?`).bind(userId).first() as any
+    if (!user) return c.json({ error: 'User not found' }, 404)
+    if (user.vai_tro !== 'admin') return c.json({ error: 'Chỉ Admin mới được đồng bộ mã MISA' }, 403)
+
+    const body = (await c.req.json().catch(() => ({}))) as { dryRun?: boolean }
+    const dryRun = !!body.dryRun
+
+    const { results: rawRows } = await DB.prepare(
+      `SELECT ma_hang, ten_hang, dvt, don_gia, ngay_chung_tu AS ngay
+       FROM ${TABLE}
+       WHERE ma_hang IS NOT NULL AND ma_hang != '' AND ma_hang NOT LIKE 'Z%'
+       ORDER BY rowid ASC`
+    ).all()
+    const rows = (rawRows || []) as any[]
+
+    const ngayKey = (d: any): string => {
+      const s = String(d ?? '').trim()
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+        const [a, b, c] = s.split('/')
+        return `${c}${b.padStart(2, '0')}${a.padStart(2, '0')}`
+      }
+      return '00000000'
+    }
+    const byMa = new Map<string, { ten: string; dvt: string; rows: { don_gia: number; ngay: string }[] }>()
+    for (const r of rows) {
+      const ma = String(r.ma_hang).trim()
+      if (!byMa.has(ma)) byMa.set(ma, { ten: String(r.ten_hang || '').trim(), dvt: String(r.dvt || '').trim(), rows: [] })
+      const info = byMa.get(ma)!
+      if (!info.ten && r.ten_hang) info.ten = String(r.ten_hang).trim()
+      if (!info.dvt && r.dvt) info.dvt = String(r.dvt).trim()
+      info.rows.push({ don_gia: Number(r.don_gia) || 0, ngay: ngayKey(r.ngay) })
+    }
+    const maList = Array.from(byMa.keys())
+    if (maList.length === 0) return c.json({ success: true, message: 'Không có mã hàng nào trong file' })
+
+    // Mã đã tồn tại trong ma_misa (so sánh không phân biệt hoa/thường)
+    const existing = new Set<string>()
+    const IN_CHUNK = 90
+    for (let i = 0; i < maList.length; i += IN_CHUNK) {
+      const chunk = maList.slice(i, i + IN_CHUNK)
+      const ph = chunk.map(() => '?').join(', ')
+      const res = await DB.prepare(`SELECT ma_sp FROM ma_misa WHERE UPPER(ma_sp) IN (${ph})`).bind(...chunk.map(m => m.toUpperCase())).all()
+      for (const r of (res as any).results || []) existing.add(String(r.ma_sp).toUpperCase())
+    }
+
+    const pickPrice = (info: { rows: { don_gia: number; ngay: string }[] }) => {
+      let best = 0, bestKey = ''
+      for (const r of info.rows) {
+        const g = Number(r.don_gia) || 0
+        if (!(g > 0)) continue
+        if (r.ngay > bestKey) { best = g; bestKey = r.ngay }
+        else if (r.ngay === bestKey && best === 0) best = g
+      }
+      return best
+    }
+
+    const thang = currentThang()
+    const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+    const newCodes: string[] = []
+    const maStmts: D1PreparedStatement[] = []
+    const histStmts: D1PreparedStatement[] = []
+    const gbStmts: D1PreparedStatement[] = []
+    let withPrice = 0
+
+    for (const ma of maList) {
+      if (existing.has(ma.toUpperCase())) continue
+      const info = byMa.get(ma)!
+      const gia = pickPrice(info)
+      newCodes.push(ma)
+      if (gia > 0) withPrice++
+      if (dryRun) continue
+      maStmts.push(DB.prepare(
+        `INSERT INTO ma_misa (ma_sp, ten_sp, dvt, gia_goc, match_status, updated_by, updated_at)
+         VALUES (?, ?, ?, ?, 'pending', ?, datetime('now','+7 hours'))`
+      ).bind(ma, info.ten || ma, info.dvt || '', gia > 0 ? gia : null, user.ten || 'auto'))
+      if (gia > 0) {
+        histStmts.push(DB.prepare(
+          'INSERT INTO ma_misa_gia_history (ma_sp, thang, gia_cu, gia_goc, nguon, updated_by) VALUES (?, ?, NULL, ?, ?, ?)'
+        ).bind(ma, thang, gia, 'so-doi-chieu-dong-bo-ma', user.ten || 'auto'))
+      }
+      gbStmts.push(DB.prepare(
+        `INSERT INTO gia_ban (ma_sp, ten_sp, hieu_luc_tu, updated_by)
+         VALUES (?, ?, ?, ?)`
+      ).bind(ma, info.ten || ma, today, user.ten || 'auto'))
+    }
+
+    if (!dryRun && newCodes.length > 0) {
+      const BATCH = 100
+      // ma_misa trước (FK của gia_ban) rồi đến gia_ban, cuối cùng lịch sử giá
+      for (const arr of [maStmts, gbStmts, histStmts]) {
+        for (let i = 0; i < arr.length; i += BATCH) await DB.batch(arr.slice(i, i + BATCH))
+      }
+      await recomputeGiaGoc(DB)
+    }
+
+    return c.json({
+      success: true,
+      dryRun,
+      new_codes: newCodes,
+      inserted: dryRun ? 0 : newCodes.length,
+      message: dryRun
+        ? `Dự kiến bổ sung ${newCodes.length} mã mới vào Mã MISA + Giá bán (${withPrice} mã có giá gốc): ${newCodes.slice(0, 10).join(', ')}${newCodes.length > 10 ? `…` : ''}`
+        : `Đã bổ sung ${newCodes.length} mã mới vào Mã MISA + Giá bán${withPrice ? ` (${withPrice} mã có giá gốc)` : ''}.${newCodes.length ? ' Đã tính lại cột "Giá gốc (MISA)".' : ''} Mã mới: ${newCodes.slice(0, 10).join(', ')}${newCodes.length > 10 ? '…' : ''}`,
+    })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 export default router

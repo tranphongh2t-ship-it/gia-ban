@@ -238,6 +238,7 @@ export default function SoDoiChieuPage() {
   const [syncLocked, setSyncLocked] = useState(false)
   const [syncLockBusy, setSyncLockBusy] = useState(false)
   const [syncingAll, setSyncingAll] = useState(false)
+  const [syncingMaMisa, setSyncingMaMisa] = useState(false)
 
   useEffect(() => {
     apiGet(`${API_PATH}/sync-lock`).then(r => setSyncLocked(!!r.locked)).catch(() => {})
@@ -259,6 +260,18 @@ export default function SoDoiChieuPage() {
       setGridKey(k => k + 1)
     } catch (e: any) { setError(e.message) }
     finally { setSyncingAll(false) }
+  }
+
+  const handleSyncMaMisa = async () => {
+    if (!confirm('Đồng bộ mã MISA: phát hiện mã hàng mới trong file chưa có trong danh mục Mã MISA, tự động bổ sung đầy đủ thông tin (mã, tên, đvt, giá gốc) vào Mã MISA + Giá bán (MISA)?')) return
+    setSyncingMaMisa(true); setError(null); setResult(null)
+    try {
+      const res = await apiPost(`${API_PATH}/dong-bo-ma-misa`, {}, { 'x-user-id': String(user?.id) })
+      if (res.error) throw new Error(res.error)
+      setResult(res.message || 'Đã đồng bộ.')
+      setGridKey(k => k + 1)
+    } catch (e: any) { setError(e.message) }
+    finally { setSyncingMaMisa(false) }
   }
 
   const toggleSyncLock = async () => {
@@ -402,6 +415,11 @@ export default function SoDoiChieuPage() {
               onClick={handleSyncAll} disabled={syncingAll}
               title="Đồng bộ giá gốc vào giá MISA theo đúng mã hàng cho TẤT CẢ sản phẩm trong file (chỉ Admin)"
             >{syncingAll ? 'Đang đồng bộ...' : 'Đồng bộ giá gốc → Giá MISA'}</button>
+            <button
+              style={{ ...btn(colors.primary, '#fff'), fontSize: 12, height: 32 }}
+              onClick={handleSyncMaMisa} disabled={syncingMaMisa}
+              title="Phát hiện mã hàng mới trong file chưa có trong Mã MISA, bổ sung đầy đủ thông tin vào Mã MISA + Giá bán (chỉ Admin)"
+            >{syncingMaMisa ? 'Đang đồng bộ mã...' : 'Đồng bộ mã MISA (mã mới)'}</button>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }} title="Công tắc khóa/bật đồng bộ giá gốc vào giá MISA — áp dụng cho tất cả user (chỉ Admin)">
               <span style={{ fontSize: 12, fontWeight: 600, color: syncLocked ? colors.danger : colors.textMuted }}>
                 {syncLocked ? '🔒 Khóa ĐB giá gốc → MISA' : 'ĐB giá gốc → MISA'}
