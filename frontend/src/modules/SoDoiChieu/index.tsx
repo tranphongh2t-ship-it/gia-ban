@@ -135,7 +135,7 @@ const columns: Column[] = [
     },
   },
   {
-    key: 'ck3_pct', label: 'CK0 (Melamine)', type: 'number', width: '120', computed: true, group: 'ck', tint: '#fbbf24',
+    key: 'ck3_pct', label: 'CK3 (Melamine)', type: 'number', width: '120', computed: true, group: 'ck', tint: '#fbbf24',
     render: (v, row) => {
       const n = Number(v)
       if (v === null || v === undefined || isNaN(n)) return '—'
@@ -180,6 +180,33 @@ const columns: Column[] = [
   { key: 'gt_tra', label: 'Giá trị trả lại', type: 'number', width: '120' },
   { key: 'gt_giam', label: 'Giá trị giảm giá', type: 'number', width: '120' },
   { key: 'thue', label: 'Thuế GTGT', type: 'number', width: '120' },
+  {
+    key: 'thue_pct', label: '% thuế', type: 'number', computed: true, filterable: true, width: '100', group: 'gia', tint: '#38bdf8',
+    render: (v, row) => {
+      const ds = Number(row.doanh_so) || 0
+      const thue = Number(row.thue) || 0
+      if (ds <= 0) return <span style={{ color: colors.textMuted }}>—</span>
+      const pct = thue / ds * 100
+      const is8 = Math.abs(pct - 8) < 0.05
+      return <span style={{ fontWeight: 600, color: is8 ? '#16a34a' : colors.text }}>{pct.toFixed(2)}%</span>
+    },
+  },
+  {
+    key: 'thue_dung', label: 'Thuế Sai/Đúng', type: 'select', computed: true, filterable: true, width: '120', group: 'gia', tint: '#38bdf8',
+    options: [
+      { value: 'dung', label: 'Đúng' },
+      { value: 'sai', label: 'Sai' },
+    ],
+    render: (v, row) => {
+      const ds = Number(row.doanh_so) || 0
+      const thue = Number(row.thue) || 0
+      if (ds <= 0) return <span style={{ color: colors.textMuted }}>—</span>
+      const pct = thue / ds * 100
+      const dung = Math.abs(pct - 8) < 0.05
+      const color = dung ? '#16a34a' : '#dc2626'
+      return <span style={{ fontWeight: 700, color }}>{dung ? 'Đúng' : 'Sai'}</span>
+    },
+  },
   { key: 'nv_ban', label: 'NV bán hàng', width: '150' },
 ]
 

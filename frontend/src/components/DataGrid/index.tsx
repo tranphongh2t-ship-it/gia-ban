@@ -330,12 +330,12 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     } catch { return null }
   })()
 
-  const saveRef = useRef<Record<string, number>>({})
+  const saveRef = useRef<Record<string, any>>({})
 
   useEffect(() => { localStorage.setItem(STORAGE_COL(apiPath), JSON.stringify(colWidths)) }, [colWidths, apiPath])
   useEffect(() => { localStorage.setItem(STORAGE_ROW(apiPath), rowHeight) }, [rowHeight, apiPath])
 
-  // Nạp co dãn cột + ẩn cột: default (admin/global) + riêng user từ D1 (nếu đăng nhập)
+  // Nạp co dãn cột + ẩn cột + ghim cột: default (admin/global) + riêng user từ D1 (nếu đăng nhập)
   useEffect(() => {
     if (!userId) return
     let active = true
@@ -345,24 +345,26 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
         if (!active) return
         const merged: Record<string, number> = { ...(res.default || {}), ...(res.data || {}) }
         setColWidths(merged)
-        setHiddenCols(Array.isArray(res.hidden) ? res.hidden : [])
+        if (Array.isArray(res.hidden)) setHiddenCols(res.hidden)
+        if (Array.isArray(res.pins)) setPinCols(res.pins)
       } catch { /* fallback localStorage */ }
     })()
     return () => { active = false }
   }, [userId, apiPath])
 
-  // Upsert co dãn + ẩn cột lên D1 (debounce ~800ms)
+  // Upsert co dãn + ẩn cột + ghim cột lên D1 (debounce ~800ms, chỉ riêng account đang đăng nhập)
   useEffect(() => {
     if (!userId) return
     const timer = setTimeout(() => {
       const dirty: Record<string, any> = { ...colWidths }
       if (hiddenCols.length) dirty.__hidden = hiddenCols
+      if (pinCols.length) dirty.__pins = pinCols
       if (JSON.stringify(saveRef.current) === JSON.stringify(dirty)) return
       saveRef.current = dirty
       apiPut(`/user-prefs/cols`, { user_id: userId, page: apiPath, data: dirty }).catch(() => {})
     }, 800)
     return () => clearTimeout(timer)
-  }, [colWidths, hiddenCols, userId, apiPath])
+  }, [colWidths, hiddenCols, pinCols, userId, apiPath])
 
   const isAdmin: boolean = (() => {
     try {
@@ -374,19 +376,8 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const saveAsDefault = async () => {
     try {
       const data: Record<string, any> = { ...colWidths }
-      if (hiddenCols.length) data.__hidden = hiddenCols
       await apiPut(`/user-prefs/cols`, { user_id: userId, page: apiPath, data, is_default: true })
-      alert('Đã lưu co dãn + ẩn cột làm mặc định toàn cục.')
-    } catch (e: any) { alert(`Lỗi: ${e.message}`) }
-  }
-
-  // Lưu chỉ phần ẩn cột làm mặc định toàn cục (admin) — dùng cho nút "Lưu ẩn mặc định".
-  const saveHiddenDefault = async () => {
-    try {
-      const data: Record<string, any> = { ...colWidths }
-      if (hiddenCols.length) data.__hidden = hiddenCols
-      await apiPut(`/user-prefs/cols`, { user_id: userId, page: apiPath, data, is_default: true })
-      alert('Đã lưu cột ẩn làm mặc định toàn cục.')
+      alert('Đã lưu co dãn cột làm mặc định toàn cục.')
     } catch (e: any) { alert(`Lỗi: ${e.message}`) }
   }
 
@@ -799,13 +790,13 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
               }} onClick={() => setRowHeight(z.key)} title={z.label}>{z.icon}</button>
             ))}
           </div>
-          <div style={{ position: 'relative' }} ref={pinRef}>
+          {canEdit && <> <div style={{ position: 'relative' }} ref={pinRef}>
             <button style={{
               padding: '4px 12px', border: `1px solid ${pinCols.length ? colors.primary : colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: 12,
               fontWeight: pinCols.length ? 600 : 400,
               background: pinCols.length ? colors.primaryLight : 'transparent', color: pinCols.length ? colors.primary : colors.textMuted,
               transition: 'all 0.12s ease', whiteSpace: 'nowrap',
-            }} onClick={() => setPinPopup(v => !v)} title="Ghim cột trái (cố định khi cuộn ngang, như Excel)">
+            }} onClick={() => setPinPopup(v => !v)} title="Ghim cột trái (cố định khi cuộn ngang, như Excel). Chỉ áp dụng cho account của bạn (lưu theo user đăng nhập).">
               {pinCols.length ? `📌 Ghim: ${pinCols.length} cột` : '📌 Ghim cột'}
             </button>
             {pinPopup && (
@@ -838,7 +829,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
               fontWeight: hiddenCols.length ? 600 : 400,
               background: hiddenCols.length ? colors.warningLight : 'transparent', color: hiddenCols.length ? colors.warning : colors.textMuted,
               transition: 'all 0.12s ease', whiteSpace: 'nowrap',
-            }} onClick={() => setHidePopup(v => !v)} title="Ẩn/hiện các cột không cần thiết">
+            }} onClick={() => setHidePopup(v => !v)} title="Ẩn/hiện các cột không cần thiết. Chỉ áp dụng cho account của bạn (lưu theo user đăng nhập)">
               {hiddenCols.length ? `🙈 Ẩn: ${hiddenCols.length} cột` : '🙈 Ẩn cột'}
             </button>
             {hidePopup && (
@@ -848,11 +839,6 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
               }}>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center' }}>
                   <button style={{ ...btn(colors.primary), fontSize: 11, padding: '4px 8px', height: 26 }} onClick={() => setHiddenCols([])}>Hiện tất cả</button>
-                  {isAdmin && (
-                    <button style={{ ...btn(colors.warning), fontSize: 11, padding: '4px 8px', height: 26 }} onClick={saveHiddenDefault} title="Lưu cột ẩn hiện tại làm mặc định toàn cục (mọi người dùng)">
-                      🎯 Lưu ẩn mặc định
-                    </button>
-                  )}
                 </div>
                 <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6 }}>Bỏ tick cột muốn ẩn (chỉ riêng bạn):</div>
                 {columns.filter(c => !c.hidden).map(c => {
@@ -870,7 +856,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                 })}
               </div>
             )}
-          </div>
+          </div> </>}
           {canEdit && (
           <button style={{
             padding: '4px 12px', border: `1px solid ${editMode ? colors.primary : colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: 12, fontWeight: editMode ? 600 : 400,
@@ -917,7 +903,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                       {visibleCols.map((c, idx) => {
                         const isLastCol = b === perRow - 1 && idx === visibleCols.length - 1 && !hasAction
                         const w = getColWidth(c)
-                        const canFilter = b === 0 && (!c.computed || (c.computed && c.type === 'select'))
+                        const canFilter = b === 0 && (!c.computed || c.filterable || (c.computed && c.type === 'select'))
                         const activeSort = sortKey === c.key
                         const sortMark = activeSort ? (sortDir === 'desc' ? '▼' : '▲') : '⇅'
                         const vals = canFilter ? colValues(c) : []
@@ -950,7 +936,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                   <>
                   {visibleCols.map((c, idx) => {
                     const w = getColWidth(c)
-                    const canFilter = !c.computed || (c.computed && c.type === 'select')
+                    const canFilter = !c.computed || c.filterable || (c.computed && c.type === 'select')
                     const activeSort = sortKey === c.key
                     const sortMark = activeSort ? (sortDir === 'desc' ? '▼' : '▲') : '⇅'
                     const vals = canFilter ? colValues(c) : []
@@ -1106,12 +1092,20 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       <Modal open={modalOpen} title={editItem ? `Sửa ${title}` : `Thêm ${title}`} onClose={() => setModalOpen(false)} wide>
         {formError && <div style={{ padding: 14, background: colors.dangerLight, color: colors.danger, borderRadius: radius.md, marginBottom: 16, border: `1px solid ${colors.danger}22` }}>{formError}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '14px 16px' }}>
-          {editableCols.filter(c => !AUTO_FIELDS.includes(c.key) && !c.hidden).map(c => (
+          {columns.filter(c => !AUTO_FIELDS.includes(c.key)).map(c => (
             <div key={c.key}>
               <label style={{ display: 'block', marginBottom: 5, fontSize: 12, fontWeight: 500, color: colors.textSecondary }}>
-                {c.label}{c.required ? <span style={{ color: colors.danger }}> *</span> : null}
+                {c.label}{c.required ? <span style={{ color: colors.danger }}> *</span> : null}{c.computed ? <span style={{ color: colors.textDisabled, fontWeight: 400 }}> (tự tính)</span> : null}
               </label>
-              {c.renderForm ? (
+              {c.computed ? (
+                <div style={{ ...input, width: '100%', boxSizing: 'border-box', background: colors.surfaceSecondary, color: colors.textSecondary, display: 'flex', alignItems: 'center', minHeight: 34 }}>
+                  {(() => {
+                    const base = editItem ? { ...editItem, ...formData } : formData
+                    const v = c.render ? c.render(base[c.key], base) : (base[c.key] ?? '—')
+                    return <span>{v ?? '—'}</span>
+                  })()}
+                </div>
+              ) : c.renderForm ? (
                 c.renderForm(formData[c.key], (v) => updateFormField(c.key, v))
               ) : c.type === 'select' && c.options ? (
                 <select style={{ ...input, width: '100%', boxSizing: 'border-box', background: '#fff' }} value={formData[c.key] ?? ''} onChange={(e) => updateFormField(c.key, e.target.value)}>

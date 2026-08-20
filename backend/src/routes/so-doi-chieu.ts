@@ -77,13 +77,22 @@ const LIST_QUERY = `SELECT t.*, m.gia_goc AS gia_goc_misa, g.gia_goc AS gia_goc_
 const CHENH_LECH_EXPR = `(CASE WHEN t.don_gia > 0 AND t.ma_hang NOT LIKE 'Z%' THEN
   (m.gia_goc - t.don_gia) ELSE NULL END)`
 
+// % thuế thực tế = Thuế GTGT / Doanh số bán * 100 (mặc định chuẩn 8%)
+const THUE_PCT_EXPR = `(CASE WHEN t.doanh_so > 0 THEN (t.thue / t.doanh_so * 100) ELSE NULL END)`
+// Thuế Đúng/Sai: % thuế xấp xỉ 8% (±0.05) → Đúng; dòng không có doanh số → NULL
+const THUE_DUNG_EXPR = `(CASE WHEN t.doanh_so > 0 AND ABS(t.thue / t.doanh_so * 100 - 8) < 0.05 THEN 'dung' WHEN t.doanh_so > 0 THEN 'sai' ELSE NULL END)`
+
 const crud = crudRoutes({
   table: TABLE,
   idField: 'id',
   searchFields: ['ma_hang', 'ten_hang', 'ten_kh', 'so_chung_tu', 'dien_giai', 'ma_kh'],
   orderBy: 't.id DESC',
   listQuery: LIST_QUERY,
-  extraFilterMap: { chech_lech: CHENH_LECH_EXPR },
+  extraFilterMap: {
+    chech_lech: CHENH_LECH_EXPR,
+    thue_pct: THUE_PCT_EXPR,
+    thue_dung: THUE_DUNG_EXPR,
+  },
 })
 
 router.route('/', crud)
