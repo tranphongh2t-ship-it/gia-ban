@@ -107,6 +107,15 @@ const columns: Column[] = [
 
   { key: 'doanh_so', label: 'Doanh số bán', type: 'number', width: '130' },
   { key: 'ck', label: 'Chiết khấu', type: 'number', width: '120' },
+  {
+    key: 'ck_pct_thuc_te', label: 'CK % (gốc)', type: 'number', computed: true, width: '110',
+    render: (v, row) => {
+      const ds = Number(row.doanh_so) || 0
+      const ck = Number(row.ck) || 0
+      if (ds <= 0) return '—'
+      return (ck / ds * 100).toFixed(2) + '%'
+    },
+  },
 
   // --- Nhóm check 2: Chiết khấu theo engine bang-ck-thang — ngay sau cột Chiết khấu ---
   {
