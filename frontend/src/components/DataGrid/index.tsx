@@ -536,6 +536,12 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // Nhảy về đầu bảng (trên + trái) khi đổi trang / lọc / tìm / sắp xếp — giống Excel, không giữ vị trí scroll cũ.
+  const wrapRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    wrapRef.current?.scrollTo({ top: 0, left: 0 })
+  }, [offset, search, sortKey, sortDir, filters])
+
   const handleSearch = (value: string) => { setSearch(value); setOffset(0) }
 
   const handleExport = async (format: 'excel' | 'json') => {
@@ -912,7 +918,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       ) : (
         <>
           <style>{`.dg-tbl tbody tr:hover{background:${colors.surfaceSecondary}} .dg-tbl tbody tr:last-child td{border-bottom:none}`}</style>
-          <div className="dg-wrap" style={{ overflowX: 'auto', overflowY: 'auto', maxWidth: '100%', maxHeight: 'calc(100vh - 230px)', background: colors.card, borderRadius: radius.lg, boxShadow: shadow.card, border: `1px solid ${colors.border}` }}>
+          <div ref={wrapRef} className="dg-wrap" style={{ overflowX: 'auto', overflowY: 'auto', maxWidth: '100%', maxHeight: 'calc(100vh - 230px)', background: colors.card, borderRadius: radius.lg, boxShadow: shadow.card, border: `1px solid ${colors.border}` }}>
             <table className="dg-tbl" style={{ borderCollapse: 'separate', borderSpacing: 0, fontSize: 13, tableLayout: 'fixed', minWidth: '100%', width: 'max-content' }}>
               <thead>
                 <tr>

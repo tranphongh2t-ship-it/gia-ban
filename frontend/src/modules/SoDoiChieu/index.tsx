@@ -446,7 +446,7 @@ export default function SoDoiChieuPage() {
         defaultSort="so_chung_tu"
         exportable
         exportName="SoDoiChieu"
-        defaultLimit={100}
+        defaultLimit={500}
         extraFilters={noPrice ? { don_gia: '__empty' } : undefined}
         logBang="so_doi_chieu"
       />
