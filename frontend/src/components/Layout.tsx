@@ -142,7 +142,7 @@ const iconActiveStyle: React.CSSProperties = {
 
 const contentStyle: React.CSSProperties = {
   marginLeft: sidebarW, flex: 1, background: colors.body,
-  minHeight: '100vh',
+  minHeight: '100vh', minWidth: 0,
 }
 
 const footerStyle: React.CSSProperties = {

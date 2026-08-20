@@ -912,7 +912,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       ) : (
         <>
           <style>{`.dg-tbl tbody tr:hover{background:${colors.surfaceSecondary}} .dg-tbl tbody tr:last-child td{border-bottom:none}`}</style>
-          <div className="dg-wrap" style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 230px)', background: colors.card, borderRadius: radius.lg, boxShadow: shadow.card, border: `1px solid ${colors.border}` }}>
+          <div className="dg-wrap" style={{ overflowX: 'auto', overflowY: 'auto', maxWidth: '100%', maxHeight: 'calc(100vh - 230px)', background: colors.card, borderRadius: radius.lg, boxShadow: shadow.card, border: `1px solid ${colors.border}` }}>
             <table className="dg-tbl" style={{ borderCollapse: 'separate', borderSpacing: 0, fontSize: 13, tableLayout: 'fixed', minWidth: '100%', width: 'max-content' }}>
               <thead>
                 <tr>
