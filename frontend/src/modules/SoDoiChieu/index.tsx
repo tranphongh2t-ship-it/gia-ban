@@ -179,14 +179,25 @@ const columns: Column[] = [
   { key: 'sl_tra', label: 'Tổng SL trả lại', type: 'number', width: '110' },
   { key: 'gt_tra', label: 'Giá trị trả lại', type: 'number', width: '120' },
   { key: 'gt_giam', label: 'Giá trị giảm giá', type: 'number', width: '120' },
-  { key: 'thue', label: 'Thuế GTGT', type: 'number', width: '120' },
+  {
+    key: 'thue', label: 'Thuế GTGT', type: 'number', width: '120', computed: true, group: 'gia', tint: '#38bdf8',
+    render: (v, row) => {
+      const ds = Number(row.doanh_so) || 0
+      const ck = Number(row.ck) || 0
+      const thue = (ds - ck) * 0.08
+      if (thue <= 0) return <span style={{ color: colors.textMuted }}>—</span>
+      return <span style={{ fontWeight: 600 }}>{formatNum(Math.round(thue * 100) / 100)}</span>
+    },
+  },
   {
     key: 'thue_pct', label: '% thuế', type: 'number', computed: true, filterable: true, width: '100', group: 'gia', tint: '#38bdf8',
     render: (v, row) => {
       const ds = Number(row.doanh_so) || 0
+      const ck = Number(row.ck) || 0
       const thue = Number(row.thue) || 0
-      if (ds <= 0) return <span style={{ color: colors.textMuted }}>—</span>
-      const pct = thue / ds * 100
+      const base = ds - ck
+      if (base <= 0) return <span style={{ color: colors.textMuted }}>—</span>
+      const pct = thue / base * 100
       const is8 = Math.abs(pct - 8) < 0.05
       return <span style={{ fontWeight: 600, color: is8 ? '#16a34a' : colors.text }}>{pct.toFixed(2)}%</span>
     },
@@ -199,9 +210,11 @@ const columns: Column[] = [
     ],
     render: (v, row) => {
       const ds = Number(row.doanh_so) || 0
+      const ck = Number(row.ck) || 0
       const thue = Number(row.thue) || 0
-      if (ds <= 0) return <span style={{ color: colors.textMuted }}>—</span>
-      const pct = thue / ds * 100
+      const base = ds - ck
+      if (base <= 0) return <span style={{ color: colors.textMuted }}>—</span>
+      const pct = thue / base * 100
       const dung = Math.abs(pct - 8) < 0.05
       const color = dung ? '#16a34a' : '#dc2626'
       return <span style={{ fontWeight: 700, color }}>{dung ? 'Đúng' : 'Sai'}</span>
