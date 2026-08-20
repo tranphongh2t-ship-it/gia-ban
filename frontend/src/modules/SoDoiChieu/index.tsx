@@ -83,12 +83,12 @@ const columns: Column[] = [
   { key: 'ten_hang', label: 'Tên hàng', width: '260' },
   { key: 'dvt', label: 'ĐVT', width: '70' },
   { key: 'sl_ban', label: 'Tổng SL bán', type: 'number', width: '110' },
-  { key: 'don_gia', label: 'Đơn giá', type: 'number', width: '120' },
+  { key: 'don_gia', label: 'Đơn giá', type: 'number', width: '120', group: 'gia', tint: '#38bdf8' },
 
   // --- Nhóm check 1: Giá gốc MISA — sau cột Đơn giá ---
-  { key: 'gia_goc', label: 'Giá gốc (MISA)', type: 'number', width: '120', computed: true },
+  { key: 'gia_goc', label: 'Giá gốc (MISA)', type: 'number', width: '120', computed: true, group: 'gia', tint: '#38bdf8' },
   {
-    key: 'chech_lech', label: 'Chênh lệch', type: 'select', computed: true, width: '110',
+    key: 'chech_lech', label: 'Chênh lệch', type: 'select', computed: true, width: '110', group: 'gia', tint: '#38bdf8',
     options: [
       { value: '__gt0', label: 'Chênh lệch dương' },
       { value: '__eq0', label: 'Không chênh lệch' },
@@ -106,9 +106,9 @@ const columns: Column[] = [
   },
 
   { key: 'doanh_so', label: 'Doanh số bán', type: 'number', width: '130' },
-  { key: 'ck', label: 'Chiết khấu', type: 'number', width: '120' },
+  { key: 'ck', label: 'Chiết khấu', type: 'number', width: '120', group: 'ck', tint: '#fbbf24' },
   {
-    key: 'ck_pct_thuc_te', label: 'CK % (gốc)', type: 'number', computed: true, width: '110',
+    key: 'ck_pct_thuc_te', label: 'CK % (gốc)', type: 'number', computed: true, width: '110', group: 'ck', tint: '#fbbf24',
     render: (v, row) => {
       const ds = Number(row.doanh_so) || 0
       const ck = Number(row.ck) || 0
@@ -119,7 +119,7 @@ const columns: Column[] = [
 
   // --- Nhóm check 2: Chiết khấu theo engine bang-ck-thang — ngay sau cột Chiết khấu ---
   {
-    key: 'ck1_pct', label: 'CK1 (ván trơn/chỉ nẹp)', type: 'number', width: '120', computed: true,
+    key: 'ck1_pct', label: 'CK1 (ván trơn/chỉ nẹp)', type: 'number', width: '120', computed: true, group: 'ck', tint: '#fbbf24',
     render: (v, row) => {
       const n = Number(v)
       if (v === null || v === undefined || isNaN(n)) return '—'
@@ -127,7 +127,7 @@ const columns: Column[] = [
     },
   },
   {
-    key: 'ck2_pct', label: 'CK2 (vận chuyển)', type: 'number', width: '120', computed: true,
+    key: 'ck2_pct', label: 'CK2 (vận chuyển)', type: 'number', width: '120', computed: true, group: 'ck', tint: '#fbbf24',
     render: (v, row) => {
       const n = Number(v)
       if (v === null || v === undefined || isNaN(n)) return '—'
@@ -135,7 +135,7 @@ const columns: Column[] = [
     },
   },
   {
-    key: 'ck3_pct', label: 'CK0 (Melamine)', type: 'number', width: '120', computed: true,
+    key: 'ck3_pct', label: 'CK0 (Melamine)', type: 'number', width: '120', computed: true, group: 'ck', tint: '#fbbf24',
     render: (v, row) => {
       const n = Number(v)
       if (v === null || v === undefined || isNaN(n)) return '—'
@@ -143,16 +143,16 @@ const columns: Column[] = [
     },
   },
   {
-    key: 'tong_pct', label: 'Tổng % (engine)', type: 'number', width: '130', computed: true,
+    key: 'tong_pct', label: 'Tổng % (engine)', type: 'number', width: '130', computed: true, group: 'ck', tint: '#fbbf24',
     render: (v, row) => {
       const n = Number(v)
       if (v === null || v === undefined || isNaN(n)) return '—'
       return <span style={{ fontWeight: 700 }}>{(n * 100).toFixed(2)}%</span>
     },
   },
-  { key: 'ck_tinh', label: 'CK tính (engine)', type: 'number', width: '130', computed: true },
+  { key: 'ck_tinh', label: 'CK tính (engine)', type: 'number', width: '130', computed: true, group: 'ck', tint: '#fbbf24' },
   {
-    key: 'ck_kq', label: 'Đúng/Sai', type: 'select', computed: true, width: '90',
+    key: 'ck_kq', label: 'Đúng/Sai', type: 'select', computed: true, width: '90', group: 'ck', tint: '#fbbf24',
     options: [
       { value: 'dung', label: 'Đúng' },
       { value: 'sai', label: 'Sai' },
@@ -167,8 +167,8 @@ const columns: Column[] = [
       return <span style={{ fontWeight: 700, color }}>{dung ? 'Đúng' : 'Sai'}</span>
     },
   },
-  { key: 'nhom_mau', label: 'Nhóm màu', width: '100', computed: true, render: (v) => v ? v : '—' },
-  { key: 'dieu_kien', label: 'Điều kiện CK', width: '160', computed: true, render: (v) => v ? v : '—' },
+  { key: 'nhom_mau', label: 'Nhóm màu', width: '100', computed: true, group: 'ck', tint: '#fbbf24', render: (v) => v ? v : '—' },
+  { key: 'dieu_kien', label: 'Điều kiện CK', width: '160', computed: true, group: 'ck', tint: '#fbbf24', render: (v) => v ? v : '—' },
   { key: 'giai_thich', label: 'Giải thích', width: '220', computed: true, render: (v) => v ? v : '—' },
   {
     key: 'sua_ghichu', label: 'Ghi chú sửa', width: '180', computed: true,

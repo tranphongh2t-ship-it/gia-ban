@@ -19,6 +19,10 @@ export interface Column {
   renderForm?: (value: any, onChange: (v: any) => void) => any
   filterable?: boolean
   computed?: boolean
+  // Nhóm cột: cấu hình = { nhóm: 'đơn giá' | 'ck', tint: màu nền } → tô màu nền nhóm cho header + ô dữ liệu,
+  // và là nhóm con mặc định được đề xuất khi bấm "ghim cột" (tick sẵn các cột trong nhóm).
+  group?: string
+  tint?: string
 }
 
 interface DataGridProps {
@@ -65,9 +69,29 @@ const ROW_PAD: Record<string, { td: string; th: string }> = {
   lg: { td: '12px 20px', th: '12px 20px' },
 }
 
+// Đổi màu hex (#rrggbb) → chuỗi rgba với độ trong suốt alpha (0..1)
+function tintBg(hex: string | undefined, alpha: number): string | undefined {
+  if (!hex) return undefined
+  const m = String(hex).replace('#', '')
+  const r = parseInt(m.slice(0, 2), 16), g = parseInt(m.slice(2, 4), 16), b = parseInt(m.slice(4, 6), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return undefined
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+// Trộn màu phủ lên nền → màu đục (không trong suốt) để dùng cho cột ghim (che cột cuộn phía sau).
+function solidMix(base: string, over: string | undefined, alpha: number): string {
+  if (!over) return base
+  const hex = (s: string) => { const m = s.replace('#', ''); return [parseInt(m.slice(0, 2), 16), parseInt(m.slice(2, 4), 16), parseInt(m.slice(4, 6), 16)] }
+  const [br, bg, bb] = hex(base)
+  const [or, og, ob] = hex(over)
+  const mix = (a: number, b: number) => Math.round(a * alpha + b * (1 - alpha))
+  return `#${[mix(or, br), mix(og, bg), mix(ob, bb)].map(v => v.toString(16).padStart(2, '0')).join('')}`
+}
+
 
 const STORAGE_COL = (p: string) => `dg_${p.replace(/\//g, '_')}_colw`
 const STORAGE_ROW = (p: string) => `dg_${p.replace(/\//g, '_')}_rowh`
+const STORAGE_PIN = (p: string) => `dg_${p.replace(/\//g, '_')}_pins`
 
 function buildPageList(current: number, total: number): number[] {
   const pages: number[] = []
@@ -241,6 +265,43 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     try { return localStorage.getItem(STORAGE_ROW(apiPath)) || 'md' } catch { return 'md' }
   })
 
+  // Cột ghim (sticky left khi cuộn ngang, như Excel). Lưu localStorage theo apiPath.
+  const [pinCols, setPinCols] = useState<string[]>(() => {
+    try {
+      const arr = JSON.parse(localStorage.getItem(STORAGE_PIN(apiPath)) || '[]')
+      return Array.isArray(arr) ? arr : []
+    } catch { return [] }
+  })
+  const [pinPopup, setPinPopup] = useState(false)
+  const pinRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { localStorage.setItem(STORAGE_PIN(apiPath), JSON.stringify(pinCols)) }, [pinCols, apiPath])
+
+  // Đóng popup ghim khi click bên ngoài
+  useEffect(() => {
+    if (!pinPopup) return
+    const onDoc = (e: MouseEvent) => {
+      if (pinRef.current && !pinRef.current.contains(e.target as Node)) setPinPopup(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [pinPopup])
+
+  // Ghim cột theo kiểu Excel: luôn là đoạn liền từ cột trái cùng. Tick cột N → ghim cột 0..N; bỏ tick → ghim 0..N-1.
+  const pinIdxOf = (key: string) => visibleCols.findIndex(c => c.key === key)
+  const togglePin = (key: string) => {
+    const idx = pinIdxOf(key)
+    if (idx < 0) return
+    if (pinCols.length > idx && pinCols[idx] === key) {
+      setPinCols(visibleCols.slice(0, idx).map(c => c.key))
+    } else {
+      setPinCols(visibleCols.slice(0, idx + 1).map(c => c.key))
+    }
+  }
+  const togglePinsAll = (on: boolean) => {
+    setPinCols(on ? visibleCols.map(c => c.key) : [])
+  }
+
   const userId: number | null = (() => {
     try {
       const u = JSON.parse(localStorage.getItem('auth_user') || 'null')
@@ -313,6 +374,36 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     if (colWidths[c.key]) return colWidths[c.key] + 'px'
     return getDefaultColWidth(c) + 'px'
   }
+
+  // Cột ghim: chỉ ghim các cột liền kề từ trái → offset sticky = tổng độ rộng các cột ghim đứng trước.
+  // Dùng cho cả header + body.
+  const pinnedOffsets: Record<string, number> = {}
+  let pinAcc = 0
+  for (const c of visibleCols) {
+    if (pinCols.includes(c.key)) {
+      pinnedOffsets[c.key] = pinAcc
+      pinAcc += (colWidths[c.key] || getDefaultColWidth(c))
+    } else {
+      pinnedOffsets[c.key] = -1
+    }
+  }
+  const isPinned = (c: Column) => (pinnedOffsets[c.key] ?? -1) >= 0
+  // style bổ sung cho header + ô dữ liệu cột ghim: sticky, nền đục (che cột cuộn phía sau), vạch phải.
+  const pinThStyle = (c: Column): React.CSSProperties => isPinned(c)
+    ? { position: 'sticky', left: pinnedOffsets[c.key], zIndex: 30, boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.08)' }
+    : {}
+  const pinTdStyle = (c: Column): React.CSSProperties => isPinned(c)
+    ? { position: 'sticky', left: pinnedOffsets[c.key], zIndex: 10, boxShadow: 'inset -1px 0 0 rgba(0,0,0,0.08)' }
+    : {}
+
+  // Màu nền nhóm cột (tint cấu hình trên Column): header đậm hơn, ô dữ liệu nhạt hơn.
+  // Cột ghim cần nền ĐỤC (trộn tint với nền nền, không có tint thì dùng màu nền gốc) để che cột cuộn phía sau.
+  const groupThBg = (c: Column) => isPinned(c)
+    ? solidMix(colors.surfaceSecondary, c.tint, 0.18)
+    : tintBg(c.tint, 0.14)
+  const groupTdBg = (c: Column) => isPinned(c)
+    ? solidMix(colors.card, c.tint, 0.08)
+    : tintBg(c.tint, 0.06)
 
   // Column resize ref
   const colResize = useRef<{ key: string; startX: number; startW: number } | null>(null)
@@ -586,8 +677,15 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     const isLast = blockIdx === perRow - 1 && ci === visibleCols.length - 1
     if (!row) return <td key={`e-${blockIdx}-${c.key}`} style={{ ...(isLast ? tCellLast : tCell), ...tdPad }} />
     const isEditing = inlineEdit && inlineEdit.rowId === row.id && inlineEdit.colKey === c.key
+    const gBg = groupTdBg(c)
+    const pinS = pinTdStyle(c)
     return (
-      <td key={`${blockIdx}-${c.key}`} style={{ ...(isLast ? tCellLast : tCell), ...tdPad, ...(c.type === 'number' ? { textAlign: 'right' as const } : {}), cursor: AUTO_FIELDS.includes(c.key) ? 'default' : (editMode ? 'text' : 'pointer') }}
+      <td key={`${blockIdx}-${c.key}`} style={{
+        ...(isLast ? tCellLast : tCell), ...tdPad,
+        ...(c.type === 'number' ? { textAlign: 'right' as const } : {}),
+        cursor: AUTO_FIELDS.includes(c.key) ? 'default' : (editMode ? 'text' : 'pointer'),
+        ...pinS, ...(gBg ? { background: gBg } : {}),
+      }}
         {...(canEdit ? (editMode ? { onClick: () => startInlineEdit(row, c) } : { onDoubleClick: () => startInlineEdit(row, c) }) : {})}
       >
         {isEditing ? (
@@ -668,6 +766,39 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
               }} onClick={() => setRowHeight(z.key)} title={z.label}>{z.icon}</button>
             ))}
           </div>
+          <div style={{ position: 'relative' }} ref={pinRef}>
+            <button style={{
+              padding: '4px 12px', border: `1px solid ${pinCols.length ? colors.primary : colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: 12,
+              fontWeight: pinCols.length ? 600 : 400,
+              background: pinCols.length ? colors.primaryLight : 'transparent', color: pinCols.length ? colors.primary : colors.textMuted,
+              transition: 'all 0.12s ease', whiteSpace: 'nowrap',
+            }} onClick={() => setPinPopup(v => !v)} title="Ghim cột trái (cố định khi cuộn ngang, như Excel)">
+              {pinCols.length ? `📌 Ghim: ${pinCols.length} cột` : '📌 Ghim cột'}
+            </button>
+            {pinPopup && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 200, minWidth: 240, maxHeight: 320, overflowY: 'auto',
+                background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadow.dropdown, padding: 8,
+              }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                  <button style={{ ...btn(colors.primary), fontSize: 11, padding: '4px 8px', height: 26 }} onClick={() => togglePinsAll(true)}>Ghim tất cả</button>
+                  <button style={{ ...btn(colors.textSecondary, '#fff'), fontSize: 11, padding: '4px 8px', height: 26 }} onClick={() => togglePinsAll(false)}>Bỏ ghim</button>
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6 }}>Tick cột → ghim cột 0..N (Excel):</div>
+                {visibleCols.map((c, i) => {
+                  const checkedIdx = pinCols.length > i && pinCols[i] === c.key
+                  return (
+                    <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 4px', borderRadius: radius.sm, fontSize: 12, cursor: 'pointer', background: checkedIdx ? colors.primaryLight : 'transparent', color: checkedIdx ? colors.primary : colors.text }}
+                      onClick={() => togglePin(c.key)}>
+                      <span style={{ width: 14, height: 14, borderRadius: 3, border: `1px solid ${checkedIdx ? colors.primary : colors.border}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: checkedIdx ? colors.primary : 'transparent', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>{checkedIdx ? '✓' : ''}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{c.label}</span>
+                      {c.tint && <span style={{ width: 10, height: 10, borderRadius: '50%', background: tintBg(c.tint, 1), flexShrink: 0 }} />}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
           {canEdit && (
           <button style={{
             padding: '4px 12px', border: `1px solid ${editMode ? colors.primary : colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: 12, fontWeight: editMode ? 600 : 400,
@@ -718,10 +849,13 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                         const activeSort = sortKey === c.key
                         const sortMark = activeSort ? (sortDir === 'desc' ? '▼' : '▲') : '⇅'
                         const vals = canFilter ? colValues(c) : []
+                        const gBg = groupThBg(c)
+                        const pinS = pinThStyle(c)
                         return (
-                           <th key={`${b}-${c.key}`} style={{ ...(isLastCol ? tHeadLast : { ...tHead, width: w }), ...thPad, position: 'relative', userSelect: 'none' }}>
+                           <th key={`${b}-${c.key}`} style={{ ...(isLastCol ? { ...tHeadLast, width: w } : { ...tHead, width: w }), ...thPad, position: 'relative', userSelect: 'none', ...pinS, ...(gBg ? { background: gBg } : {}) }}>
                              <div style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
                                <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => toggleSort(c.key)} title="Bấm để sắp xếp">
+                                 {isPinned(c) && <span style={{ fontSize: 9, marginRight: 2 }}>📌</span>}
                                  {c.label}
                                  {c.unit && <span style={{ fontWeight: 400, fontSize: 10, color: colors.textMuted, display: 'block', marginTop: 1 }}>{c.unit}</span>}
                                </div>
@@ -748,10 +882,17 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                     const activeSort = sortKey === c.key
                     const sortMark = activeSort ? (sortDir === 'desc' ? '▼' : '▲') : '⇅'
                     const vals = canFilter ? colValues(c) : []
+                    const gBg = groupThBg(c)
+                    const pinS = pinThStyle(c)
                     return (
-                       <th key={c.key} style={{ ...(idx === visibleCols.length - 1 ? tHeadLast : { ...tHead, width: w }), ...thPad, position: 'relative', userSelect: 'none' }}>
+                       <th key={c.key} style={{
+                         ...(idx === visibleCols.length - 1 ? { ...tHeadLast, width: w } : { ...tHead, width: w }),
+                         ...thPad, position: 'relative', userSelect: 'none', ...pinS,
+                         ...(gBg ? { background: gBg } : {}),
+                       }}>
                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
                            <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => toggleSort(c.key)} title="Bấm để sắp xếp">
+                             {isPinned(c) && <span style={{ fontSize: 9, marginRight: 2 }}>📌</span>}
                              {c.label}
                              {c.unit && <span style={{ fontWeight: 400, fontSize: 10, color: colors.textMuted, display: 'block', marginTop: 1 }}>{c.unit}</span>}
                            </div>
@@ -762,7 +903,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                          {canFilter && openFilter === c.key && (
                            <FilterDropdown col={c} value={filters[c.key] || ''} values={vals} onChange={(v) => { setFilters(prev => ({ ...prev, [c.key]: v })); setOffset(0) }} onClose={() => setOpenFilter(null)} />
                          )}
-                         <div className="dg-rz" onMouseDown={(e) => startColResize(c.key, e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 10, zIndex: 10, cursor: 'col-resize' }} />
+                         <div className="dg-rz" onMouseDown={(e) => startColResize(c.key, e)} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 10, zIndex: 40, cursor: 'col-resize' }} />
                        </th>
                     )
                   })}
@@ -795,8 +936,10 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                   <tr key={row.id} style={{ transition: 'background 80ms' }}>
                     {visibleCols.map((c, ci) => {
                       const isEditing = inlineEdit && inlineEdit.rowId === row.id && inlineEdit.colKey === c.key
+                      const gBg = groupTdBg(c)
+                      const pinS = pinTdStyle(c)
                       return (
-                      <td key={c.key} style={{ ...(ci === visibleCols.length - 1 ? tCellLast : tCell), ...tdPad, ...(c.type === 'number' ? { textAlign: 'right' as const } : {}), cursor: AUTO_FIELDS.includes(c.key) ? 'default' : (editMode ? 'text' : 'pointer') }}
+                      <td key={c.key} style={{ ...(ci === visibleCols.length - 1 ? tCellLast : tCell), ...tdPad, ...(c.type === 'number' ? { textAlign: 'right' as const } : {}), cursor: AUTO_FIELDS.includes(c.key) ? 'default' : (editMode ? 'text' : 'pointer'), ...pinS, ...(gBg ? { background: gBg } : {}) }}
                         {...(canEdit ? (editMode ? { onClick: () => startInlineEdit(row, c) } : { onDoubleClick: () => startInlineEdit(row, c) }) : {})}
                       >
                         {isEditing ? (
