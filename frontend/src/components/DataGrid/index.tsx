@@ -383,6 +383,9 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   }
 
   const visibleCols = columns.filter(c => !c.hidden && !hiddenCols.includes(c.key))
+  // Cột hiển thị theo thứ tự: cột ghim đưa lên đầu (theo thứ tự trong bảng), rồi đến cột còn lại.
+  // Giúp cột ghim luôn nằm bên trái cùng và "chết" khi cuộn ngang, giống Excel freeze panes.
+  const displayCols = [...visibleCols.filter(c => pinCols.includes(c.key)), ...visibleCols.filter(c => !pinCols.includes(c.key))]
   const perRow = Math.max(1, columnsPerRow || 1)
   const fetchLimit = limit * perRow
   const curRowPad = ROW_PAD[rowHeight] || ROW_PAD.md
@@ -413,11 +416,11 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     return getDefaultColWidth(c) + 'px'
   }
 
-  // Cột ghim: chỉ ghim các cột liền kề từ trái → offset sticky = tổng độ rộng các cột ghim đứng trước.
+  // Cột ghim: cột ghim đưa lên đầu (displayCols) → offset sticky = tổng độ rộng các cột ghim đứng trước (liên tục từ 0).
   // Dùng cho cả header + body.
   const pinnedOffsets: Record<string, number> = {}
   let pinAcc = 0
-  for (const c of visibleCols) {
+  for (const c of displayCols) {
     if (pinCols.includes(c.key)) {
       pinnedOffsets[c.key] = pinAcc
       pinAcc += (colWidths[c.key] || getDefaultColWidth(c))
@@ -714,7 +717,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const hasAction = canEdit || (onRowAction && rowActionLabel) || (rowActions && rowActions.length > 0)
 
   const renderDataCell = (row: any, c: Column, ci: number, blockIdx: number) => {
-    const isLast = blockIdx === perRow - 1 && ci === visibleCols.length - 1
+    const isLast = blockIdx === perRow - 1 && ci === displayCols.length - 1
     if (!row) return <td key={`e-${blockIdx}-${c.key}`} style={{ ...(isLast ? tCellLast : tCell), ...tdPad }} />
     const isEditing = inlineEdit && inlineEdit.rowId === row.id && inlineEdit.colKey === c.key
     const gBg = groupTdBg(c)
@@ -916,8 +919,8 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                   {perRow > 1 ? Array.from({ length: perRow }).map((_, b) => (
                     <Fragment key={`hdr-${b}`}>
                       {b > 0 && <th style={{ ...tHead, width: 14, ...thPad, background: colors.surfaceSecondary, fontSize: 9, textAlign: 'center', color: colors.textMuted, position: 'sticky', top: 0, zIndex: 20 }} />}
-                      {visibleCols.map((c, idx) => {
-                        const isLastCol = b === perRow - 1 && idx === visibleCols.length - 1 && !hasAction
+                      {displayCols.map((c, idx) => {
+                        const isLastCol = b === perRow - 1 && idx === displayCols.length - 1 && !hasAction
                         const w = getColWidth(c)
                         const canFilter = b === 0 && (!c.computed || c.filterable || (c.computed && c.type === 'select'))
                         const activeSort = sortKey === c.key
@@ -950,7 +953,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                     </Fragment>
                   )) : (
                   <>
-                  {visibleCols.map((c, idx) => {
+                  {displayCols.map((c, idx) => {
                     const w = getColWidth(c)
                     const canFilter = !c.computed || c.filterable || (c.computed && c.type === 'select')
                     const activeSort = sortKey === c.key
@@ -960,7 +963,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                     const pinS = pinThStyle(c)
                     return (
                        <th key={c.key} style={{
-                         ...(idx === visibleCols.length - 1 ? { ...tHeadLast, width: w } : { ...tHead, width: w }),
+                         ...(idx === displayCols.length - 1 ? { ...tHeadLast, width: w } : { ...tHead, width: w }),
                          ...thPad, position: 'relative', userSelect: 'none', ...pinS,
                          ...(gBg ? { background: gBg } : {}),
                        }}>
@@ -990,7 +993,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
               </thead>
               <tbody>
                 {data.length === 0 ? (
-                  <tr><td colSpan={perRow * (visibleCols.length + (hasAction ? 1 : 0)) + (perRow - 1)} style={{ ...tableStyle.td, ...tdPad, textAlign: 'center', padding: 48, color: colors.textMuted }}>Không có dữ liệu</td></tr>
+                  <tr><td colSpan={perRow * (displayCols.length + (hasAction ? 1 : 0)) + (perRow - 1)} style={{ ...tableStyle.td, ...tdPad, textAlign: 'center', padding: 48, color: colors.textMuted }}>Không có dữ liệu</td></tr>
                 ) : perRow > 1 ? (
                   Array.from({ length: Math.ceil(data.length / perRow) }).map((_, gi) => (
                     <tr key={`rg-${gi}`} style={{ transition: 'background 80ms' }}>
@@ -999,7 +1002,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                         return (
                           <Fragment key={`blk-${gi}-${b}`}>
                             {b > 0 && <td style={{ ...tCell, width: 14, ...tdPad, background: colors.surfaceSecondary }} />}
-                            {visibleCols.map((c, ci) => renderDataCell(row, c, ci, b))}
+                            {displayCols.map((c, ci) => renderDataCell(row, c, ci, b))}
                             {hasAction && renderActions(row, b === perRow - 1)}
                           </Fragment>
                         )
@@ -1008,12 +1011,12 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                   ))
                 ) : data.map((row: any) => (
                   <tr key={row.id} style={{ transition: 'background 80ms' }}>
-                    {visibleCols.map((c, ci) => {
+                    {displayCols.map((c, ci) => {
                       const isEditing = inlineEdit && inlineEdit.rowId === row.id && inlineEdit.colKey === c.key
                       const gBg = groupTdBg(c)
                       const pinS = pinTdStyle(c)
                       return (
-                      <td key={c.key} style={{ ...(ci === visibleCols.length - 1 ? tCellLast : tCell), ...tdPad, ...(c.type === 'number' ? { textAlign: 'right' as const } : {}), cursor: AUTO_FIELDS.includes(c.key) ? 'default' : (editMode ? 'text' : 'pointer'), ...pinS, ...(gBg ? { background: gBg } : {}) }}
+                      <td key={c.key} style={{ ...(ci === displayCols.length - 1 ? tCellLast : tCell), ...tdPad, ...(c.type === 'number' ? { textAlign: 'right' as const } : {}), cursor: AUTO_FIELDS.includes(c.key) ? 'default' : (editMode ? 'text' : 'pointer'), ...pinS, ...(gBg ? { background: gBg } : {}) }}
                         {...(canEdit ? (editMode ? { onClick: () => startInlineEdit(row, c) } : { onDoubleClick: () => startInlineEdit(row, c) }) : {})}
                       >
                         {isEditing ? (

@@ -351,7 +351,7 @@ export default function Layout() {
   const canAccess = !currentPerm || hasPermission(currentPerm)
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
       <nav style={{ ...sidebarStyle, width: curSidebarW, transition: 'width 160ms ease' }}>
         <div style={{ ...brandStyle, padding: collapsed ? '0 8px' : '0 18px', justifyContent: collapsed ? 'center' : 'flex-start' }}>
           <div style={brandIcon}>
@@ -363,16 +363,6 @@ export default function Layout() {
               <div style={brandSub}>HỆ THỐNG GIÁ</div>
             </div>
           )}
-          <button onClick={toggleCollapsed} title={collapsed ? 'Xổ menu ra (mở rộng)' : 'Thu menu vào (gọn)'}
-            style={{
-              position: collapsed ? 'absolute' as const : 'static',
-              right: 8, top: collapsed ? 16 : '50%', transform: collapsed ? 'none' : 'translateY(-50%)',
-              width: 30, height: 30, border: 'none', borderRadius: 8, cursor: 'pointer',
-              background: `linear-gradient(135deg, ${colors.primary}, #0d6a5c)`, color: '#fff', fontSize: 15,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              marginLeft: collapsed ? 0 : 'auto',
-              boxShadow: '0 2px 8px rgba(26,187,156,0.35)',
-            }}>{collapsed ? '⮞' : '⮜'}</button>
         </div>
         <div style={navStyle}>
           {navGroups.map((group) => {
@@ -433,6 +423,16 @@ export default function Layout() {
           {!collapsed && <div>v0.2.0</div>}
         </div>
       </nav>
+      <button onClick={toggleCollapsed} title={collapsed ? 'Xổ menu ra (mở rộng)' : 'Thu menu vào (gọn)'}
+        style={{
+          position: 'absolute',
+          left: collapsed ? curSidebarW - 2 : curSidebarW - 16,
+          top: 16, width: 28, height: 28,
+          border: 'none', background: collapsed ? colors.sidebar : 'transparent', cursor: 'pointer',
+          color: '#ffd60a', fontSize: 22, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 105, transition: 'left 160ms ease', borderRadius: 6,
+        }}>{collapsed ? '⮞' : '⮜'}</button>
       <main className="main-content" style={{ ...contentStyle, marginLeft: curSidebarW, transition: 'margin-left 160ms ease' }}>
         {currentPerm === 'menu:/bang-tinh-gia' && (
           <div style={{ padding: '10px 20px', background: colors.card, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center' }}>
