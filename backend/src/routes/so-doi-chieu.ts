@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { crudRoutes } from '../helpers/crud'
+import { crudRoutes, reqUser, isAdmin } from '../helpers/crud'
 import { isMisaSyncLocked } from '../helpers/auditAutoProcess'
 import { currentThang, syncMisaToBangsBulk } from '../helpers/giaGocSync'
 import { buildLop2Ctx, tinhCKChoDong } from './chiet-khau'
@@ -12,6 +12,28 @@ const TABLE = 'so_doi_chieu'
 const TTL_HOURS = 12
 
 const router = new Hono<Env>()
+
+// Kiểm tra quyền truy cập 1 dòng theo chủ sở hữu (bảng tách theo user).
+// Trả về { ok } hoặc { ok:false, status, error }.
+async function checkOwnerRow(db: D1Database, c: any, id: string, modify: boolean): Promise<{ ok: boolean; status?: any; error?: string }> {
+  const row = await db.prepare(`SELECT owner_user_id FROM ${TABLE} WHERE id = ?`).bind(id).first() as any
+  if (!row) return { ok: false, status: 404, error: 'Not found' }
+  const owner = row.owner_user_id as number | null
+  if (owner == null) {
+    // Dòng cũ (NULL): ai cũng xem được; chỉ admin sửa được
+    if (modify) {
+      const me = await reqUser(db, c)
+      if (!me) return { ok: false, status: 401, error: 'Bắt buộc đăng nhập' }
+      if (isAdmin(me)) return { ok: true }
+      return { ok: false, status: 403, error: 'Dữ liệu cũ chỉ Admin được sửa' }
+    }
+    return { ok: true }
+  }
+  const me = await reqUser(db, c)
+  if (!me) return { ok: false, status: 401, error: 'Bắt buộc đăng nhập' }
+  if (isAdmin(me) || Number(owner) === Number(me.id)) return { ok: true }
+  return { ok: false, status: 403, error: 'Không có quyền truy cập dữ liệu của người khác' }
+}
 
 // Xóa dữ liệu quá TTL_HOURS trước mọi request
 router.use('*', async (c, next) => {
@@ -26,8 +48,18 @@ router.use('*', async (c, next) => {
 // DELETE /clear must be before CRUD's /:id to avoid conflict
 router.delete('/clear', async (c) => {
   try {
-    await c.env.DB.prepare(`DELETE FROM ${TABLE}`).run()
-    return c.json({ success: true, message: 'Đã xóa toàn bộ dữ liệu' })
+    const userId = Number(c.req.header('x-user-id'))
+    const isAdminUser = userId
+      ? await c.env.DB.prepare(`SELECT vai_tro FROM nhan_vien WHERE id = ?`).bind(userId).first() as any
+      : null
+    if (isAdminUser?.vai_tro === 'admin') {
+      await c.env.DB.prepare(`DELETE FROM ${TABLE}`).run()
+    } else if (userId) {
+      await c.env.DB.prepare(`DELETE FROM ${TABLE} WHERE owner_user_id = ?`).bind(userId).run()
+    } else {
+      return c.json({ error: 'Bắt buộc đăng nhập' }, 401)
+    }
+    return c.json({ success: true, message: 'Đã xóa dữ liệu của bạn' })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -91,12 +123,39 @@ const crud = crudRoutes({
   searchFields: ['ma_hang', 'ten_hang', 'ten_kh', 'so_chung_tu', 'dien_giai', 'ma_kh'],
   orderBy: 't.id DESC',
   listQuery: LIST_QUERY,
+  ownerField: 'owner_user_id',
   extraFilterMap: {
     chech_lech: CHENH_LECH_EXPR,
     thue_pct: THUE_PCT_EXPR,
     thue_dung: THUE_DUNG_EXPR,
     ck_kq: CK_KQ_EXPR,
   },
+})
+
+// Danh sách các user đang có dữ liệu trong sổ (cho dropdown "Lấy file người khác")
+// Mọi account đăng nhập đều xem được (chỉ thấy tên + số dòng, không thấy dữ liệu).
+router.get('/owners', async (c) => {
+  try {
+    const me = await reqUser(c.env.DB, c)
+    if (!me) return c.json({ error: 'Bắt buộc đăng nhập' }, 401)
+    const res = await c.env.DB.prepare(
+      `SELECT u.id AS user_id, u.ten, u.vai_tro, COUNT(s.id) AS so_dong
+       FROM nhan_vien u
+       LEFT JOIN ${TABLE} s ON s.owner_user_id = u.id
+       GROUP BY u.id, u.ten, u.vai_tro
+       HAVING COUNT(s.id) > 0
+       ORDER BY u.ten`
+    ).all()
+    const legacy = await c.env.DB.prepare(
+      `SELECT COUNT(*) AS total FROM ${TABLE} WHERE owner_user_id IS NULL`
+    ).first()
+    return c.json({
+      data: res.results,
+      khong_so_huu: Number((legacy as any)?.total || 0),
+    })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
 })
 
 router.route('/', crud)
@@ -187,19 +246,35 @@ function normalizeRecord(record: Record<string, any>): Record<string, any> {
   return norm
 }
 
-// Upsert danh sách các dòng vào bảng (dùng chung import-rows / import-excel / import/json)
-async function upsertRecords(db: D1Database, records: any[]): Promise<{ imported: number; skipped: number }> {
+// Upsert danh sách các dòng vào bảng (dùng chung import-rows / import-excel / import/json).
+// Với ownerField: mỗi user chỉ đụng dòng của mình — dòng trùng key thuộc người khác (hoặc dữ liệu cũ) → bỏ qua.
+async function upsertRecords(db: D1Database, records: any[], ownerId?: number | null): Promise<{ imported: number; skipped: number }> {
+  const isOwned = !!ownerId
   const allExisting = await db.prepare(
-    `SELECT id, ngay_hach_toan, so_chung_tu, ma_hang, ngay_chung_tu FROM ${TABLE} WHERE ma_hang != ''`
+    `SELECT id, owner_user_id, ngay_hach_toan, so_chung_tu, ma_hang, ngay_chung_tu FROM ${TABLE} WHERE ma_hang != ''`
   ).all()
-  const existingMap = new Map<string, any>()
+  const ownMap = new Map<string, any>()
+  const foreignKeys = new Set<string>()
   for (const r of allExisting.results as any[]) {
-    existingMap.set(`${r.ngay_hach_toan}|${r.so_chung_tu}|${r.ma_hang}`, r)
+    const own = isOwned && Number(r.owner_user_id) === Number(ownerId)
+    const key = `${r.ngay_hach_toan}|${r.so_chung_tu}|${r.ma_hang}`
+    if (own) {
+      ownMap.set(key, r)
+    } else {
+      foreignKeys.add(key)
+    }
   }
 
   const colNames = COL_ORDER.join(', ')
   const placeholders = COL_ORDER.map(() => '?').join(', ')
   const setClause = COL_ORDER.map(c => `${c} = ?`).join(', ')
+  const ownerCols = isOwned
+    ? `${colNames}, owner_user_id`
+    : colNames
+  const ownerPlaceholders = isOwned
+    ? `${placeholders}, ?`
+    : placeholders
+  const ownerSet = `${setClause}, updated_at = datetime('now','+7 hours')`
 
   const insertStmts: D1PreparedStatement[] = []
   const updateStmts: D1PreparedStatement[] = []
@@ -210,7 +285,9 @@ async function upsertRecords(db: D1Database, records: any[]): Promise<{ imported
     if (!norm.ma_hang) { skipped++; continue }
 
     const key = `${norm.ngay_hach_toan}|${norm.so_chung_tu}|${norm.ma_hang}`
-    const existing = existingMap.get(key)
+    if (foreignKeys.has(key)) { skipped++; continue }
+
+    const existing = ownMap.get(key)
     if (existing) {
       let changed = false
       for (const c of COL_ORDER) {
@@ -218,17 +295,17 @@ async function upsertRecords(db: D1Database, records: any[]): Promise<{ imported
       }
       if (changed) {
         updateStmts.push(
-          db.prepare(`UPDATE ${TABLE} SET ${setClause}, updated_at = datetime('now','+7 hours') WHERE id = ?`)
+          db.prepare(`UPDATE ${TABLE} SET ${ownerSet} WHERE id = ?`)
             .bind(...COL_ORDER.map(c => norm[c]), existing.id)
         )
         imported++
       } else { skipped++ }
     } else {
       insertStmts.push(
-        db.prepare(`INSERT INTO ${TABLE} (${colNames}) VALUES (${placeholders})`)
-          .bind(...COL_ORDER.map(c => norm[c]))
+        db.prepare(`INSERT INTO ${TABLE} (${ownerCols}) VALUES (${ownerPlaceholders})`)
+          .bind(...COL_ORDER.map(c => norm[c]), ...(isOwned ? [ownerId] : []))
       )
-      existingMap.set(key, { id: 0 })
+      ownMap.set(key, { id: 0 })
       imported++
     }
   }
@@ -239,12 +316,14 @@ async function upsertRecords(db: D1Database, records: any[]): Promise<{ imported
   return { imported, skipped }
 }
 
-// Tính lại CK engine + giá gốc tham chiếu cho MỌI dòng trong bảng
-async function tinhHet(db: D1Database): Promise<number> {
-  const { results: rows } = await db.prepare(
+// Tính lại CK engine + giá gốc tham chiếu cho các dòng. ownerId != null → chỉ dòng của user đó.
+async function tinhHet(db: D1Database, ownerId?: number | null): Promise<number> {
+  const ownerCond = ownerId != null ? ' WHERE owner_user_id = ?' : ''
+  const stmt = db.prepare(
     `SELECT id, so_chung_tu AS so_ct, ma_kh, ngay_chung_tu AS ngay, ma_hang, sl_ban, don_gia, doanh_so, ck
-     FROM ${TABLE}`
-  ).all()
+     FROM ${TABLE}${ownerCond}`
+  )
+  const { results: rows } = ownerId != null ? await stmt.bind(ownerId).all() : await stmt.all()
   const ctx = await buildLop2Ctx(db)
   const stmts: D1PreparedStatement[] = []
   for (const r of rows as any[]) {
@@ -273,7 +352,8 @@ router.post('/import-rows', async (c) => {
     const body = await c.req.json() as any
     const records: any[] = Array.isArray(body.rows) ? body.rows : []
     if (records.length === 0) return c.json({ error: 'Không có dữ liệu' }, 400)
-    const { imported, skipped } = await upsertRecords(c.env.DB, records)
+    const ownerId = Number(c.req.header('x-user-id')) || null
+    const { imported, skipped } = await upsertRecords(c.env.DB, records, ownerId)
     return c.json({
       success: true,
       total: records.length,
@@ -334,8 +414,11 @@ router.post('/import-excel', async (c) => {
     }
     if (records.length === 0) return c.json({ error: 'Không có dòng dữ liệu hợp lệ trong file' }, 400)
 
-    const { imported, skipped } = await upsertRecords(c.env.DB, records)
-    const soDongTinh = await tinhHet(c.env.DB)
+    const { imported, skipped } = await upsertRecords(c.env.DB, records, Number(c.req.header('x-user-id')) || null)
+    const reqOwnerId = Number(c.req.header('x-user-id')) || null
+    const me = await reqUser(c.env.DB, c)
+    const ownerId = me && isAdmin(me) ? null : reqOwnerId
+    const soDongTinh = await tinhHet(c.env.DB, ownerId)
     return c.json({
       success: true,
       total: records.length,
@@ -349,27 +432,33 @@ router.post('/import-excel', async (c) => {
   }
 })
 
-async function recomputeGiaGoc(db: D1Database): Promise<number> {
+async function recomputeGiaGoc(db: D1Database, ownerId?: number | null): Promise<number> {
+  const ownerCond = ownerId != null ? ' WHERE t.owner_user_id = ?' : ''
+  const params = ownerId != null ? [ownerId] : []
   const res = await db.prepare(
-    `UPDATE ${TABLE} AS t SET gia_goc = (SELECT m.gia_goc FROM ma_misa m WHERE m.ma_sp = t.ma_hang)`
-  ).run()
+    `UPDATE ${TABLE} AS t SET gia_goc = (SELECT m.gia_goc FROM ma_misa m WHERE m.ma_sp = t.ma_hang)${ownerCond}`
+  ).bind(...params).run()
   return (res.meta?.changes || 0) as number
 }
 
-// POST /recompute-gia-goc — tính lại "giá gốc MISA tham chiếu" cho toàn bộ dữ liệu hiện có
+// POST /recompute-gia-goc — tính lại "giá gốc MISA tham chiếu" theo phạm vi đang xem (admin: toàn bộ)
 router.post('/recompute-gia-goc', async (c) => {
   try {
-    const updated = await recomputeGiaGoc(c.env.DB)
+    const me = await reqUser(c.env.DB, c)
+    const ownerId = me && !isAdmin(me) ? me.id : null
+    const updated = await recomputeGiaGoc(c.env.DB, ownerId)
     return c.json({ success: true, updated })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
 })
 
-// POST /tinh-het — tính lại CK engine cho mọi dòng (dùng lại engine chuẩn bang-ck-thang)
+// POST /tinh-het — tính lại CK engine theo phạm vi đang xem (admin: toàn bộ)
 router.post('/tinh-het', async (c) => {
   try {
-    const soDong = await tinhHet(c.env.DB)
+    const me = await reqUser(c.env.DB, c)
+    const ownerId = me && !isAdmin(me) ? me.id : null
+    const soDong = await tinhHet(c.env.DB, ownerId)
     return c.json({ success: true, so_dong: soDong, message: `Tính lại CK cho ${soDong} dòng theo chuẩn bang-ck-thang.` })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -381,6 +470,8 @@ router.post('/tinh-het-chi-tiet/:id', async (c) => {
   try {
     const db = c.env.DB
     const id = c.req.param('id')
+    const access = await checkOwnerRow(db, c, id, true)
+    if (!access.ok) return c.json({ error: access.error! }, access.status)
     const row = await db.prepare(
       `SELECT id, so_chung_tu AS so_ct, ma_kh, ngay_chung_tu AS ngay, ma_hang, sl_ban, don_gia, doanh_so, ck FROM ${TABLE} WHERE id = ?`
     ).bind(id).first() as any
@@ -408,8 +499,11 @@ router.post('/tinh-het-chi-tiet/:id', async (c) => {
 // GET /lich-su/:id — lịch sử chỉnh sửa của 1 dòng (log trong thay_doi_log)
 router.get('/lich-su/:id', async (c) => {
   try {
-    const id = Number(c.req.param('id'))
-    const logs = await c.env.DB.prepare(
+    const db = c.env.DB
+    const id = c.req.param('id')
+    const access = await checkOwnerRow(db, c, id, false)
+    if (!access.ok) return c.json({ error: access.error! }, access.status)
+    const logs = await db.prepare(
       `SELECT * FROM thay_doi_log WHERE bang = '${TABLE}' AND ref_id = ? ORDER BY created_at DESC, id DESC`
     ).bind(id).all()
     return c.json({ data: logs.results || [] })
@@ -426,6 +520,8 @@ router.post('/sua-ck', async (c) => {
     const body = await c.req.json() as any
     const id = Number(body.id)
     if (!id) return c.json({ error: 'Thiếu id' }, 400)
+    const access = await checkOwnerRow(db, c, String(id), true)
+    if (!access.ok) return c.json({ error: access.error! }, access.status)
 
     const row = await db.prepare(
       `SELECT id, ngay_chung_tu, doanh_so, ck1_pct, ck2_pct, ck3_pct, sua_ck1_pct, sua_ck2_pct, sua_ck3_pct, sua_tong_pct FROM ${TABLE} WHERE id = ?`

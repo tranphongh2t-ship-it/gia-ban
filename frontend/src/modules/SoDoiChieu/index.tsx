@@ -239,10 +239,24 @@ export default function SoDoiChieuPage() {
   const [syncLockBusy, setSyncLockBusy] = useState(false)
   const [syncingAll, setSyncingAll] = useState(false)
   const [syncingMaMisa, setSyncingMaMisa] = useState(false)
+  // Phạm vi file đang xem: '' = file của mình, '__all' = tất cả (admin), số = file người khác
+  const [viewOwner, setViewOwner] = useState('')
+  const [owners, setOwners] = useState<Array<{ user_id: number; ten: string; so_dong: number }>>([])
+  const [legacyCount, setLegacyCount] = useState(0)
 
   useEffect(() => {
     apiGet(`${API_PATH}/sync-lock`).then(r => setSyncLocked(!!r.locked)).catch(() => {})
+    apiGet(`${API_PATH}/owners`).then(r => {
+      setOwners(r.data || [])
+      setLegacyCount(r.khong_so_huu || 0)
+    }).catch(() => {})
   }, [])
+
+  // Khi đổi user khác trong dropdown → đổi key để DataGrid fetch lại
+  const changeViewOwner = (val: string) => {
+    setViewOwner(val)
+    setGridKey(k => k + 1)
+  }
 
   const recompute = async () => {
     await apiPost(`${API_PATH}/recompute-gia-goc`, {})
@@ -441,11 +455,28 @@ export default function SoDoiChieuPage() {
           </>
         )}
         <span style={{ flex: 1 }} />
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 12, color: colors.textMuted }}>Lấy file người khác:</span>
+          <select
+            value={viewOwner}
+            onChange={e => changeViewOwner(e.target.value)}
+            style={{ fontSize: 12, height: 32, border: `1px solid ${colors.border}`, borderRadius: 6, padding: '0 6px', background: '#fff', color: colors.text }}
+          >
+            <option value="">File của tôi</option>
+            {user?.is_admin && <option value="__all">Tất cả (Admin)</option>}
+            {owners.map(o => (
+              <option key={o.user_id} value={String(o.user_id)}>{o.ten} ({o.so_dong} dòng)</option>
+            ))}
+            {legacyCount > 0 && <option value="__null">Dữ liệu cũ (không ai sở hữu) ({legacyCount} dòng)</option>}
+          </select>
+        </div>
         {canImport && (
           <button
             style={{ ...btn(colors.danger, '#fff'), fontSize: 12, height: 32 }}
             onClick={async () => {
-              if (!confirm('Xóa toàn bộ dữ liệu Sổ đối chiếu?')) return
+              const isAdmin = user?.is_admin
+              const subj = isAdmin ? 'toàn bộ dữ liệu của mọi người' : 'dữ liệu của bạn'
+              if (!confirm(`Xóa ${subj} khỏi Sổ đối chiếu?`)) return
               try {
                 const d = await apiDelete(`${API_PATH}/clear`)
                 if (d.success) { setResult(d.message); setGridKey(k => k + 1) }
@@ -465,7 +496,7 @@ export default function SoDoiChieuPage() {
         exportable
         exportName="SoDoiChieu"
         defaultLimit={500}
-        extraFilters={noPrice ? { don_gia: '__empty' } : undefined}
+        extraFilters={viewOwner !== '' ? { ...(noPrice ? { don_gia: '__empty' } : {}), owner_user_id: viewOwner } : (noPrice ? { don_gia: '__empty' } : undefined)}
         logBang="so_doi_chieu"
       />
     </div>

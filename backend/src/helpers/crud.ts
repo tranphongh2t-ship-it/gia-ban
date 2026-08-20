@@ -14,6 +14,10 @@ interface CrudOptions {
   defaultFilters?: Record<string, string>
   // Bảng thuộc 12 nhóm "Bảng Tính Giá" — chặn ghi tay khi khóa được bật
   lockable?: boolean
+  // Phân tách dữ liệu theo user (vd so_doi_chieu: mỗi người 1 file).
+  // Xem: mặc định dữ liệu của mình + dòng cũ (NULL); param ?owner_user_id=X để xem file người khác (mọi account).
+  // Sửa/xóa/thêm: chỉ chủ sở hữu hoặc admin (dòng NULL chỉ admin).
+  ownerField?: string
   priceHistory?: {
     historyTable: string
     priceCol: string
@@ -34,6 +38,32 @@ const LOCKED_ERROR = 'Bảng Tính Giá đang bị KHÓA. Luồng tự động v
 function currentThang(): string {
   const d = new Date(Date.now() + 7 * 3600 * 1000)
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+// Đọc user hiện tại từ header x-user-id (null nếu chưa đăng nhập / không tìm thấy)
+async function reqUser(db: D1Database, c: any): Promise<{ id: number; ten: string; vai_tro: string } | null> {
+  const idStr = c.req?.header?.('x-user-id')
+  const id = Number(idStr)
+  if (!idStr || !Number.isFinite(id)) return null
+  const user = await db.prepare('SELECT id, ten, vai_tro FROM nhan_vien WHERE id = ?').bind(id).first() as any
+  return user ? { id: Number(user.id), ten: user.ten || '', vai_tro: user.vai_tro || '' } : null
+}
+
+const isAdmin = (u: { vai_tro: string } | null) => !!u && u.vai_tro === 'admin'
+
+// Kiểm tra quyền sửa/xóa theo chủ sở hữu (chỉ áp dụng cho bảng có ownerField).
+// Trả về { ok, status, error }.
+async function ownerCanModify(db: D1Database, c: any, opts: CrudOptions, id: string): Promise<{ ok: boolean; status?: any; error?: string }> {
+  if (!opts.ownerField) return { ok: true }
+  const me = await reqUser(db, c)
+  if (!me) return { ok: false, status: 401, error: 'Bắt buộc đăng nhập' }
+  if (isAdmin(me)) return { ok: true }
+  const row = await db.prepare(`SELECT ${opts.ownerField} FROM ${opts.table} WHERE ${opts.idField || 'id'} = ?`).bind(id).first() as any
+  if (!row) return { ok: false, status: 404, error: 'Not found' }
+  const owner = (row as any)[opts.ownerField]
+  // Dòng cũ (NULL) chỉ admin được sửa/xóa
+  if (owner == null || owner === me.id) return { ok: true }
+  return { ok: false, status: 403, error: 'Không có quyền sửa/xóa dữ liệu của người khác' }
 }
 
 export function crudRoutes(opts: CrudOptions) {
@@ -110,6 +140,29 @@ export function crudRoutes(opts: CrudOptions) {
         }
       }
 
+      // Owner scoping: bảng phân tách theo user (vd so_doi_chieu — mỗi người 1 file).
+      // Mặc định: dòng của mình + dòng cũ (owner NULL). Muốn xem file người khác: ?owner_user_id=X (mọi account được phép).
+      if (opts.ownerField) {
+        const ownerCol = pfx(opts.ownerField)
+        const explicit = query['owner_user_id']
+        const me = await reqUser(c.env.DB, c)
+        if (explicit && typeof explicit === 'string' && explicit !== '') {
+          if (explicit === '__null') conditions.push(`${ownerCol} IS NULL`)
+          else if (explicit === '__all') {
+            if (!isAdmin(me)) return c.json({ error: 'Chỉ Admin mới xem được toàn bộ' }, 403)
+            /* bỏ lọc owner */
+          }
+          else {
+            const n = Number(explicit)
+            if (Number.isFinite(n)) { conditions.push(`${ownerCol} = ?`); params.push(n) }
+          }
+        } else {
+          if (!me) return c.json({ error: 'Bắt buộc đăng nhập' }, 401)
+          conditions.push(`(${ownerCol} IS NULL OR ${ownerCol} = ?)`)
+          params.push(me.id)
+        }
+      }
+
       if (search && searchFields.length > 0) {
         const q = search.toLowerCase()
         const searchConds = searchFields.map(f => `LOWER(COALESCE(CAST(${pfx(f)} AS TEXT),'')) LIKE ?`)
@@ -151,6 +204,13 @@ export function crudRoutes(opts: CrudOptions) {
       const id = c.req.param('id')
       const result = await c.env.DB.prepare(`SELECT * FROM ${table} WHERE ${idField} = ?`).bind(id).first()
       if (!result) return c.json({ error: 'Not found' }, 404)
+      if (opts.ownerField) {
+        const me = await reqUser(c.env.DB, c)
+        const owner = (result as any)[opts.ownerField] as number | null
+        if (!isAdmin(me) && owner != null && owner !== (me?.id ?? null)) {
+          return c.json({ error: 'Không có quyền truy cập dữ liệu của người khác' }, 403)
+        }
+      }
       return c.json(result)
     } catch (e: any) {
       return c.json({ error: e.message }, 500)
@@ -162,7 +222,12 @@ export function crudRoutes(opts: CrudOptions) {
       if (opts.lockable && await isBangGiaLocked(c.env.DB)) {
         return c.json({ error: LOCKED_ERROR }, 423)
       }
-      const body = await c.req.json()
+      let body = await c.req.json()
+      if (opts.ownerField) {
+        const me = await reqUser(c.env.DB, c)
+        if (!me) return c.json({ error: 'Bắt buộc đăng nhập' }, 401)
+        body = { ...body, [opts.ownerField]: me.id }
+      }
       const keys = Object.keys(body)
       if (keys.length === 0) return c.json({ error: 'Empty body' }, 400)
       const values = Object.values(body)
@@ -181,6 +246,8 @@ export function crudRoutes(opts: CrudOptions) {
         return c.json({ error: LOCKED_ERROR }, 423)
       }
       const id = c.req.param('id')
+      const access = await ownerCanModify(c.env.DB, c, opts, id)
+      if (!access.ok) return c.json({ error: access.error! }, access.status)
       const body = await c.req.json()
       const keys = Object.keys(body)
       if (keys.length === 0) return c.json({ error: 'No fields to update' }, 400)
@@ -258,6 +325,8 @@ export function crudRoutes(opts: CrudOptions) {
         return c.json({ error: LOCKED_ERROR }, 423)
       }
       const id = c.req.param('id')
+      const access = await ownerCanModify(c.env.DB, c, opts, id)
+      if (!access.ok) return c.json({ error: access.error! }, access.status)
       const body = await c.req.json()
       const keys = Object.keys(body)
       if (keys.length === 0) return c.json({ error: 'Empty body' }, 400)
@@ -282,6 +351,8 @@ export function crudRoutes(opts: CrudOptions) {
         return c.json({ error: LOCKED_ERROR }, 423)
       }
       const id = c.req.param('id')
+      const access = await ownerCanModify(c.env.DB, c, opts, id)
+      if (!access.ok) return c.json({ error: access.error! }, access.status)
       const result = await c.env.DB.prepare(`DELETE FROM ${table} WHERE ${idField} = ?`).bind(id).run()
       if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
       return c.json({ success: true })
@@ -337,3 +408,5 @@ async function logThayDoi(db: D1Database, input: LogInput) {
     // Log lỗi không được phép làm hỏng thao tác chính
   }
 }
+
+export { reqUser, isAdmin, currentThang }

@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import * as XLSX from 'xlsx'
+import { reqUser, isAdmin } from '../helpers/crud'
 
 const router = new Hono<{ Bindings: { DB: D1Database } }>()
 
@@ -199,6 +200,31 @@ const TABLE_META = Object.fromEntries(DB_TABLES.map(t => [t.table.replaceAll('_'
 // URL tiền tuyến dùng apiPath="/check-chiet-khau" nhưng bảng thật named "check_chiet_khau_test"
 const checkCkMeta = TABLE_META['check-chiet-khau-test']
 if (checkCkMeta) TABLE_META['check-chiet-khau'] = checkCkMeta
+
+// Phạm vi chủ sở hữu cho bảng phân tách theo user (hiện chỉ so_doi_chieu — mỗi người 1 file).
+// - Không truyền owner_user_id → dữ liệu của mình + dòng cũ (NULL)
+// - owner_user_id=X → file của user X (nút "Lấy file người khác")
+// - owner_user_id=__all (admin) → toàn bộ
+async function ownerScope(c: any, meta: any): Promise<{ where: string; params: any[] }> {
+  if (meta.table !== 'so_doi_chieu') return { where: '', params: [] }
+  const query = c.req.query()
+  const explicit = query['owner_user_id']
+  if (explicit && explicit !== '' && explicit !== 'null') {
+    if (explicit === '__null') return { where: 'WHERE owner_user_id IS NULL', params: [] }
+    if (explicit === '__all') {
+      const me = await reqUser(c.env.DB, c)
+      if (isAdmin(me)) return { where: '', params: [] }
+      throw new Error('Chỉ Admin mới xuất được toàn bộ')
+    }
+    const n = Number(explicit)
+    if (Number.isFinite(n)) return { where: 'WHERE owner_user_id = ?', params: [n] }
+  }
+  const userId = Number(c.req.header('x-user-id'))
+  if (Number.isFinite(userId) && userId > 0) {
+    return { where: 'WHERE owner_user_id IS NULL OR owner_user_id = ?', params: [userId] }
+  }
+  return { where: 'WHERE owner_user_id IS NULL', params: [] }
+}
 
 // Resolve sales name → sales_id
 async function resolveSalesId(db: D1Database, salesName: string): Promise<number | null> {
@@ -562,6 +588,8 @@ router.post('/json/:table', async (c) => {
     const db = c.env.DB
     const allowed = new Set(meta.allColumns)
     let inserted = 0, updated = 0, skipped = 0
+    const isOwnedTable = meta.table === 'so_doi_chieu'
+    const ownerId = isOwnedTable ? (Number(c.req.header('x-user-id')) || null) : null
 
     for (const row of rows) {
       const data: Record<string, any> = {}
@@ -576,8 +604,11 @@ router.post('/json/:table', async (c) => {
 
       let exists = null
       if (hasKey) {
+        // Bảng tách theo user: chỉ sửa dòng của mình (hoặc dữ liệu cũ NULL); dòng người khác → coi như mới để tạo file riêng
         const keyConds = meta.keyFields.map(k => `${k} = ?`).join(' AND ')
-        exists = await db.prepare(`SELECT ${meta.keyFields.join(', ')} FROM ${meta.table} WHERE ${keyConds} LIMIT 1`).bind(...keyVals).first()
+        const ownerCond = isOwnedTable ? (ownerId != null ? ` AND (owner_user_id IS NULL OR owner_user_id = ?)` : ` AND owner_user_id IS NULL`) : ''
+        const params = [...keyVals, ...(isOwnedTable && ownerId != null ? [ownerId] : [])]
+        exists = await db.prepare(`SELECT ${meta.keyFields.join(', ')} FROM ${meta.table} WHERE ${keyConds + ownerCond} LIMIT 1`).bind(...params).first()
       }
 
       if (exists) {
@@ -591,9 +622,10 @@ router.post('/json/:table', async (c) => {
         const cols = Object.keys(data).filter(k => !meta.allColumns.includes('id') || k !== 'id')
         const insCols = cols.filter(k => allowed.has(k))
         if (insCols.length === 0) { skipped++; continue }
+        const withOwner = isOwnedTable && ownerId != null ? [...insCols, 'owner_user_id'] : insCols
         await db.prepare(
-          `INSERT OR IGNORE INTO ${meta.table} (${insCols.join(', ')}) VALUES (${insCols.map(() => '?').join(', ')})`
-        ).bind(...insCols.map(k => data[k])).run()
+          `INSERT OR IGNORE INTO ${meta.table} (${withOwner.join(', ')}) VALUES (${withOwner.map(() => '?').join(', ')})`
+        ).bind(...insCols.map(k => data[k]), ...(isOwnedTable && ownerId != null ? [ownerId] : [])).run()
         inserted++
       }
     }
@@ -621,7 +653,8 @@ router.get('/excel/:table', async (c) => {
 
     const selectCols = validCols.join(', ')
     const fromSql = meta.exportQuery ? `(${meta.exportQuery})` : meta.table
-    const result = await c.env.DB.prepare(`SELECT ${selectCols} FROM ${fromSql} ORDER BY id`).all()
+    const scope = await ownerScope(c, meta)
+    const result = await c.env.DB.prepare(`SELECT ${selectCols} FROM ${fromSql} ${scope.where} ORDER BY id`).bind(...scope.params).all()
     const rows = result.results || []
 
     // Resolve sales_id → name if applicable
@@ -671,7 +704,8 @@ router.get('/json/:table', async (c) => {
 
     const selectCols = validCols.join(', ')
     const fromSql = meta.exportQuery ? `(${meta.exportQuery})` : meta.table
-    const result = await c.env.DB.prepare(`SELECT ${selectCols} FROM ${fromSql} ORDER BY id`).all()
+    const scope = await ownerScope(c, meta)
+    const result = await c.env.DB.prepare(`SELECT ${selectCols} FROM ${fromSql} ${scope.where} ORDER BY id`).bind(...scope.params).all()
 
     return c.json({ data: result.results || [], total: (result.results || []).length })
   } catch (e: any) {

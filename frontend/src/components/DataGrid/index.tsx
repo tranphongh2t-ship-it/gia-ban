@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
-import { apiGet, apiPost, apiPatch, apiDelete, apiPut, API_BASE } from '../../lib/api'
+import { apiGet, apiPost, apiPatch, apiDelete, apiPut, API_BASE, authHeaders } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import Modal from '../Modal'
 import ConfirmDialog from '../ConfirmDialog'
@@ -51,6 +51,25 @@ interface DataGridProps {
 }
 
 const AUTO_FIELDS = ['id', 'created_at', 'updated_at', 'updated_by', 'created_at', 'ngay_bat_dau', 'ngay_nghi_viec']
+
+// Build tham số export giống fetch chính (search + filters + extraFilters),
+// giúp export ra đúng phạm vi file đang xem (kể cả "file người khác" qua owner_user_id).
+function getExportParams(apiPath: string, search: string, filters: Record<string, string>, extraFilters?: Record<string, string>): string {
+  const params = new URLSearchParams()
+  if (search) params.set('search', search)
+  for (const [key, val] of Object.entries(filters)) {
+    if (val && val.trim()) params.set(`filter_${key}`, val.trim())
+  }
+  if (extraFilters) {
+    for (const [key, val] of Object.entries(extraFilters)) {
+      if (val) {
+        if (key === 'owner_user_id') params.set('owner_user_id', val)
+        else params.set(`filter_${key}`, val)
+      }
+    }
+  }
+  return params.toString()
+}
 
 const cellBorder = `1px solid ${colors.tableBorder}`
 const tHead: React.CSSProperties = {
@@ -524,7 +543,11 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       if (sortKey) { params.set('sort_col', sortKey); params.set('sort_dir', sortDir) }
       if (extraFilters) {
         for (const [key, val] of Object.entries(extraFilters)) {
-          if (val) params.set(`filter_${key}`, val)
+          if (val) {
+            // owner_user_id = tham số phạm vi "Lấy file người khác" (backend xử lý riêng), không phải filter cột
+            if (key === 'owner_user_id') params.set('owner_user_id', val)
+            else params.set(`filter_${key}`, val)
+          }
         }
       }
 
@@ -570,7 +593,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
         URL.revokeObjectURL(url)
         return
       }
-      const res = await fetch(`${API_BASE}/export/${exportFormat}${apiPath}`)
+      const res = await fetch(`${API_BASE}/export/${exportFormat}${apiPath}?${getExportParams(apiPath, search, filters, extraFilters)}`, { headers: authHeaders() })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
@@ -592,7 +615,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       if (demoMode) {
         rows = data
       } else {
-        const res = await fetch(`${API_BASE}/export/json${apiPath}`)
+        const res = await fetch(`${API_BASE}/export/json${apiPath}?${getExportParams(apiPath, search, filters, extraFilters)}`, { headers: authHeaders() })
         if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
         const payload = await res.json()
         rows = payload.data || []
