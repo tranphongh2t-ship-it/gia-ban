@@ -378,7 +378,7 @@ export default function SoDoiChieuPage() {
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: '0 24px', marginBottom: 12 }}>
         {canImport && (
           <>
-            <div style={{ fontSize: 13, color: colors.textMuted }}>Import từ file "Sổ chi tiết bán hàng (file mới).xlsx" (dữ liệu tự xóa sau 6h):</div>
+            <div style={{ fontSize: 13, color: colors.textMuted }}>Import từ file "Sổ chi tiết bán hàng (file mới).xlsx" (dữ liệu tự xóa sau 12h):</div>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ fontSize: 13 }} />
             <button style={{ ...btn(colors.primary), fontSize: 12, height: 32 }} onClick={handleImport} disabled={importing}>
               {importing ? 'Đang import...' : 'Import'}

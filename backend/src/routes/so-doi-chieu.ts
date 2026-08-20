@@ -8,8 +8,8 @@ import * as XLSX from 'xlsx'
 type Env = { Bindings: { DB: D1Database } }
 
 const TABLE = 'so_doi_chieu'
-// Dữ liệu bảng tạm tự xóa sau 6h (sổ đối chiếu giá gốc + chiết khấu hàng ngày/tuần)
-const TTL_HOURS = 6
+// Dữ liệu bảng tạm tự xóa sau 12h (sổ đối chiếu giá gốc + chiết khấu hàng ngày/tuần)
+const TTL_HOURS = 12
 
 const router = new Hono<Env>()
 
