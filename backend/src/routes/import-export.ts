@@ -201,12 +201,15 @@ const TABLE_META = Object.fromEntries(DB_TABLES.map(t => [t.table.replaceAll('_'
 const checkCkMeta = TABLE_META['check-chiet-khau-test']
 if (checkCkMeta) TABLE_META['check-chiet-khau'] = checkCkMeta
 
-// Phạm vi chủ sở hữu cho bảng phân tách theo user (hiện chỉ so_doi_chieu — mỗi người 1 file).
+// Bảng phân tách theo user (mỗi người 1 file riêng) — dùng chung cho ownerScope + JSON import.
+const OWNED_TABLES = new Set(['so_doi_chieu', 'check_gia_goc_ck', 'check_chiet_khau_test'])
+
+// Phạm vi chủ sở hữu cho bảng phân tách theo user (vd so_doi_chieu — mỗi người 1 file).
 // - Không truyền owner_user_id → dữ liệu của mình + dòng cũ (NULL)
 // - owner_user_id=X → file của user X (nút "Lấy file người khác")
 // - owner_user_id=__all (admin) → toàn bộ
 async function ownerScope(c: any, meta: any): Promise<{ where: string; params: any[] }> {
-  if (meta.table !== 'so_doi_chieu') return { where: '', params: [] }
+  if (!OWNED_TABLES.has(meta.table)) return { where: '', params: [] }
   const query = c.req.query()
   const explicit = query['owner_user_id']
   if (explicit && explicit !== '' && explicit !== 'null') {
@@ -588,7 +591,7 @@ router.post('/json/:table', async (c) => {
     const db = c.env.DB
     const allowed = new Set(meta.allColumns)
     let inserted = 0, updated = 0, skipped = 0
-    const isOwnedTable = meta.table === 'so_doi_chieu'
+    const isOwnedTable = OWNED_TABLES.has(meta.table)
     const ownerId = isOwnedTable ? (Number(c.req.header('x-user-id')) || null) : null
 
     for (const row of rows) {

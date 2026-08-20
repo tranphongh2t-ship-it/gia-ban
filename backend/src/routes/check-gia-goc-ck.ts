@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { crudRoutes } from '../helpers/crud'
+import { crudRoutes, reqUser, isAdmin } from '../helpers/crud'
 import { runAuditAutoProcess, fillMissingBasePrices, chuyenMaDungNhom, deriveBoardCols, detectBaseTable, AUDIT_BASE_TABLES, isMisaSyncLocked } from '../helpers/auditAutoProcess'
 import * as XLSX from 'xlsx'
 
@@ -24,8 +24,18 @@ router.use('*', async (c, next) => {
 // DELETE /clear must be before CRUD's /:id to avoid conflict
 router.delete('/clear', async (c) => {
   try {
-    await c.env.DB.prepare(`DELETE FROM ${TABLE}`).run()
-    return c.json({ success: true, message: 'Đã xóa toàn bộ dữ liệu' })
+    const userId = Number(c.req.header('x-user-id'))
+    const me = userId
+      ? await c.env.DB.prepare(`SELECT id, vai_tro FROM nhan_vien WHERE id = ?`).bind(userId).first() as any
+      : null
+    if (me?.vai_tro === 'admin') {
+      await c.env.DB.prepare(`DELETE FROM ${TABLE}`).run()
+    } else if (me) {
+      await c.env.DB.prepare(`DELETE FROM ${TABLE} WHERE owner_user_id = ?`).bind(me.id).run()
+    } else {
+      return c.json({ error: 'Bắt buộc đăng nhập' }, 401)
+    }
+    return c.json({ success: true, message: me?.vai_tro === 'admin' ? 'Đã xóa toàn bộ dữ liệu' : 'Đã xóa dữ liệu của bạn' })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
@@ -116,7 +126,34 @@ const crud = crudRoutes({
   searchFields: ['ma_hang', 'ten_hang', 'ten_kh', 'so_ct', 'dien_giai'],
   orderBy: 't.id DESC',
   listQuery: LIST_QUERY,
+  ownerField: 'owner_user_id',
   extraFilterMap: { chech_lech: CHENH_LECH_EXPR },
+})
+
+// Danh sách các user đang có dữ liệu (cho dropdown "Lấy file người khác")
+// Mọi account đăng nhập đều xem được (chỉ thấy tên + số dòng, không thấy dữ liệu).
+router.get('/owners', async (c) => {
+  try {
+    const me = await reqUser(c.env.DB, c)
+    if (!me) return c.json({ error: 'Bắt buộc đăng nhập' }, 401)
+    const res = await c.env.DB.prepare(
+      `SELECT u.id AS user_id, u.ten, u.vai_tro, COUNT(s.id) AS so_dong
+       FROM nhan_vien u
+       LEFT JOIN ${TABLE} s ON s.owner_user_id = u.id
+       GROUP BY u.id, u.ten, u.vai_tro
+       HAVING COUNT(s.id) > 0
+       ORDER BY u.ten`
+    ).all()
+    const legacy = await c.env.DB.prepare(
+      `SELECT COUNT(*) AS total FROM ${TABLE} WHERE owner_user_id IS NULL`
+    ).first()
+    return c.json({
+      data: res.results,
+      khong_so_huu: Number((legacy as any)?.total || 0),
+    })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
 })
 
 router.route('/', crud)
@@ -171,6 +208,84 @@ function detectCols(headerRow: any[]): Record<string, number> {
     }
   }
   return map
+}
+
+// Upsert danh sách các dòng vào bảng (dùng chung import-rows / import-excel).
+// Với ownerField: mỗi user chỉ đụng dòng của mình — dòng trùng key thuộc người khác (hoặc dữ liệu cũ) → bỏ qua.
+async function upsertRecords(db: D1Database, records: any[], ownerId?: number | null): Promise<{ imported: number; skipped: number }> {
+  const isOwned = !!ownerId
+  const allExisting = await db.prepare(
+    `SELECT id, owner_user_id, ngay, so_ct, ma_hang FROM ${TABLE} WHERE ma_hang != ''`
+  ).all()
+  const ownMap = new Map<string, any>()
+  const foreignKeys = new Set<string>()
+  for (const r of allExisting.results as any[]) {
+    const own = isOwned && Number(r.owner_user_id) === Number(ownerId)
+    const key = `${r.ngay}|${r.so_ct}|${r.ma_hang}`
+    if (own) {
+      ownMap.set(key, r)
+    } else {
+      foreignKeys.add(key)
+    }
+  }
+
+  const colNames = COL_MAP.map(m => m.db).join(', ')
+  const placeholders = COL_MAP.map(() => '?').join(', ')
+  const setClause = COL_MAP.map(m => `${m.db} = ?`).join(', ')
+  const ownerCols = isOwned ? `${colNames}, owner_user_id` : colNames
+  const ownerPlaceholders = isOwned ? `${placeholders}, ?` : placeholders
+
+  const insertStmts: D1PreparedStatement[] = []
+  const updateStmts: D1PreparedStatement[] = []
+  let imported = 0, skipped = 0
+
+  for (const record of records) {
+    const norm: Record<string, any> = {}
+    for (const m of COL_MAP) {
+      let val = record[m.db]
+      if (m.db === 'ngay' && typeof val === 'number') {
+        const d = new Date((val - 25569) * 86400 * 1000)
+        norm.ngay = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+        continue
+      }
+      if (NUM_FIELDS.includes(m.db)) {
+        norm[m.db] = typeof val === 'number' ? val : 0
+      } else {
+        norm[m.db] = val !== undefined && val !== null ? String(val).trim() : ''
+      }
+    }
+    if (!norm.ma_hang) { skipped++; continue }
+
+    const key = `${norm.ngay}|${norm.so_ct}|${norm.ma_hang}`
+    if (foreignKeys.has(key)) { skipped++; continue }
+
+    const existing = ownMap.get(key)
+    if (existing) {
+      let changed = false
+      for (const m of COL_MAP) {
+        if (String(existing[m.db] ?? '') !== String(norm[m.db] ?? '')) { changed = true; break }
+      }
+      if (changed) {
+        updateStmts.push(
+          db.prepare(`UPDATE ${TABLE} SET ${setClause} WHERE id = ?`)
+            .bind(...COL_MAP.map(m => norm[m.db]), existing.id)
+        )
+        imported++
+      } else { skipped++ }
+    } else {
+      insertStmts.push(
+        db.prepare(`INSERT INTO ${TABLE} (${ownerCols}) VALUES (${ownerPlaceholders})`)
+          .bind(...COL_MAP.map(m => norm[m.db]), ...(isOwned ? [ownerId] : []))
+      )
+      ownMap.set(key, { id: 0 })
+      imported++
+    }
+  }
+
+  const BATCH = 100
+  for (let i = 0; i < insertStmts.length; i += BATCH) await db.batch(insertStmts.slice(i, i + BATCH))
+  for (let i = 0; i < updateStmts.length; i += BATCH) await db.batch(updateStmts.slice(i, i + BATCH))
+  return { imported, skipped }
 }
 
 // Tự đồng bộ mã mới chưa có trong mã gốc → ma_misa + gia_goc_by_ma
@@ -289,7 +404,10 @@ async function syncNewMasters(db: D1Database, records: any[]): Promise<{ ma_misa
 // (gia_goc_by_ma = đơn giá thực bán gần nhất), còn không có thì dùng gia_goc hiện hành (ma_misa.gia_goc).
 // Ưu tiên số 0 (chuẩn audit): với mã thuộc bảng giá VMH, dùng tong_gia VMH (bảng tính giá) làm chuẩn,
 // không phụ thuộc tháng sync — đúng chuẩn "giá bán = giá VMH tính".
-async function recomputeGiaGocNgay(db: D1Database): Promise<number> {
+async function recomputeGiaGocNgay(db: D1Database, ownerId?: number | null): Promise<number> {
+  // ownerId != null → chỉ tính cho dòng của user đó (mỗi account 1 file).
+  const cond = ownerId != null ? ' WHERE owner_user_id = ?' : ''
+  const params = ownerId != null ? [ownerId] : []
   // Bảng phụ: tập (ma_hang, don_gia) đã thực bán (dedup) — dùng để chứng thực gia_cu
   // trong rule 2 mà không cần truy vấn con nặng trên chính bảng đang UPDATE.
   await db.batch([
@@ -298,7 +416,8 @@ async function recomputeGiaGocNgay(db: D1Database): Promise<number> {
       PRIMARY KEY (ma_hang, don_gia))`),
     db.prepare(`DELETE FROM ${TABLE}_sold`),
     db.prepare(`INSERT OR REPLACE INTO ${TABLE}_sold (ma_hang, don_gia)
-                SELECT DISTINCT ma_hang, don_gia FROM ${TABLE} WHERE don_gia > 0`),
+                SELECT DISTINCT ma_hang, don_gia FROM ${TABLE} WHERE don_gia > 0${cond}`)
+      .bind(...params),
   ])
   const res = await db.prepare(
     `UPDATE ${TABLE} AS t
@@ -324,8 +443,8 @@ async function recomputeGiaGocNgay(db: D1Database): Promise<number> {
        /* 4) Không có giá bán → giá MISA hiện hành (ma_misa.gia_goc) */
        (SELECT m.gia_goc FROM ma_misa m WHERE m.ma_sp = t.ma_hang),
        0
-     )`
-  ).run()
+     )${cond}`
+  ).bind(...params).run()
   return (res.meta?.changes || 0) as number
 }
 
@@ -366,18 +485,8 @@ router.post('/import-excel', async (c) => {
       return r[colMap.ma_hang] !== undefined && r[colMap.ma_hang] !== null && String(r[colMap.ma_hang]).trim() !== ''
     })
 
-    const allExisting = await c.env.DB.prepare(
-      `SELECT id, ngay, so_ct, ma_hang, dien_giai, ma_kh, ten_kh, ten_hang,
-              sl_ban, don_gia, doanh_so, ck, sl_tra, gt_tra, gt_giam, thue
-       FROM ${TABLE}`
-    ).all()
-    const existingMap = new Map<string, any>()
-    for (const r of allExisting.results as any[]) {
-existingMap.set(`${r.ngay}|${r.so_ct}|${r.ma_hang}`, r)
-      }
-
-      const records: any[] = []
-      let parseSkipped = 0
+    const records: any[] = []
+    let parseSkipped = 0
     const dbFields = Object.keys(FIELD_ALIASES)
     for (const row of dataRows) {
       const record: Record<string, any> = {}
@@ -403,59 +512,20 @@ existingMap.set(`${r.ngay}|${r.so_ct}|${r.ma_hang}`, r)
       records.push(record)
     }
 
-    const colNames = COL_MAP.map(m => m.db).join(', ')
-    const placeholders = COL_MAP.map(() => '?').join(', ')
-    const setClause = COL_MAP.map(m => `${m.db} = ?`).join(', ')
-
-    const insertStmts: D1PreparedStatement[] = []
-    const updateStmts: D1PreparedStatement[] = []
-    let skipped = parseSkipped
-    let imported = 0
-
-    for (const record of records) {
-      const key = `${record.ngay}|${record.so_ct}|${record.ma_hang}`
-      const existing = existingMap.get(key)
-
-      if (existing) {
-        let changed = false
-        for (const m of COL_MAP) {
-          if (String(existing[m.db] ?? '') !== String(record[m.db] ?? '')) { changed = true; break }
-        }
-        if (changed) {
-          updateStmts.push(
-            c.env.DB.prepare(`UPDATE ${TABLE} SET ${setClause} WHERE id = ?`)
-              .bind(...COL_MAP.map(m => record[m.db]), existing.id)
-          )
-          imported++
-        } else { skipped++ }
-      } else {
-        insertStmts.push(
-          c.env.DB.prepare(`INSERT INTO ${TABLE} (${colNames}) VALUES (${placeholders})`)
-            .bind(...COL_MAP.map(m => record[m.db]))
-        )
-        imported++
-      }
-    }
-
-    const BATCH = 100
-    for (let i = 0; i < insertStmts.length; i += BATCH) {
-      await c.env.DB.batch(insertStmts.slice(i, i + BATCH))
-    }
-    for (let i = 0; i < updateStmts.length; i += BATCH) {
-      await c.env.DB.batch(updateStmts.slice(i, i + BATCH))
-    }
+    const { imported, skipped } = await upsertRecords(c.env.DB, records, Number(c.req.header('x-user-id')) || null)
+    const totalSkipped = skipped + parseSkipped
 
     const sync = await syncNewMasters(c.env.DB, records)
-    await recomputeGiaGocNgay(c.env.DB)
+    await recomputeGiaGocNgay(c.env.DB, Number(c.req.header('x-user-id')) || null)
 
     return c.json({
       success: true,
       total: records.length,
       imported,
-      skipped,
+      skipped: totalSkipped,
       ma_misa_added: sync.ma_misa,
       gia_goc_added: sync.gia_goc,
-      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng` : ''}. Thêm mới ${sync.ma_misa} mã MISA + ${sync.gia_goc} giá gốc.`,
+      message: `Import ${imported} dòng thành công${totalSkipped ? `, bỏ qua ${totalSkipped} dòng` : ''}. Thêm mới ${sync.ma_misa} mã MISA + ${sync.gia_goc} giá gốc.`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -469,73 +539,11 @@ router.post('/import-rows', async (c) => {
     const records: any[] = Array.isArray(body.rows) ? body.rows : []
     if (records.length === 0) return c.json({ error: 'Không có dữ liệu' }, 400)
 
-    const allExisting = await c.env.DB.prepare(
-      `SELECT id, ngay, so_ct, ma_hang FROM ${TABLE} WHERE ma_hang != ''`
-    ).all()
-    const existingMap = new Map<string, any>()
-    for (const r of allExisting.results as any[]) {
-      existingMap.set(`${r.ngay}|${r.so_ct}|${r.ma_hang}`, r)
-    }
-
-    const colNames = COL_MAP.map(m => m.db).join(', ')
-    const placeholders = COL_MAP.map(() => '?').join(', ')
-    const setClause = COL_MAP.map(m => `${m.db} = ?`).join(', ')
-
-    const insertStmts: D1PreparedStatement[] = []
-    const updateStmts: D1PreparedStatement[] = []
-    let imported = 0, skipped = 0
-
-    for (const record of records) {
-      const norm: Record<string, any> = {}
-      for (const m of COL_MAP) {
-        let val = record[m.db]
-        if (m.db === 'ngay' && typeof val === 'number') {
-          const d = new Date((val - 25569) * 86400 * 1000)
-          norm.ngay = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-          continue
-        }
-        if (['sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue'].includes(m.db)) {
-          norm[m.db] = typeof val === 'number' ? val : 0
-        } else {
-          norm[m.db] = val !== undefined && val !== null ? String(val).trim() : ''
-        }
-      }
-      if (!norm.ma_hang) { skipped++; continue }
-
-      const key = `${norm.ngay}|${norm.so_ct}|${norm.ma_hang}`
-      const existing = existingMap.get(key)
-      if (existing) {
-        let changed = false
-        for (const m of COL_MAP) {
-          if (String(existing[m.db] ?? '') !== String(norm[m.db] ?? '')) { changed = true; break }
-        }
-        if (changed) {
-          updateStmts.push(
-            c.env.DB.prepare(`UPDATE ${TABLE} SET ${setClause} WHERE id = ?`)
-              .bind(...COL_MAP.map(m => norm[m.db]), existing.id)
-          )
-          imported++
-        } else { skipped++ }
-      } else {
-        insertStmts.push(
-          c.env.DB.prepare(`INSERT INTO ${TABLE} (${colNames}) VALUES (${placeholders})`)
-            .bind(...COL_MAP.map(m => norm[m.db]))
-        )
-        existingMap.set(key, { id: 0 })
-        imported++
-      }
-    }
-
-    const BATCH = 100
-    for (let i = 0; i < insertStmts.length; i += BATCH) {
-      await c.env.DB.batch(insertStmts.slice(i, i + BATCH))
-    }
-    for (let i = 0; i < updateStmts.length; i += BATCH) {
-      await c.env.DB.batch(updateStmts.slice(i, i + BATCH))
-    }
+    const ownerId = Number(c.req.header('x-user-id')) || null
+    const { imported, skipped } = await upsertRecords(c.env.DB, records, ownerId)
 
     const sync = await syncNewMasters(c.env.DB, records)
-    await recomputeGiaGocNgay(c.env.DB)
+    await recomputeGiaGocNgay(c.env.DB, ownerId)
 
     return c.json({
       success: true,
@@ -544,17 +552,20 @@ router.post('/import-rows', async (c) => {
       skipped,
       ma_misa_added: sync.ma_misa,
       gia_goc_added: sync.gia_goc,
-      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng` : ''}. Thêm mới ${sync.ma_misa} mã MISA + ${sync.gia_goc} giá gốc.`,
-    })
+      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Thêm mới ${sync.ma_misa} mã MISA + ${sync.gia_goc} giá gốc.`,
+})
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
 })
 
-// POST /recompute-gia-goc-ngay — tính lại "giá gốc tại thời điểm bán" cho toàn bộ dữ liệu hiện có
+// POST /recompute-gia-goc-ngay — tính lại "giá gốc tại thời điểm bán" theo phạm vi đang xem (admin: toàn bộ)
 router.post('/recompute-gia-goc-ngay', async (c) => {
   try {
-    const updated = await recomputeGiaGocNgay(c.env.DB)
+    const me = await reqUser(c.env.DB, c)
+    if (!me) return c.json({ error: 'Bắt buộc đăng nhập' }, 401)
+    const ownerId = me && !isAdmin(me) ? me.id : null
+    const updated = await recomputeGiaGocNgay(c.env.DB, ownerId)
     return c.json({ success: true, updated })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -568,8 +579,12 @@ router.post('/recompute-gia-goc-ngay', async (c) => {
 // Body: { dryRun?: boolean } — dryRun=true chỉ tính số liệu, không áp dụng thay đổi
 router.post('/auto-xu-ly', async (c) => {
   try {
+    const me = await reqUser(c.env.DB, c)
+    if (!me) return c.json({ error: 'Bắt buộc đăng nhập' }, 401)
     const body = (await c.req.json().catch(() => ({}))) as { dryRun?: boolean }
-    const result = await runAuditAutoProcess(c.env.DB, { dryRun: !!body.dryRun })
+    // Chỉ phân tích dữ liệu của user đang xem (mỗi account 1 file) — admin chạy toàn bộ
+    const ownerId = me && !isAdmin(me) ? me.id : null
+    const result = await runAuditAutoProcess(c.env.DB, { dryRun: !!body.dryRun, ownerId })
     const t = result.thieu_ma_hang
     const d = result.doi_gia_misa
     const locked = await isMisaSyncLocked(c.env.DB)

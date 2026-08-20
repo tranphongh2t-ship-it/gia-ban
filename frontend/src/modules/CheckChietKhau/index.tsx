@@ -149,11 +149,25 @@ export default function CheckChietKhauPage() {
   const [histRow, setHistRow] = useState<any | null>(null)
   const [history, setHistory] = useState<any[]>([])
   const [loadingHist, setLoadingHist] = useState(false)
+  // Phạm vi file đang xem: '' = file của mình, '__all' = tất cả (admin), số = file người khác
+  const [viewOwner, setViewOwner] = useState('')
+  const [owners, setOwners] = useState<Array<{ user_id: number; ten: string; so_dong: number }>>([])
+  const [legacyCount, setLegacyCount] = useState(0)
 
   const refresh = () => setGridKey(k => k + 1)
 
+  // Khi đổi user khác trong dropdown → đổi key để DataGrid fetch lại
+  const changeViewOwner = (val: string) => {
+    setViewOwner(val)
+    setGridKey(k => k + 1)
+  }
+
   useEffect(() => {
     apiGet('/chiet-khau/quan-ly-thang/thangs').then(r => setThangOpts(r.thangs || [])).catch(() => {})
+    apiGet(`${API_PATH}/owners`).then(r => {
+      setOwners(r.data || [])
+      setLegacyCount(r.khong_so_huu || 0)
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -331,11 +345,28 @@ export default function CheckChietKhauPage() {
           </div>
         )}
         <span style={{ flex: 1 }} />
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 12, color: colors.textMuted }}>Lấy file người khác:</span>
+          <select
+            value={viewOwner}
+            onChange={e => changeViewOwner(e.target.value)}
+            style={{ fontSize: 12, height: 32, border: `1px solid ${colors.border}`, borderRadius: 6, padding: '0 6px', background: '#fff', color: colors.text }}
+          >
+            <option value="">File của tôi</option>
+            {user?.is_admin && <option value="__all">Tất cả (Admin)</option>}
+            {owners.map(o => (
+              <option key={o.user_id} value={String(o.user_id)}>{o.ten} ({o.so_dong} dòng)</option>
+            ))}
+            {legacyCount > 0 && <option value="__null">Dữ liệu cũ (không ai sở hữu) ({legacyCount} dòng)</option>}
+          </select>
+        </div>
         {canImport && (
           <button
             style={{ ...btn(colors.danger, '#fff'), fontSize: 12, height: 32 }}
             onClick={async () => {
-              if (!confirm('Xóa toàn bộ dữ liệu Check chiết khấu?')) return
+              const isAdmin = user?.is_admin
+              const subj = isAdmin ? 'toàn bộ dữ liệu của mọi người' : 'dữ liệu của bạn'
+              if (!confirm(`Xóa ${subj} khỏi Check chiết khấu?`)) return
               try {
                 const d = await apiDelete(`${API_PATH}/clear`)
                 if (d.success) { setResult(d.message); setThongKe(null); refresh() }
@@ -355,6 +386,7 @@ export default function CheckChietKhauPage() {
         exportable
         exportName="CheckChietKhau"
         defaultLimit={500}
+        extraFilters={viewOwner !== '' ? { owner_user_id: viewOwner } : undefined}
         rowActions={[
           { label: 'Sửa CK', onClick: openSuaCk },
           { label: 'Lịch sử', onClick: openLichSu, tone: 'primary' },

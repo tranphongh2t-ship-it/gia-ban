@@ -268,18 +268,21 @@ export async function isMisaSyncLocked(db: D1Database): Promise<boolean> {
   }
 }
 
-export async function runAuditAutoProcess(db: D1Database, opts: { dryRun?: boolean; forceAll?: boolean } = {}): Promise<AuditAutoResult> {
+export async function runAuditAutoProcess(db: D1Database, opts: { dryRun?: boolean; forceAll?: boolean; ownerId?: number | null } = {}): Promise<AuditAutoResult> {
   const dryRun = !!opts.dryRun
   // forceAll: đồng bộ TẤT CẢ mã (bỏ qua quy tắc "lần đầu/lần sau" + bỏ qua khóa) — dùng cho nút Admin "Đồng bộ tất cả".
   const forceAll = !!opts.forceAll
   const locked = forceAll ? false : await isMisaSyncLocked(db)
+  // ownerId != null → chỉ phân tích dữ liệu của user đó (mỗi account 1 file), mặc định toàn bộ (admin).
+  const ownerCond = opts.ownerId != null ? ` AND owner_user_id = ?` : ''
+  const ownerParams = opts.ownerId != null ? [opts.ownerId] : []
   // 1) Gom các mã hàng thật trong file (bỏ mã Z*, đơn giá <= 0)
   const { results: rawRows } = await db.prepare(
     `SELECT ma_hang, ten_hang, don_gia, sl_ban, ngay
      FROM check_gia_goc_ck
-     WHERE ma_hang IS NOT NULL AND ma_hang != '' AND ma_hang NOT LIKE 'Z%' AND don_gia > 0
+     WHERE ma_hang IS NOT NULL AND ma_hang != '' AND ma_hang NOT LIKE 'Z%' AND don_gia > 0${ownerCond}
      ORDER BY rowid ASC`
-  ).all()
+  ).bind(...ownerParams).all()
   const rows = (rawRows || []) as any[]
 
   const byMa = new Map<string, { ten: string; rows: { don_gia: number; ngay: string }[] }>()
