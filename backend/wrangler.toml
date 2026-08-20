@@ -6,8 +6,8 @@ compatibility_date = "2026-07-01"
 # Khi có bản mới: nâng APP_VERSION, đổi APP_INSTALLER_URL thành link download setup mới,
 # rồi `wrangler deploy`. 30 máy sẽ tự bật POPUP cập nhật.
 [vars]
-APP_VERSION = "0.2.9"
-APP_INSTALLER_URL = "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/latest/download/THANH.THUY.PRICE.Setup.0.2.9.exe"
+APP_VERSION = "0.2.10"
+APP_INSTALLER_URL = "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/latest/download/THANH.THUY.PRICE.Setup.0.2.10.exe"
 APP_UPDATE_NOTES = "Cập nhật tính năng"
 
 [[d1_databases]]
