@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { colors } from '../theme'
 import { useAuth } from '../lib/auth'
@@ -5,6 +6,7 @@ import LoginOverlay from './LoginOverlay'
 import BangGiaLockToggle from './BangGiaLockToggle'
 
 const sidebarW = 260
+const sidebarWCollapsed = 58
 const sectionColors: Record<string, string> = {
   'Check Giá Gốc': '#1ABB9C',
   'Tổng quan': '#4299e1',
@@ -69,6 +71,7 @@ const sidebarStyle: React.CSSProperties = {
 const brandStyle: React.CSSProperties = {
   height: 58, padding: '0 18px', display: 'flex', alignItems: 'center',
   gap: 10, borderBottom: `1px solid ${colors.sidebarBorder}`, flexShrink: 0,
+  position: 'relative',
 }
 
 const brandIcon: React.CSSProperties = {
@@ -105,10 +108,22 @@ const linkBase: React.CSSProperties = {
   color: colors.sidebarText, textDecoration: 'none',
   borderRadius: 6, margin: '1px 8px', minHeight: 34,
   transition: 'background 120ms, color 120ms, transform 120ms',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+}
+
+const linkBaseCollapsed: React.CSSProperties = {
+  ...linkBase,
+  padding: '5px 0', margin: '1px 8px', justifyContent: 'center',
 }
 
 const activeStyle: React.CSSProperties = {
   ...linkBase,
+  color: '#fff', background: colors.sidebarActive, fontWeight: 600,
+}
+
+const activeStyleCollapsed: React.CSSProperties = {
+  ...linkBaseCollapsed,
   color: '#fff', background: colors.sidebarActive, fontWeight: 600,
 }
 
@@ -161,6 +176,23 @@ const subLabel: React.CSSProperties = {
 export default function Layout() {
   const { user, loading, hasPermission, logout } = useAuth()
   const loc = useLocation()
+
+  const [collapsed, setCollapsed] = useState(false)
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('tt_sidebar_collapsed')
+      if (v) setCollapsed(v === '1')
+    } catch { /* ignore */ }
+  }, [])
+  const toggleCollapsed = () => {
+    setCollapsed(prev => {
+      const next = !prev
+      try { localStorage.setItem('tt_sidebar_collapsed', next ? '1' : '0') } catch { /* ignore */ }
+      return next
+    })
+  }
+
+  const curSidebarW = collapsed ? sidebarWCollapsed : sidebarW
 
   if (loading) return null
   if (!user) return <LoginOverlay />
@@ -320,15 +352,26 @@ export default function Layout() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <nav style={sidebarStyle}>
-        <div style={brandStyle}>
+      <nav style={{ ...sidebarStyle, width: curSidebarW, transition: 'width 160ms ease' }}>
+        <div style={{ ...brandStyle, padding: collapsed ? '0 8px' : '0 18px', justifyContent: collapsed ? 'center' : 'flex-start' }}>
           <div style={brandIcon}>
             <img src="/logo.svg" alt="logo" style={{ width: 30, height: 30, borderRadius: 8 }} />
           </div>
-          <div>
-            <div style={brandName}>THANH THUY PRICE</div>
-            <div style={brandSub}>HỆ THỐNG GIÁ</div>
-          </div>
+          {!collapsed && (
+            <div>
+              <div style={brandName}>THANH THUY PRICE</div>
+              <div style={brandSub}>HỆ THỐNG GIÁ</div>
+            </div>
+          )}
+          <button onClick={toggleCollapsed} title={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
+            style={{
+              position: collapsed ? 'absolute' as const : 'static',
+              right: 8, top: '50%', transform: collapsed ? 'translateY(-50%)' : 'none',
+              width: 26, height: 26, border: 'none', borderRadius: 6, cursor: 'pointer',
+              background: 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              marginLeft: collapsed ? 0 : 'auto',
+            }}>{collapsed ? '▸' : '◂'}</button>
         </div>
         <div style={navStyle}>
           {navGroups.map((group) => {
@@ -341,30 +384,34 @@ export default function Layout() {
             const secColor = sectionColors[group.section] || colors.primary
             return (
               <div key={group.section}>
-                <div style={sectionLabel}>
+                <div style={{ ...sectionLabel, padding: collapsed ? '14px 0 6px' : '18px 20px 6px', justifyContent: collapsed ? 'center' : 'flex-start' }}>
                   <span style={{ ...sectionDot, background: secColor, boxShadow: `0 0 6px ${secColor}` }} />
-                  {group.section}
+                  {!collapsed && group.section}
                 </div>
                 {group.subGroups ? visibleSubGroups!.map((sg) => (
                   <div key={sg.label}>
-                    <div style={subLabel}>{sg.label}</div>
+                    {!collapsed && <div style={subLabel}>{sg.label}</div>}
                     {sg.items.filter(i => hasPermission(i.perm!)).map((item) => (
-                      <NavLink key={item.path} to={item.path} end={item.path === '/'} style={({ isActive }) => isActive ? activeStyle : linkBase}>
+                      <NavLink key={item.path} to={item.path} end={item.path === '/'}
+                        title={collapsed ? item.label : undefined}
+                        style={({ isActive }) => collapsed ? (isActive ? activeStyleCollapsed : linkBaseCollapsed) : (isActive ? activeStyle : linkBase)}>
                         {({ isActive }) => (
                           <>
                             <span style={isActive ? iconActiveStyle : iconStyle}>{getIcon(item.path)}</span>
-                            {item.label}
+                            {!collapsed && item.label}
                           </>
                         )}
                       </NavLink>
                     ))}
                   </div>
                 )) : visibleItems!.map((item) => (
-                  <NavLink key={item.path} to={item.path} end={item.path === '/'} style={({ isActive }) => isActive ? activeStyle : linkBase}>
+                  <NavLink key={item.path} to={item.path} end={item.path === '/'}
+                    title={collapsed ? item.label : undefined}
+                    style={({ isActive }) => collapsed ? (isActive ? activeStyleCollapsed : linkBaseCollapsed) : (isActive ? activeStyle : linkBase)}>
                     {({ isActive }) => (
                       <>
                         <span style={isActive ? iconActiveStyle : iconStyle}>{getIcon(item.path)}</span>
-                        {item.label}
+                        {!collapsed && item.label}
                       </>
                     )}
                   </NavLink>
@@ -373,17 +420,19 @@ export default function Layout() {
             )
           })}
         </div>
-        <div style={footerStyle}>
-          <div style={{ ...userBadge, background: colors.sidebarHover }} onClick={logout} title="Click để đăng xuất">
+        <div style={{ ...footerStyle, alignItems: collapsed ? 'center' : 'stretch' }}>
+          <div style={{ ...userBadge, justifyContent: collapsed ? 'center' : 'flex-start' }} onClick={logout} title="Click để đăng xuất">
             <span style={userAvatar}>{(user.ten || '?').slice(0, 1).toUpperCase()}</span>
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {user.ten} {user.is_admin ? <span style={{ color: colors.primary, fontWeight: 600 }}>· Admin</span> : ''}
-            </span>
+            {!collapsed && (
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user.ten} {user.is_admin ? <span style={{ color: colors.primary, fontWeight: 600 }}>· Admin</span> : ''}
+              </span>
+            )}
           </div>
-          <div>v0.2.0</div>
+          {!collapsed && <div>v0.2.0</div>}
         </div>
       </nav>
-      <main className="main-content" style={contentStyle}>
+      <main className="main-content" style={{ ...contentStyle, marginLeft: curSidebarW, transition: 'margin-left 160ms ease' }}>
         {currentPerm === 'menu:/bang-tinh-gia' && (
           <div style={{ padding: '10px 20px', background: colors.card, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center' }}>
             <span style={{ fontSize: 12.5, color: colors.textSecondary }}>Công tắc an toàn Bảng Tính Giá (12 nhóm)</span>

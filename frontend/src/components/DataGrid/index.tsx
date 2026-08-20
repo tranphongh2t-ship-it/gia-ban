@@ -266,7 +266,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     try { return localStorage.getItem(STORAGE_ROW(apiPath)) || 'md' } catch { return 'md' }
   })
 
-  // Cột ghim (sticky left khi cuộn ngang, như Excel). Lưu localStorage theo apiPath.
+  // Cột ghim (sticky left khi cuộn ngang). Tick tùy ý từng cột. Lưu localStorage theo apiPath.
   const [pinCols, setPinCols] = useState<string[]>(() => {
     try {
       const arr = JSON.parse(localStorage.getItem(STORAGE_PIN(apiPath)) || '[]')
@@ -275,6 +275,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   })
   const [pinPopup, setPinPopup] = useState(false)
   const pinRef = useRef<HTMLDivElement>(null)
+  const defaultPinDone = useRef(false)
 
   // Cột ẩn theo user (xem ẩn cột). Ưu tiên data (user) → default (admin/global) → auto.
   const [hiddenCols, setHiddenCols] = useState<string[]>(() => {
@@ -308,16 +309,16 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     return () => document.removeEventListener('mousedown', onDoc)
   }, [pinPopup])
 
-  // Ghim cột theo kiểu Excel: luôn là đoạn liền từ cột trái cùng. Tick cột N → ghim cột 0..N; bỏ tick → ghim 0..N-1.
+  // Ghim cột tùy ý (tick cột nào → ghim cột đó, không bắt buộc liền từ trái). Mặc định ghim cột title (đầu tiên).
   const pinIdxOf = (key: string) => visibleCols.findIndex(c => c.key === key)
   const togglePin = (key: string) => {
-    const idx = pinIdxOf(key)
-    if (idx < 0) return
-    if (pinCols.length > idx && pinCols[idx] === key) {
-      setPinCols(visibleCols.slice(0, idx).map(c => c.key))
-    } else {
-      setPinCols(visibleCols.slice(0, idx + 1).map(c => c.key))
-    }
+    if (pinIdxOf(key) < 0) return
+    setPinCols(prev => {
+      const next = prev.includes(key)
+        ? prev.filter(k => k !== key)
+        : [...prev, key]
+      return next.sort((a, b) => pinIdxOf(a) - pinIdxOf(b))
+    })
   }
   const togglePinsAll = (on: boolean) => {
     setPinCols(on ? visibleCols.map(c => c.key) : [])
@@ -385,6 +386,19 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const perRow = Math.max(1, columnsPerRow || 1)
   const fetchLimit = limit * perRow
   const curRowPad = ROW_PAD[rowHeight] || ROW_PAD.md
+
+  // Mặc định ghim cột title (cột hiển thị đầu tiên) khi chưa có cấu hình ghim nào (localStorage/D1) từng lưu.
+  useEffect(() => {
+    if (defaultPinDone.current) return
+    if (!visibleCols.length) return
+    defaultPinDone.current = true
+    const hasSaved = (() => {
+      try { return localStorage.getItem(STORAGE_PIN(apiPath)) !== null } catch { return false }
+    })()
+    if (!hasSaved && pinCols.length === 0) {
+      setPinCols([visibleCols[0].key])
+    }
+  }, [visibleCols, apiPath])
 
   // Default column width based on title text length
   const getDefaultColWidth = (c: Column): number => {
@@ -796,7 +810,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
               fontWeight: pinCols.length ? 600 : 400,
               background: pinCols.length ? colors.primaryLight : 'transparent', color: pinCols.length ? colors.primary : colors.textMuted,
               transition: 'all 0.12s ease', whiteSpace: 'nowrap',
-            }} onClick={() => setPinPopup(v => !v)} title="Ghim cột trái (cố định khi cuộn ngang, như Excel). Chỉ áp dụng cho account của bạn (lưu theo user đăng nhập).">
+            }} onClick={() => setPinPopup(v => !v)} title="Ghim cột nào đó cố định bên trái khi cuộn ngang (tick tùy chọn từng cột). Chỉ áp dụng cho account của bạn (lưu theo user đăng nhập).">
               {pinCols.length ? `📌 Ghim: ${pinCols.length} cột` : '📌 Ghim cột'}
             </button>
             {pinPopup && (
@@ -808,9 +822,9 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                   <button style={{ ...btn(colors.primary), fontSize: 11, padding: '4px 8px', height: 26 }} onClick={() => togglePinsAll(true)}>Ghim tất cả</button>
                   <button style={{ ...btn(colors.textSecondary, '#fff'), fontSize: 11, padding: '4px 8px', height: 26 }} onClick={() => togglePinsAll(false)}>Bỏ ghim</button>
                 </div>
-                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6 }}>Tick cột → ghim cột 0..N (Excel):</div>
-                {visibleCols.map((c, i) => {
-                  const checkedIdx = pinCols.length > i && pinCols[i] === c.key
+                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6 }}>Tick cột muốn ghim → cột cố định bên trái khi cuộn ngang:</div>
+                {visibleCols.map((c) => {
+                  const checkedIdx = pinCols.includes(c.key)
                   return (
                     <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 4px', borderRadius: radius.sm, fontSize: 12, cursor: 'pointer', background: checkedIdx ? colors.primaryLight : 'transparent', color: checkedIdx ? colors.primary : colors.text }}
                       onClick={() => togglePin(c.key)}>
