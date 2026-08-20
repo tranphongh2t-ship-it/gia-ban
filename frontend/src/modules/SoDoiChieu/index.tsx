@@ -1,90 +1,71 @@
+import { useState, useRef, useEffect } from 'react'
+import * as XLSX from 'xlsx'
 import DataGrid, { Column } from '../../components/DataGrid'
-import { colors } from '../../theme'
+import { apiDelete, apiPost, apiGet } from '../../lib/api'
+import { useAuth } from '../../lib/auth'
+import { colors, btn } from '../../theme'
 import { formatNum } from '../../lib/format'
 
+const CHUNK = 1500
 const API_PATH = '/so-doi-chieu'
 
-// Demo data lấy từ "Sổ chi tiết bán hàng file mới.xlsx" (23 cột) để xem trước giao diện.
-// Khi có backend, bỏ prop demoRows → DataGrid đọc từ API như bình thường.
-const RAW_ROWS: any[] = [
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH08901","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015065","dien_giai":"Ván Nhựa Durabo 17mm x1220x2440 0.55g MEL 106 WN 2 mặt","ma_kh":"THOPHUC","ten_kh":"CÔNG TY TNHH SẢN XUẤT THƯƠNG MẠI DỊCH VỤ THỌ PHÚC","ma_nhom_kh":"COMST; KHX; XT1; THUY; COHD; KH2025","ten_nhom_kh":"Khách Có MST; KH xưởng; Khách xưởng team 1 ( team Phong); Thùy; Có Hóa Đơn; Khách hàng 2025","ma_hang":"MEVN17055106WN2","ten_hang":"Ván Nhựa Durabo 17mm x1220x2440 0.55g MEL 106 WN 2 mặt","dvt":"tấm","sl_ban":15,"don_gia":1340000,"doanh_so":20100000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":1608000,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH08901","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015065","dien_giai":"Ván Nhựa Durabo 10mm x1220x2440 0.55g MEL 106 WN 2 mặt","ma_kh":"THOPHUC","ten_kh":"CÔNG TY TNHH SẢN XUẤT THƯƠNG MẠI DỊCH VỤ THỌ PHÚC","ma_nhom_kh":"COMST; KHX; XT1; THUY; COHD; KH2025","ten_nhom_kh":"Khách Có MST; KH xưởng; Khách xưởng team 1 ( team Phong); Thùy; Có Hóa Đơn; Khách hàng 2025","ma_hang":"MEVN10055106WN2","ten_hang":"Ván Nhựa Durabo 10mm x1220x2440 0.55g MEL 106 WN 2 mặt","dvt":"tấm","sl_ban":10,"don_gia":1060000,"doanh_so":10600000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":848000,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH08901","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015065","dien_giai":"Chỉ nẹp 106 T 21 x 0.8","ma_kh":"THOPHUC","ten_kh":"CÔNG TY TNHH SẢN XUẤT THƯƠNG MẠI DỊCH VỤ THỌ PHÚC","ma_nhom_kh":"COMST; KHX; XT1; THUY; COHD; KH2025","ten_nhom_kh":"Khách Có MST; KH xưởng; Khách xưởng team 1 ( team Phong); Thùy; Có Hóa Đơn; Khách hàng 2025","ma_hang":"CHI106T21-1","ten_hang":"Chỉ nẹp 106 T 21 x 0.8","dvt":"cuộn","sl_ban":3,"don_gia":170000,"doanh_so":510000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":40800,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH08901","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015065","dien_giai":"Bao bì đai kiện (gồm 1 Bìa MDF hoặc Okal + 1 tấm lót trên)","ma_kh":"THOPHUC","ten_kh":"CÔNG TY TNHH SẢN XUẤT THƯƠNG MẠI DỊCH VỤ THỌ PHÚC","ma_nhom_kh":"COMST; KHX; XT1; THUY; COHD; KH2025","ten_nhom_kh":"Khách Có MST; KH xưởng; Khách xưởng team 1 ( team Phong); Thùy; Có Hóa Đơn; Khách hàng 2025","ma_hang":"ZBIADAIKIEN","ten_hang":"Bao bì đai kiện (gồm 1 Bìa MDF hoặc Okal + 1 tấm lót trên)","dvt":"tấm","sl_ban":2,"don_gia":0,"doanh_so":0,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":0,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"Chỉ nẹp 389 43 x 0.8","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"CHI38943-1","ten_hang":"Chỉ nẹp 389 43 x 0.8","dvt":"cuộn","sl_ban":1,"don_gia":370000,"doanh_so":370000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":29600,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"Ván Melamine - Phụ Phí Số lượng <10 tấm","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ZPPMSL10","ten_hang":"Ván Melamine - Phụ Phí Số lượng <10 tấm","dvt":"$","sl_ban":11,"don_gia":20000,"doanh_so":220000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":17600,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"Durabo Plus - Phụ Phí Số lượng < 10 tấm","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ZPPDUPLUSSL","ten_hang":"Durabo Plus - Phụ Phí Số lượng < 10 tấm","dvt":"$","sl_ban":1,"don_gia":100000,"doanh_so":100000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":8000,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"Vận chuyển","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ZVC","ten_hang":"Vận chuyển","dvt":"","sl_ban":1,"don_gia":230000,"doanh_so":230000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":18400,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"17mm x1220x2440 kháng ẩm LMR DW MEL 389 WN 2 mặt","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME17LMR389WN2DW","ten_hang":"17mm x1220x2440 kháng ẩm LMR DW MEL 389 WN 2 mặt","dvt":"tấm","sl_ban":2,"don_gia":488000,"doanh_so":976000,"ck":195200,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":62464,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"17mm x1220x2440 DW MEL 389 WN 2 mặt","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME17389WN2DW","ten_hang":"17mm x1220x2440 DW MEL 389 WN 2 mặt","dvt":"tấm","sl_ban":11,"don_gia":458000,"doanh_so":5038000,"ck":1007600,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":322432,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"17mm x1220x2440 DW MEL 101-1 SH 2 mặt","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME17101-1SH2DW","ten_hang":"17mm x1220x2440 DW MEL 101-1 SH 2 mặt","dvt":"tấm","sl_ban":4,"don_gia":448000,"doanh_so":1792000,"ck":358400,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":114688,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"Ván Nhựa Durabo 17mm x1220x2440 0.6g MEL 389 WN 2 mặt","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"MEVN1706GKT389WN2","ten_hang":"Ván Nhựa Durabo 17mm x1220x2440 0.6g MEL 389 WN 2 mặt","dvt":"tấm","sl_ban":1,"don_gia":1175000,"doanh_so":1175000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":94000,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"Chỉ nẹp 101 SH 21 x 0.8","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"CHI101SH21-1","ten_hang":"Chỉ nẹp 101 SH 21 x 0.8","dvt":"cuộn","sl_ban":1,"don_gia":140000,"doanh_so":140000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":11200,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"8mm x1220x2440 kháng ẩm LMR DW MEL 389 WN 2 mặt","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME08LMR389WN2DW","ten_hang":"8mm x1220x2440 kháng ẩm LMR DW MEL 389 WN 2 mặt","dvt":"tấm","sl_ban":5,"don_gia":320000,"doanh_so":1600000,"ck":320000,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":102400,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"Điều chỉnh số lẻ","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ZDCSL","ten_hang":"Điều chỉnh số lẻ","dvt":"","sl_ban":1,"don_gia":512,"doanh_so":512,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":0,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09012","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015230","dien_giai":"Bao bì đai kiện (gồm 1 Bìa MDF hoặc Okal + 1 tấm lót trên)","ma_kh":"CNGUYETMOCDEPJSC","ten_kh":"CÔNG TY TNHH NỘI THẤT MỘC ĐẸP","ma_nhom_kh":"KHX; KOMST; THUY; BOHD; KH_PREMIUM092023; KDBINH2020; VU2023; VUKHCU; KHXSX","ten_nhom_kh":"KH xưởng; Khách không có MST; Thùy; Bỏ Hóa Đơn; Khách hàng Premium T09-2023; Khách Bình chăm 2020; Khách Vũ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ZBIADAIKIEN","ten_hang":"Bao bì đai kiện (gồm 1 Bìa MDF hoặc Okal + 1 tấm lót trên)","dvt":"tấm","sl_ban":2,"don_gia":100000,"doanh_so":200000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":0,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09036","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015220","dien_giai":"Okal 15mm x1220x2440 Veco","ma_kh":"HOANGTHAIPHONG","ten_kh":"CÔNG TY TNHH MỘT THÀNH VIÊN SẢN XUẤT THƯƠNG MẠI HOÀNG THÁI PHONG","ma_nhom_kh":"COMST; THUY082026","ten_nhom_kh":"Khách Có MST; KHX Thuỷ T8-2026","ma_hang":"TOK15VCC","ten_hang":"Okal 15mm x1220x2440 Veco","dvt":"tấm","sl_ban":65,"don_gia":297000,"doanh_so":19305000,"ck":1930500,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":1389960,"nv_ban":"Nguyễn Thị Thu Thủy"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09036","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015220","dien_giai":"Okal 15mm x1220x2440 VC MEL 435 SN 1 mặt","ma_kh":"HOANGTHAIPHONG","ten_kh":"CÔNG TY TNHH MỘT THÀNH VIÊN SẢN XUẤT THƯƠNG MẠI HOÀNG THÁI PHONG","ma_nhom_kh":"COMST; THUY082026","ten_nhom_kh":"Khách Có MST; KHX Thuỷ T8-2026","ma_hang":"MEOK15435SN1VCC","ten_hang":"Okal 15mm x1220x2440 VC MEL 435 SN 1 mặt","dvt":"tấm","sl_ban":10,"don_gia":387000,"doanh_so":3870000,"ck":774000,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":247680,"nv_ban":"Nguyễn Thị Thu Thủy"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09036","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015220","dien_giai":"Bao bì đai kiện (gồm 1 Bìa MDF hoặc Okal + 1 tấm lót trên)","ma_kh":"HOANGTHAIPHONG","ten_kh":"CÔNG TY TNHH MỘT THÀNH VIÊN SẢN XUẤT THƯƠNG MẠI HOÀNG THÁI PHONG","ma_nhom_kh":"COMST; THUY082026","ten_nhom_kh":"Khách Có MST; KHX Thuỷ T8-2026","ma_hang":"ZBIADAIKIEN","ten_hang":"Bao bì đai kiện (gồm 1 Bìa MDF hoặc Okal + 1 tấm lót trên)","dvt":"tấm","sl_ban":2,"don_gia":0,"doanh_so":0,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":0,"nv_ban":"Nguyễn Thị Thu Thủy"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09089","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015339,ĐH015380","dien_giai":"17mm x1220x2440 kháng ẩm LMR DW MEL 386 MW 2 mặt","ma_kh":"QCTREVIET","ten_kh":"CTY TNHH THƯƠNG MẠI DỊCH VỤ QUẢNG CÁO TRE VIỆT","ma_nhom_kh":"COMST; THUY; COHD; KH2023; NHU2023; NHUKHMOI2023; NHU052023; KHXSX","ten_nhom_kh":"Khách Có MST; Thùy; Có Hóa Đơn; Khách hàng 2023; Khách Như chăm 2023; Khách mới; Như Tháng 05; Khách Xưởng SX","ma_hang":"ME17LMR386MW2DW","ten_hang":"17mm x1220x2440 kháng ẩm LMR DW MEL 386 MW 2 mặt","dvt":"tấm","sl_ban":6,"don_gia":488000,"doanh_so":2928000,"ck":585600,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":187392,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09089","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015339,ĐH015380","dien_giai":"Chỉ nẹp 786/386 21 x 0.8","ma_kh":"QCTREVIET","ten_kh":"CTY TNHH THƯƠNG MẠI DỊCH VỤ QUẢNG CÁO TRE VIỆT","ma_nhom_kh":"COMST; THUY; COHD; KH2023; NHU2023; NHUKHMOI2023; NHU052023; KHXSX","ten_nhom_kh":"Khách Có MST; Thùy; Có Hóa Đơn; Khách hàng 2023; Khách Như chăm 2023; Khách mới; Như Tháng 05; Khách Xưởng SX","ma_hang":"CHI78638621-1","ten_hang":"Chỉ nẹp 786/386 21 x 0.8","dvt":"cuộn","sl_ban":1,"don_gia":170000,"doanh_so":170000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":13600,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09089","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015339,ĐH015380","dien_giai":"Ván Melamine - Phụ Phí Số lượng <10 tấm","ma_kh":"QCTREVIET","ten_kh":"CTY TNHH THƯƠNG MẠI DỊCH VỤ QUẢNG CÁO TRE VIỆT","ma_nhom_kh":"COMST; THUY; COHD; KH2023; NHU2023; NHUKHMOI2023; NHU052023; KHXSX","ten_nhom_kh":"Khách Có MST; Thùy; Có Hóa Đơn; Khách hàng 2023; Khách Như chăm 2023; Khách mới; Như Tháng 05; Khách Xưởng SX","ma_hang":"ZPPMSL10","ten_hang":"Ván Melamine - Phụ Phí Số lượng <10 tấm","dvt":"$","sl_ban":9,"don_gia":20000,"doanh_so":180000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":14400,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09089","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015339,ĐH015380","dien_giai":"Vận chuyển","ma_kh":"QCTREVIET","ten_kh":"CTY TNHH THƯƠNG MẠI DỊCH VỤ QUẢNG CÁO TRE VIỆT","ma_nhom_kh":"COMST; THUY; COHD; KH2023; NHU2023; NHUKHMOI2023; NHU052023; KHXSX","ten_nhom_kh":"Khách Có MST; Thùy; Có Hóa Đơn; Khách hàng 2023; Khách Như chăm 2023; Khách mới; Như Tháng 05; Khách Xưởng SX","ma_hang":"ZVC","ten_hang":"Vận chuyển","dvt":"","sl_ban":1,"don_gia":332000,"doanh_so":332000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":26560,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09089","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015339,ĐH015380","dien_giai":"Chỉ nẹp Chì 21 x 0.8","ma_kh":"QCTREVIET","ten_kh":"CTY TNHH THƯƠNG MẠI DỊCH VỤ QUẢNG CÁO TRE VIỆT","ma_nhom_kh":"COMST; THUY; COHD; KH2023; NHU2023; NHUKHMOI2023; NHU052023; KHXSX","ten_nhom_kh":"Khách Có MST; Thùy; Có Hóa Đơn; Khách hàng 2023; Khách Như chăm 2023; Khách mới; Như Tháng 05; Khách Xưởng SX","ma_hang":"CHICHI21-1","ten_hang":"Chỉ nẹp Chì 21 x 0.8","dvt":"cuộn","sl_ban":1,"don_gia":170000,"doanh_so":170000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":13600,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09089","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015339,ĐH015380","dien_giai":"17mm x1220x2440 kháng ẩm MMR MK MEL CHÌ T 2 mặt","ma_kh":"QCTREVIET","ten_kh":"CTY TNHH THƯƠNG MẠI DỊCH VỤ QUẢNG CÁO TRE VIỆT","ma_nhom_kh":"COMST; THUY; COHD; KH2023; NHU2023; NHUKHMOI2023; NHU052023; KHXSX","ten_nhom_kh":"Khách Có MST; Thùy; Có Hóa Đơn; Khách hàng 2023; Khách Như chăm 2023; Khách mới; Như Tháng 05; Khách Xưởng SX","ma_hang":"ME17MMRCHIT2MK","ten_hang":"17mm x1220x2440 kháng ẩm MMR MK MEL CHÌ T 2 mặt","dvt":"tấm","sl_ban":3,"don_gia":508000,"doanh_so":1524000,"ck":304800,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":97536,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09089","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015339,ĐH015380","dien_giai":"17mm x1220x2440 kháng ẩm LMR DW MEL 01 G 2 mặt","ma_kh":"QCTREVIET","ten_kh":"CTY TNHH THƯƠNG MẠI DỊCH VỤ QUẢNG CÁO TRE VIỆT","ma_nhom_kh":"COMST; THUY; COHD; KH2023; NHU2023; NHUKHMOI2023; NHU052023; KHXSX","ten_nhom_kh":"Khách Có MST; Thùy; Có Hóa Đơn; Khách hàng 2023; Khách Như chăm 2023; Khách mới; Như Tháng 05; Khách Xưởng SX","ma_hang":"ME17LMR01G2DW","ten_hang":"17mm x1220x2440 kháng ẩm LMR DW MEL 01 G 2 mặt","dvt":"tấm","sl_ban":10,"don_gia":508000,"doanh_so":5080000,"ck":1016000,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":325120,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09089","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"Lập từ đơn đặt hàng ĐH015339,ĐH015380","dien_giai":"Bao bì đai kiện (gồm 1 Bìa MDF hoặc Okal + 1 tấm lót trên)","ma_kh":"QCTREVIET","ten_kh":"CTY TNHH THƯƠNG MẠI DỊCH VỤ QUẢNG CÁO TRE VIỆT","ma_nhom_kh":"COMST; THUY; COHD; KH2023; NHU2023; NHUKHMOI2023; NHU052023; KHXSX","ten_nhom_kh":"Khách Có MST; Thùy; Có Hóa Đơn; Khách hàng 2023; Khách Như chăm 2023; Khách mới; Như Tháng 05; Khách Xưởng SX","ma_hang":"ZBIADAIKIEN","ten_hang":"Bao bì đai kiện (gồm 1 Bìa MDF hoặc Okal + 1 tấm lót trên)","dvt":"tấm","sl_ban":2,"don_gia":100000,"doanh_so":200000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":0,"nv_ban":"Giắn Ngọc Duyên"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL LATTE T 2 mặt","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME17CTE1LATTET2MK","ten_hang":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL LATTE T 2 mặt","dvt":"tấm","sl_ban":32,"don_gia":710000,"doanh_so":22720000,"ck":1590400,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":1690368,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL KEM T 2 mặt","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME17CTE1KEMT2MK","ten_hang":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL KEM T 2 mặt","dvt":"tấm","sl_ban":4,"don_gia":710000,"doanh_so":2840000,"ck":198800,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":211296,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"9mm x1220x2440 kháng ẩm HMR E1 MK MEL LATTE T 2 mặt","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME09CTE1LATTET2MK","ten_hang":"9mm x1220x2440 kháng ẩm HMR E1 MK MEL LATTE T 2 mặt","dvt":"tấm","sl_ban":5,"don_gia":477000,"doanh_so":2385000,"ck":166950,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":177444,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL Đ8 G 2 mặt","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME17CTE1D8G2MK","ten_hang":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL Đ8 G 2 mặt","dvt":"tấm","sl_ban":3,"don_gia":690000,"doanh_so":2070000,"ck":414000,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":132480,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL 025 T 2 mặt","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME17CTE1025T2MK","ten_hang":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL 025 T 2 mặt","dvt":"tấm","sl_ban":3,"don_gia":710000,"doanh_so":2130000,"ck":149100,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":158472,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL ĐEN T 2 mặt","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ME17CTE1DEN-2T2MK","ten_hang":"17mm x1220x2440 kháng ẩm HMR E1 MK MEL ĐEN T 2 mặt","dvt":"tấm","sl_ban":1,"don_gia":710000,"doanh_so":710000,"ck":142000,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":45440,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"Ván ép 9mm x1220x2440 KT MEL LATTE T 2 mặt","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"MEVE09LATTET2KT","ten_hang":"Ván ép 9mm x1220x2440 KT MEL LATTE T 2 mặt","dvt":"tấm","sl_ban":2,"don_gia":640000,"doanh_so":1280000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":102400,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"Melamine plywood - Phụ Phí Số lượng < 10 tấm","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ZPPMPLYSL","ten_hang":"Melamine plywood - Phụ Phí Số lượng < 10 tấm","dvt":"$","sl_ban":2,"don_gia":100000,"doanh_so":200000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":16000,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"Ván Melamine - Phụ Phí Số lượng <10 tấm","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"ZPPMSL10","ten_hang":"Ván Melamine - Phụ Phí Số lượng <10 tấm","dvt":"$","sl_ban":16,"don_gia":20000,"doanh_so":320000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":25600,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"Chỉ nẹp 025 21 x 0.8","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"CHI02521-1","ten_hang":"Chỉ nẹp 025 21 x 0.8","dvt":"cuộn","sl_ban":1,"don_gia":170000,"doanh_so":170000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":13600,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"Chỉ nẹp Latte 43 x 0.8","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"CHILATTE43-1","ten_hang":"Chỉ nẹp Latte 43 x 0.8","dvt":"cuộn","sl_ban":1,"don_gia":370000,"doanh_so":370000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":29600,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"Chỉ nẹp Latte 21 x 0.8","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"CHILATTE21-1","ten_hang":"Chỉ nẹp Latte 21 x 0.8","dvt":"cuộn","sl_ban":4,"don_gia":170000,"doanh_so":680000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":54400,"nv_ban":"Nguyễn Thị Linh Huệ"},
-  {"ngay_hach_toan":"19/08/2026","ngay_chung_tu":"19/08/2026","so_chung_tu":"BH09093","ngay_hoa_don":"19/08/2026","so_hoa_don":"","dien_giai_chung":"26 Hùng Vương, KP 1, Phường Long Khánh, Thành Phố Đồng Nai, Việt Nam 0963.957.179 C Trâm","dien_giai":"Chỉ nẹp Kem 21 x 0.8","ma_kh":"NTHUYNHNHU","ten_kh":"CÔNG TY CỔ PHẦN HUỲNH NHU FURNITURE","ma_nhom_kh":"COMST; KHX; THUY; KH2020; HUE2023; HUEKHCU; KHXSX","ten_nhom_kh":"Khách Có MST; KH xưởng; Thùy; Khách hàng 2020; Khách Huệ chăm 2023; Khách cũ; Khách Xưởng SX","ma_hang":"CHIKEM21-1","ten_hang":"Chỉ nẹp Kem 21 x 0.8","dvt":"cuộn","sl_ban":1,"don_gia":170000,"doanh_so":170000,"ck":0,"sl_tra":0,"gt_tra":0,"gt_giam":0,"thue":13600,"nv_ban":"Nguyễn Thị Linh Huệ"},
-]
+// 23 cột đúng file "Sổ chi tiết bán hàng file mới.xlsx" (chú ý: cột khác file Check giá gốc-CK!)
+const FIELD_ALIASES: Record<string, string[]> = {
+  ngay_hach_toan: ['ngày hạch toán'],
+  ngay_chung_tu: ['ngày chứng từ', 'ngày c/t'],
+  so_chung_tu: ['số chứng từ', 'số c/t', 'số ct'],
+  ngay_hoa_don: ['ngày hóa đơn'],
+  so_hoa_don: ['số hóa đơn'],
+  dien_giai_chung: ['diễn giải chung'],
+  dien_giai: ['diễn giải'],
+  ma_kh: ['mã khách hàng', 'mã kh'],
+  ten_kh: ['tên khách hàng', 'tên kh'],
+  ma_nhom_kh: ['mã nhóm khách hàng', 'mã nhóm kh'],
+  ten_nhom_kh: ['tên nhóm khách hàng', 'tên nhóm kh'],
+  ma_hang: ['mã hàng'],
+  ten_hang: ['tên hàng'],
+  dvt: ['đvt', 'đơn vị tính'],
+  sl_ban: ['số lượng bán', 'tổng số lượng bán'],
+  don_gia: ['đơn giá'],
+  doanh_so: ['doanh số bán', 'doanh số'],
+  ck: ['chiết khấu'],
+  sl_tra: ['số lượng trả', 'tổng số lượng trả lại'],
+  gt_tra: ['giá trị trả', 'giá trị trả lại'],
+  gt_giam: ['giá trị giảm'],
+  thue: ['thuế'],
+  nv_ban: ['nv bán hàng', 'bán hàng', 'người bán'],
+}
+const NUM_FIELDS = ['sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue']
+const DATE_FIELDS = ['ngay_hach_toan', 'ngay_chung_tu', 'ngay_hoa_don']
 
-// Thêm giá trị check giả lập để cột tính toán hiển thị có ý nghĩa (backend sẽ trả giá trị thật)
-const CK_LABEL = ['MEL', 'OKAL', 'DURABO', 'KEO']
-function buildDemoRows(): any[] {
-  return RAW_ROWS.map((r, i) => {
-    const donGia = Number(r.don_gia) || 0
-    const doanhSo = Number(r.doanh_so) || 0
-    const isSpecial = String(r.ma_hang || '').startsWith('Z') || donGia <= 0
-    let giaGoc: number | null = null
-    if (!isSpecial) {
-      const mod = i % 5
-      giaGoc = mod === 0 ? Math.round(donGia * 1.02) : mod === 1 ? Math.round(donGia * 0.97) : donGia
-    }
-    // Các lớp chiết khấu (giả lập): CK1 ván trơn/chỉ nẹp, CK2 vận chuyển, CK0 Melamine
-    const nhom = CK_LABEL[i % CK_LABEL.length]
-    const ck1 = nhom === 'MEL' ? 0.2 : 0.18
-    const ck2 = nhom === 'KEO' ? 0.02 : 0.03
-    const ck3 = nhom === 'MEL' ? 0.05 : 0
-    const tongPct = ck1 + ck2 + ck3
-    const ckTinh = Math.round(doanhSo * tongPct)
-    const ck = Number(r.ck) || 0
-    const modCk = i % 4
-    const ckTinhFinal = modCk === 2 ? Math.round(ckTinh * 0.9) : ckTinh
-    const dieuKien = nhom === 'MEL' ? 'VN 2 mặt / DW' : nhom === 'OKAL' ? 'Veco 15mm' : nhom === 'DURABO' ? '0.6g KKT' : '21×0.8'
-    return {
-      ...r, id: i + 1,
-      gia_goc: giaGoc,
-      ck1_pct: ck1, ck2_pct: ck2, ck3_pct: ck3, tong_pct: tongPct,
-      ck_tinh: ckTinhFinal,
-      dieu_kien: dieuKien,
-      sua_ghichu: modCk === 2 && ck > 0 ? 'Thêm 1% vận chuyển (đơn tự lấy)' : null,
-      updated_by: modCk === 2 && ck > 0 ? (i % 2 === 0 ? 'Huỳnh Nhật Minh' : 'Nguyễn Thúy An') : null,
-    }
-  })
+function normHeader(v: any): string {
+  return String(v ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
-const demoRows = buildDemoRows()
+function detectCols(headerRow: any[]): Record<string, number> {
+  const headers = Array.from({ length: (headerRow || []).length }, (_, i) => normHeader(headerRow[i]))
+  const map: Record<string, number> = {}
+  for (const db of Object.keys(FIELD_ALIASES)) {
+    for (const alias of FIELD_ALIASES[db]) {
+      const idx = headers.findIndex(h => h === alias || (alias.length > 2 && h.includes(alias)))
+      if (idx >= 0) { map[db] = idx; break }
+    }
+  }
+  return map
+}
+
+function toDateStr(v: any): string {
+  if (typeof v === 'number') {
+    const d = new Date((v - 25569) * 86400 * 1000)
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+  }
+  const s = String(v ?? '').trim()
+  if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(s)) {
+    const [a, b, c] = s.split(/[\/-]/)
+    return `${a.padStart(2, '0')}/${b.padStart(2, '0')}/${c.length === 2 ? '20' + c : c}`
+  }
+  return s
+}
 
 const columns: Column[] = [
   { key: 'ngay_hach_toan', label: 'Ngày hạch toán', width: '110' },
@@ -127,7 +108,7 @@ const columns: Column[] = [
   { key: 'doanh_so', label: 'Doanh số bán', type: 'number', width: '130' },
   { key: 'ck', label: 'Chiết khấu', type: 'number', width: '120' },
 
-  // --- Nhóm check 2: Chiết khấu theo engine — ngay sau cột Chiết khấu ---
+  // --- Nhóm check 2: Chiết khấu theo engine bang-ck-thang — ngay sau cột Chiết khấu ---
   {
     key: 'ck1_pct', label: 'CK1 (ván trơn/chỉ nẹp)', type: 'number', width: '120', computed: true,
     render: (v, row) => {
@@ -177,7 +158,9 @@ const columns: Column[] = [
       return <span style={{ fontWeight: 700, color }}>{dung ? 'Đúng' : 'Sai'}</span>
     },
   },
+  { key: 'nhom_mau', label: 'Nhóm màu', width: '100', computed: true, render: (v) => v ? v : '—' },
   { key: 'dieu_kien', label: 'Điều kiện CK', width: '160', computed: true, render: (v) => v ? v : '—' },
+  { key: 'giai_thich', label: 'Giải thích', width: '220', computed: true, render: (v) => v ? v : '—' },
   {
     key: 'sua_ghichu', label: 'Ghi chú sửa', width: '180', computed: true,
     render: (v) => v ? <span style={{ color: '#b45309' }}>{v}</span> : '—',
@@ -192,16 +175,232 @@ const columns: Column[] = [
 ]
 
 export default function SoDoiChieuPage() {
+  const { user, hasPermission } = useAuth()
+  const canEdit = hasPermission('feature:edit-data')
+  const canImport = hasPermission('feature:import-export') || canEdit
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [gridKey, setGridKey] = useState(0)
+  const [noPrice, setNoPrice] = useState(false)
+  const jsonRef = useRef<HTMLInputElement>(null)
+  const [importingJson, setImportingJson] = useState(false)
+  const [syncLocked, setSyncLocked] = useState(false)
+  const [syncLockBusy, setSyncLockBusy] = useState(false)
+  const [syncingAll, setSyncingAll] = useState(false)
+
+  useEffect(() => {
+    apiGet(`${API_PATH}/sync-lock`).then(r => setSyncLocked(!!r.locked)).catch(() => {})
+  }, [])
+
+  const recompute = async () => {
+    await apiPost(`${API_PATH}/recompute-gia-goc`, {})
+    const tinh = await apiPost(`${API_PATH}/tinh-het`, {})
+    return tinh
+  }
+
+  const handleSyncAll = async () => {
+    if (!confirm('Đồng bộ giá gốc vào giá MISA cho TẤT CẢ sản phẩm trong file (theo đúng mã hàng)? Thao tác này đổi giá MISA toàn bộ.')) return
+    setSyncingAll(true); setError(null); setResult(null)
+    try {
+      const res = await apiPost(`${API_PATH}/dong-bo-tat-ca`, {}, { 'x-user-id': String(user?.id) })
+      if (res.error) throw new Error(res.error)
+      setResult(res.message || 'Đã đồng bộ.')
+      setGridKey(k => k + 1)
+    } catch (e: any) { setError(e.message) }
+    finally { setSyncingAll(false) }
+  }
+
+  const toggleSyncLock = async () => {
+    if (syncLockBusy) return
+    const msg = syncLocked
+      ? 'MỞ đồng bộ giá gốc → giá MISA? Khi import file sẽ tự đổi giá MISA = giá gốc (theo đúng mã hàng, mã xuất hiện lần đầu). Áp dụng cho tất cả user.'
+      : 'KHÓA đồng bộ giá gốc → giá MISA? Khi import file sẽ KHÔNG tự đổi giá MISA. Áp dụng cho tất cả user.'
+    if (!confirm(msg)) return
+    setSyncLockBusy(true)
+    try {
+      const res = await apiPost(`${API_PATH}/sync-lock`, { locked: !syncLocked }, { 'x-user-id': String(user?.id) })
+      if (res.success) setSyncLocked(!!res.locked)
+      else alert(res.error || 'Không cập nhật được')
+    } catch (e: any) { alert(e.message) }
+    finally { setSyncLockBusy(false) }
+  }
+
+  const handleImportJson = async (file: File) => {
+    setImportingJson(true); setError(null); setResult(null)
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      const rows = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.data) ? parsed.data : null)
+      if (!rows || rows.length === 0) throw new Error('File JSON không có dữ liệu')
+      const res = await apiPost(`/import/json${API_PATH}`, { rows })
+      if (res.error) throw new Error(res.error)
+      const tinh = await recompute()
+      setResult(`Nhập JSON: thêm ${res.results?.inserted || 0}, cập nhật ${res.results?.updated || 0}, bỏ qua ${res.results?.skipped || 0}. Đã tính lại CK cho ${tinh?.so_dong || 0} dòng.`)
+      setGridKey(k => k + 1)
+    } catch (e: any) { setError('Lỗi nhập JSON: ' + e.message) }
+    finally { setImportingJson(false); if (jsonRef.current) jsonRef.current.value = '' }
+  }
+
+  const handleImport = async () => {
+    const file = fileRef.current?.files?.[0]
+    if (!file) { setError('Vui lòng chọn file Excel'); return }
+    setImporting(true); setError(null); setResult(null)
+    try {
+      // Parse xlsx ngay trên browser (tránh CPU limit trên Cloudflare Workers)
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(new Uint8Array(buf), { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      if (!ws) throw new Error('Không đọc được sheet trong file')
+      {
+        const ref = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+        let maxCol = ref.e.c, maxRow = ref.e.r
+        for (const key of Object.keys(ws)) {
+          if (key.startsWith('!')) continue
+          const c = XLSX.utils.decode_cell(key)
+          if (c.r > maxRow) maxRow = c.r
+          if (c.c > maxCol) maxCol = c.c
+        }
+        ws['!ref'] = XLSX.utils.encode_range({ s: ref.s, e: { r: maxRow, c: maxCol } })
+      }
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][]
+      if (rows.length < 2) throw new Error('Không đọc được dữ liệu trong file')
+
+      // Tìm dòng header (dòng chứa "mã hàng")
+      let headerIdx = rows.findIndex(r => (r || []).some((c: any) => normHeader(c).includes('mã hàng')))
+      if (headerIdx < 0) throw new Error('Không tìm thấy dòng tiêu đề (thiếu cột "Mã hàng")')
+      const colMap = detectCols(rows[headerIdx])
+      if (colMap.ma_hang === undefined) throw new Error('Thiếu cột "Mã hàng" trong file')
+
+      const dienGiaiIdx = colMap.dien_giai_chung !== undefined ? colMap.dien_giai_chung : colMap.dien_giai
+      const dataRows = rows.slice(headerIdx + 1).filter((r: any[]) => {
+        if (!r || !r.some(c => c !== undefined && c !== null && c !== '')) return false
+        const dg = normHeader(dienGiaiIdx !== undefined ? r[dienGiaiIdx] : '')
+        if (dg.startsWith('số dòng') || dg.startsWith('tổng')) return false
+        return r[colMap.ma_hang] !== undefined && r[colMap.ma_hang] !== null && String(r[colMap.ma_hang]).trim() !== ''
+      })
+
+      const records: any[] = []
+      for (const row of dataRows) {
+        const rec: Record<string, any> = {}
+        for (const db of Object.keys(FIELD_ALIASES)) {
+          const idx = colMap[db]
+          if (idx === undefined) continue
+          const val = row[idx]
+          if (DATE_FIELDS.includes(db)) rec[db] = toDateStr(val)
+          else if (NUM_FIELDS.includes(db)) rec[db] = typeof val === 'number' ? val : (val !== undefined && val !== null && val !== '' ? Number(String(val).replace(/[^\d.-]/g, '')) || 0 : 0)
+          else rec[db] = val !== undefined && val !== null ? String(val).trim() : ''
+        }
+        // File chỉ có 1 cột "Diễn giải" → lấp cả dien_giai_chung + dien_giai
+        if (rec.dien_giai !== undefined && !rec.dien_giai_chung) rec.dien_giai_chung = rec.dien_giai
+        if (!rec.dien_giai && rec.dien_giai_chung) rec.dien_giai = rec.dien_giai_chung
+        if (!rec.ma_hang) continue
+        records.push(rec)
+      }
+      if (records.length === 0) throw new Error('Không có dòng dữ liệu hợp lệ trong file')
+
+      let imported = 0, skipped = 0
+      for (let i = 0; i < records.length; i += CHUNK) {
+        const chunk = records.slice(i, i + CHUNK)
+        const data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+        if (data.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
+        imported += data.imported || 0
+        skipped += data.skipped || 0
+      }
+
+      // Tính lại giá gốc tham chiếu + engine chiết khấu cho toàn bộ dữ liệu
+      const tinh = await recompute()
+
+      setResult(
+        `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Đã tính lại CK cho ${tinh?.so_dong || 0} dòng.`
+      )
+      setGridKey(k => k + 1)
+      if (fileRef.current) fileRef.current.value = ''
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
-    <DataGrid
-      title="Sổ đối chiếu"
-      columns={columns}
-      apiPath={API_PATH}
-      searchable
-      defaultLimit={50}
-      exportName="SoDoiChieu"
-      defaultSort="so_chung_tu"
-      demoRows={demoRows}
-    />
+    <div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', padding: '0 24px', marginBottom: 12 }}>
+        {canImport && (
+          <>
+            <div style={{ fontSize: 13, color: colors.textMuted }}>Import từ file "Sổ chi tiết bán hàng (file mới).xlsx" (dữ liệu tự xóa sau 6h):</div>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ fontSize: 13 }} />
+            <button style={{ ...btn(colors.primary), fontSize: 12, height: 32 }} onClick={handleImport} disabled={importing}>
+              {importing ? 'Đang import...' : 'Import'}
+            </button>
+            <input ref={jsonRef} type="file" accept=".json" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleImportJson(f) }} />
+            <button style={{ ...btn(colors.textSecondary, '#fff'), fontSize: 12, height: 32 }} onClick={() => jsonRef.current?.click()} disabled={importingJson}>
+              {importingJson ? 'Đang nhập...' : 'Nhập JSON'}
+            </button>
+            {result && <span style={{ color: colors.success, fontSize: 13, fontWeight: 500 }}>{result}</span>}
+            {error && <span style={{ color: colors.danger, fontSize: 13 }}>{error}</span>}
+          </>
+        )}
+        <button
+          style={{ ...btn(noPrice ? colors.warning : colors.textMuted, '#fff'), fontSize: 12, height: 32 }}
+          onClick={() => { setNoPrice(v => !v); setGridKey(k => k + 1) }}
+        >{noPrice ? '✓ Đơn giá = 0' : 'Lọc Đơn giá = 0'}</button>
+        {user?.is_admin && (
+          <>
+            <button
+              style={{ ...btn(colors.primary, '#fff'), fontSize: 12, height: 32 }}
+              onClick={handleSyncAll} disabled={syncingAll}
+              title="Đồng bộ giá gốc vào giá MISA theo đúng mã hàng cho TẤT CẢ sản phẩm trong file (chỉ Admin)"
+            >{syncingAll ? 'Đang đồng bộ...' : 'Đồng bộ giá gốc → Giá MISA'}</button>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }} title="Công tắc khóa/bật đồng bộ giá gốc vào giá MISA — áp dụng cho tất cả user (chỉ Admin)">
+              <span style={{ fontSize: 12, fontWeight: 600, color: syncLocked ? colors.danger : colors.textMuted }}>
+                {syncLocked ? '🔒 Khóa ĐB giá gốc → MISA' : 'ĐB giá gốc → MISA'}
+              </span>
+              <button
+                onClick={toggleSyncLock}
+                disabled={syncLockBusy}
+                style={{
+                  width: 44, height: 22, borderRadius: 11, border: 'none', cursor: syncLockBusy ? 'wait' : 'pointer',
+                  background: syncLocked ? colors.danger : '#cbd5e0', position: 'relative', padding: 0, flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 2, width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                  left: syncLocked ? 24 : 2, transition: 'left 150ms', boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                }} />
+              </button>
+            </div>
+          </>
+        )}
+        <span style={{ flex: 1 }} />
+        {canImport && (
+          <button
+            style={{ ...btn(colors.danger, '#fff'), fontSize: 12, height: 32 }}
+            onClick={async () => {
+              if (!confirm('Xóa toàn bộ dữ liệu Sổ đối chiếu?')) return
+              try {
+                const d = await apiDelete(`${API_PATH}/clear`)
+                if (d.success) { setResult(d.message); setGridKey(k => k + 1) }
+                else alert('Lỗi: ' + d.error)
+              } catch (e: any) { alert('Lỗi: ' + e.message) }
+            }}
+          >Xóa hết dữ liệu</button>
+        )}
+      </div>
+      <DataGrid
+        key={gridKey}
+        title="Sổ đối chiếu"
+        columns={columns}
+        apiPath={API_PATH}
+        searchable
+        defaultSort="so_chung_tu"
+        exportable
+        exportName="SoDoiChieu"
+        defaultLimit={100}
+        extraFilters={noPrice ? { don_gia: '__empty' } : undefined}
+        logBang="so_doi_chieu"
+      />
+    </div>
   )
 }

@@ -17,6 +17,7 @@ import importExportRouter from './routes/import-export'
 import soChiTietBanHangRouter from './routes/so-chi-tiet-ban-hang'
 import checkGiaGocCkRouter from './routes/check-gia-goc-ck'
 import checkChietKhauRouter from './routes/check-chiet-khau'
+import soDoiChieuRouter from './routes/so-doi-chieu'
 import donHangExcelRouter from './routes/don-hang-excel'
 import { router as giaVanTronRouter } from './routes/gia-van-tron'
 
@@ -76,6 +77,7 @@ app.route('/api/bang-gia-ma-mau', bangGiaMaMauRouter)
 app.route('/api/so-chi-tiet-ban-hang', soChiTietBanHangRouter)
 app.route('/api/check-gia-goc-ck', checkGiaGocCkRouter)
 app.route('/api/check-chiet-khau', checkChietKhauRouter)
+app.route('/api/so-doi-chieu', soDoiChieuRouter)
 app.route('/api/don-hang-excel', donHangExcelRouter)
 app.route('/api/gia-van-tron', giaVanTronRouter)
 app.route('/api/auth', phanQuyenRouter)

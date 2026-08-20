@@ -180,6 +180,10 @@ const DB_TABLES: TableMeta[] = [
     columns: ['ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'dieu_kien', 'updated_by'],
     allColumns: ['id', 'ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'updated_by', 'created_at', 'updated_at'],
     keyFields: ['id'] },
+  { table: 'so_doi_chieu', label: 'Sổ đối chiếu', group: 'Dữ liệu',
+    columns: ['ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban'],
+    allColumns: ['id', 'ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'updated_by', 'created_at', 'updated_at'],
+    keyFields: ['ngay_hach_toan', 'so_chung_tu', 'ma_hang'] },
   { table: 'don_hang', label: 'Đơn hàng', group: 'Dữ liệu',
     columns: ['nv_sale', 'dh', 'kho', 'ngay', 'tinh_hinh', 'ma_kh', 'khach', 'ma_hang', 'dien_giai', 'sl_dat', 'tien_ck', 'dso', 'ty_le_ck', 'don_gia_ban', 'nhom_gia', 'es', 'hang_khach', 'giay', 'phim', 'mau', 'sl_mat', 'van_tron_chi', 'con_lai', 'gia_dung_kiem_lai', 'cl_sai_tam', 'tong_cl', 'dh_chieu', 'ck_dung', 'pt', 'cl_ck', 'hk', 'n', 'ck_vc', 'khach_text', 'kln', 'cl_ck2', 'gia_dh', 'cl', 'ghi_chu', 'mau_sang_trung_toi', 'vt', 'sai_ma', 'ten_hang', 'dd_chung', 'so_ct', 'dvt', 'sl_tra', 'gt_tra', 'gt_giam'],
     allColumns: ['id', 'nv_sale', 'dh', 'kho', 'ngay', 'tinh_hinh', 'ma_kh', 'khach', 'ma_hang', 'dien_giai', 'sl_dat', 'tien_ck', 'dso', 'ty_le_ck', 'don_gia_ban', 'nhom_gia', 'es', 'hang_khach', 'giay', 'phim', 'mau', 'sl_mat', 'van_tron_chi', 'con_lai', 'gia_dung_kiem_lai', 'cl_sai_tam', 'tong_cl', 'dh_chieu', 'ck_dung', 'pt', 'cl_ck', 'hk', 'n', 'ck_vc', 'khach_text', 'kln', 'cl_ck2', 'gia_dh', 'cl', 'ghi_chu', 'mau_sang_trung_toi', 'vt', 'sai_ma', 'ten_hang', 'dd_chung', 'so_ct', 'dvt', 'sl_tra', 'gt_tra', 'gt_giam', 'sales_id', 'created_at', 'updated_at', 'updated_by'],
@@ -338,6 +342,11 @@ const HEADER_LABELS: Record<string, string> = {
   'CK DS 98 màu': 'ck_ds_98mau_pct', 'CK DS màu khác': 'ck_ds_khac_pct',
   'DS Mel tháng': 'ds_mel_thang', 'DS Mel lũy kế năm': 'ds_mel_luy_ke_nam',
   'CK tháng': 'ck_thang_pct', 'CK năm': 'ck_nam_pct',
+  'Ngày hạch toán': 'ngay_hach_toan', 'Ngày chứng từ': 'ngay_chung_tu',
+  'Số chứng từ': 'so_chung_tu', 'Ngày hóa đơn': 'ngay_hoa_don',
+  'Số hóa đơn': 'so_hoa_don', 'Diễn giải chung': 'dien_giai_chung',
+  'Mã nhóm kh': 'ma_nhom_kh', 'Tên nhóm kh': 'ten_nhom_kh',
+  'ĐVT': 'dvt', 'Đơn vị tính': 'dvt', 'NV bán': 'nv_ban', 'Bán hàng': 'nv_ban',
 }
 
 router.post('/preview', async (c) => {
