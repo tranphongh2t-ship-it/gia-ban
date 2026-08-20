@@ -92,6 +92,7 @@ function solidMix(base: string, over: string | undefined, alpha: number): string
 const STORAGE_COL = (p: string) => `dg_${p.replace(/\//g, '_')}_colw`
 const STORAGE_ROW = (p: string) => `dg_${p.replace(/\//g, '_')}_rowh`
 const STORAGE_PIN = (p: string) => `dg_${p.replace(/\//g, '_')}_pins`
+const STORAGE_HIDDEN = (p: string) => `dg_${p.replace(/\//g, '_')}_hidden`
 
 function buildPageList(current: number, total: number): number[] {
   const pages: number[] = []
@@ -275,7 +276,27 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   const [pinPopup, setPinPopup] = useState(false)
   const pinRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { localStorage.setItem(STORAGE_PIN(apiPath), JSON.stringify(pinCols)) }, [pinCols, apiPath])
+  // Cột ẩn theo user (xem ẩn cột). Ưu tiên data (user) → default (admin/global) → auto.
+  const [hiddenCols, setHiddenCols] = useState<string[]>(() => {
+    try {
+      const arr = JSON.parse(localStorage.getItem(STORAGE_HIDDEN(apiPath)) || 'null')
+      return Array.isArray(arr) ? arr : []
+    } catch { return [] }
+  })
+  const [hidePopup, setHidePopup] = useState(false)
+  const hideRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => { localStorage.setItem(STORAGE_HIDDEN(apiPath), JSON.stringify(hiddenCols)) }, [hiddenCols, apiPath])
+
+  // Đóng popup ẩn cột khi click bên ngoài
+  useEffect(() => {
+    if (!hidePopup) return
+    const onDoc = (e: MouseEvent) => {
+      if (hideRef.current && !hideRef.current.contains(e.target as Node)) setHidePopup(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [hidePopup])
 
   // Đóng popup ghim khi click bên ngoài
   useEffect(() => {
@@ -314,7 +335,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
   useEffect(() => { localStorage.setItem(STORAGE_COL(apiPath), JSON.stringify(colWidths)) }, [colWidths, apiPath])
   useEffect(() => { localStorage.setItem(STORAGE_ROW(apiPath), rowHeight) }, [rowHeight, apiPath])
 
-  // Nạp co dãn cột: default (admin/global) + riêng user từ D1 (nếu đăng nhập)
+  // Nạp co dãn cột + ẩn cột: default (admin/global) + riêng user từ D1 (nếu đăng nhập)
   useEffect(() => {
     if (!userId) return
     let active = true
@@ -324,22 +345,24 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
         if (!active) return
         const merged: Record<string, number> = { ...(res.default || {}), ...(res.data || {}) }
         setColWidths(merged)
+        setHiddenCols(Array.isArray(res.hidden) ? res.hidden : [])
       } catch { /* fallback localStorage */ }
     })()
     return () => { active = false }
   }, [userId, apiPath])
 
-  // Upsert co dãn cột lên D1 (debounce ~800ms)
+  // Upsert co dãn + ẩn cột lên D1 (debounce ~800ms)
   useEffect(() => {
     if (!userId) return
     const timer = setTimeout(() => {
-      const dirty = colWidths
+      const dirty: Record<string, any> = { ...colWidths }
+      if (hiddenCols.length) dirty.__hidden = hiddenCols
       if (JSON.stringify(saveRef.current) === JSON.stringify(dirty)) return
       saveRef.current = dirty
       apiPut(`/user-prefs/cols`, { user_id: userId, page: apiPath, data: dirty }).catch(() => {})
     }, 800)
     return () => clearTimeout(timer)
-  }, [colWidths, userId, apiPath])
+  }, [colWidths, hiddenCols, userId, apiPath])
 
   const isAdmin: boolean = (() => {
     try {
@@ -350,14 +373,24 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
 
   const saveAsDefault = async () => {
     try {
-      await apiPut(`/user-prefs/cols`, { user_id: userId, page: apiPath, data: colWidths, is_default: true })
-      alert('Đã lưu co dãn cột làm mặc định toàn cục.')
+      const data: Record<string, any> = { ...colWidths }
+      if (hiddenCols.length) data.__hidden = hiddenCols
+      await apiPut(`/user-prefs/cols`, { user_id: userId, page: apiPath, data, is_default: true })
+      alert('Đã lưu co dãn + ẩn cột làm mặc định toàn cục.')
     } catch (e: any) { alert(`Lỗi: ${e.message}`) }
   }
 
+  // Lưu chỉ phần ẩn cột làm mặc định toàn cục (admin) — dùng cho nút "Lưu ẩn mặc định".
+  const saveHiddenDefault = async () => {
+    try {
+      const data: Record<string, any> = { ...colWidths }
+      if (hiddenCols.length) data.__hidden = hiddenCols
+      await apiPut(`/user-prefs/cols`, { user_id: userId, page: apiPath, data, is_default: true })
+      alert('Đã lưu cột ẩn làm mặc định toàn cục.')
+    } catch (e: any) { alert(`Lỗi: ${e.message}`) }
+  }
 
-
-  const visibleCols = columns.filter(c => !c.hidden)
+  const visibleCols = columns.filter(c => !c.hidden && !hiddenCols.includes(c.key))
   const perRow = Math.max(1, columnsPerRow || 1)
   const fetchLimit = limit * perRow
   const curRowPad = ROW_PAD[rowHeight] || ROW_PAD.md
@@ -791,6 +824,45 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
                     <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 4px', borderRadius: radius.sm, fontSize: 12, cursor: 'pointer', background: checkedIdx ? colors.primaryLight : 'transparent', color: checkedIdx ? colors.primary : colors.text }}
                       onClick={() => togglePin(c.key)}>
                       <span style={{ width: 14, height: 14, borderRadius: 3, border: `1px solid ${checkedIdx ? colors.primary : colors.border}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: checkedIdx ? colors.primary : 'transparent', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>{checkedIdx ? '✓' : ''}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{c.label}</span>
+                      {c.tint && <span style={{ width: 10, height: 10, borderRadius: '50%', background: tintBg(c.tint, 1), flexShrink: 0 }} />}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          <div style={{ position: 'relative' }} ref={hideRef}>
+            <button style={{
+              padding: '4px 12px', border: `1px solid ${hiddenCols.length ? colors.warning : colors.border}`, borderRadius: radius.sm, cursor: 'pointer', fontSize: 12,
+              fontWeight: hiddenCols.length ? 600 : 400,
+              background: hiddenCols.length ? colors.warningLight : 'transparent', color: hiddenCols.length ? colors.warning : colors.textMuted,
+              transition: 'all 0.12s ease', whiteSpace: 'nowrap',
+            }} onClick={() => setHidePopup(v => !v)} title="Ẩn/hiện các cột không cần thiết">
+              {hiddenCols.length ? `🙈 Ẩn: ${hiddenCols.length} cột` : '🙈 Ẩn cột'}
+            </button>
+            {hidePopup && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 200, minWidth: 240, maxHeight: 320, overflowY: 'auto',
+                background: colors.card, border: `1px solid ${colors.border}`, borderRadius: radius.md, boxShadow: shadow.dropdown, padding: 8,
+              }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center' }}>
+                  <button style={{ ...btn(colors.primary), fontSize: 11, padding: '4px 8px', height: 26 }} onClick={() => setHiddenCols([])}>Hiện tất cả</button>
+                  {isAdmin && (
+                    <button style={{ ...btn(colors.warning), fontSize: 11, padding: '4px 8px', height: 26 }} onClick={saveHiddenDefault} title="Lưu cột ẩn hiện tại làm mặc định toàn cục (mọi người dùng)">
+                      🎯 Lưu ẩn mặc định
+                    </button>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: colors.textMuted, marginBottom: 6 }}>Bỏ tick cột muốn ẩn (chỉ riêng bạn):</div>
+                {columns.filter(c => !c.hidden).map(c => {
+                  const isHidden = hiddenCols.includes(c.key)
+                  return (
+                    <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 4px', borderRadius: radius.sm, fontSize: 12, cursor: 'pointer', background: isHidden ? colors.warningLight : 'transparent', color: isHidden ? colors.warning : colors.text }}
+                      onClick={() => {
+                        setHiddenCols(prev => isHidden ? prev.filter(k => k !== c.key) : [...prev, c.key])
+                      }}>
+                      <span style={{ width: 14, height: 14, borderRadius: 3, border: `1px solid ${isHidden ? colors.warning : colors.border}`, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: isHidden ? colors.warning : 'transparent', flexShrink: 0, color: '#fff', fontSize: 10, fontWeight: 700 }}>{!isHidden ? '✓' : ''}</span>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{c.label}</span>
                       {c.tint && <span style={{ width: 10, height: 10, borderRadius: '50%', background: tintBg(c.tint, 1), flexShrink: 0 }} />}
                     </div>

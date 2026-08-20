@@ -6,32 +6,54 @@ const app = new Hono<Env>()
 
 // GET /api/user-prefs/cols?page=<key>  ->  { data: { colKey: width }, default: { colKey: width } }
 // Trả về: default (admin/global) + data (riêng của user). Frontend ưu tiên data > default > auto.
+// Hỗ trợ ẩn cột: blob.json chứa khóa "__hidden": ["colKey", ...] → tách riêng thành hidden/defaultHidden.
 app.get('/cols', async (c) => {
   try {
     const userId = parseInt(c.req.query('user_id') || '')
     const page = c.req.query('page') || ''
-    if (!page) return c.json({ data: {}, default: {} })
-    const parseWidths = (col_widths: any): Record<string, number> => {
-      if (!col_widths) return {}
-      try { const d = JSON.parse(col_widths); return typeof d === 'object' ? d : {} } catch { return {} }
+    if (!page) return c.json({ data: {}, default: {}, hidden: [], defaultHidden: [] })
+    const parseBlob = (raw: any): Record<string, any> => {
+      if (!raw) return {}
+      try { const d = JSON.parse(raw); return typeof d === 'object' ? d : {} } catch { return {} }
+    }
+    const extract = (blob: Record<string, any>) => {
+      const widths: Record<string, number> = {}
+      let hidden: string[] = []
+      for (const [k, v] of Object.entries(blob)) {
+        if (k === '__hidden') {
+          if (Array.isArray(v)) hidden = v.filter(x => typeof x === 'string')
+        } else if (typeof v === 'number') {
+          widths[k] = v
+        }
+      }
+      return { widths, hidden }
     }
     const dflt = await c.env.DB.prepare(
       'SELECT col_widths FROM user_column_prefs WHERE user_id = 0 AND page_key = ?'
     ).bind(page).first()
-    let data: Record<string, number> = {}
+    const defBlob = parseBlob(dflt ? (dflt as any).col_widths : null)
+    const d = extract(defBlob)
+    let dat: any = {}
     if (userId) {
       const row = await c.env.DB.prepare(
         'SELECT col_widths FROM user_column_prefs WHERE user_id = ? AND page_key = ?'
       ).bind(userId, page).first()
-      data = parseWidths(row ? (row as any).col_widths : null)
+      dat = extract(parseBlob(row ? (row as any).col_widths : null))
     }
-    return c.json({ data, default: parseWidths(dflt ? (dflt as any).col_widths : null) })
+    const effHidden = dat.hidden.length ? dat.hidden : d.hidden
+    return c.json({
+      data: dat.widths,
+      default: d.widths,
+      hidden: effHidden,
+      defaultHidden: d.hidden,
+    })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
 })
 
 // PUT /api/user-prefs/cols  body { user_id, page, data: { colKey: width }, is_default? }
+// data có thể chứa "__hidden": ["colKey", ...] → lưu chung vào blob (ẩn cột).
 // is_default=true → lưu vào user_id=0 (mặc định toàn cục, quản trị viên)
 app.put('/cols', async (c) => {
   try {
