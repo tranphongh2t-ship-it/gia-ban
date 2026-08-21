@@ -209,10 +209,10 @@ export default function Layout() {
     { section: 'Check Giá Gốc', items: [
       { label: 'Check Giá Gốc', path: '/check-gia-goc', perm: 'menu:/check-gia-goc' },
       { label: 'Máy tính giá', path: '/tinh-gia-goc', perm: 'menu:/tinh-gia-goc' },
-      { label: 'Check giá gốc - CK', path: '/audit-gia-ck', perm: 'menu:/audit-gia-ck' },
+      { label: 'Audit Giá Gốc', path: '/audit-gia-ck', perm: 'menu:/audit-gia-ck' },
     ]},
     { section: 'Chiết khấu', items: [
-      { label: 'Check chiết khấu', path: '/check-chiet-khau', perm: 'menu:/check-chiet-khau' },
+      { label: 'Audit Chiết Khấu', path: '/check-chiet-khau', perm: 'menu:/check-chiet-khau' },
       { label: 'Khách hàng theo tháng (minmap)', path: '/bang-khach-thang', perm: 'menu:/bang-khach-thang' },
       { label: 'Tạo tháng & Bảng CK (OP1/OP2)', path: '/quan-ly-thang', perm: 'menu:/quan-ly-thang' },
       { label: 'Nền 5 nhóm khách', path: '/danh-sach-khach-nhom', perm: 'menu:/danh-sach-khach-nhom' },

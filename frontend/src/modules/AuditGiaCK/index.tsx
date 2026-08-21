@@ -329,7 +329,7 @@ export default function AuditGiaCKPage() {
             onClick={async () => {
               const isAdmin = user?.is_admin
               const subj = isAdmin ? 'toàn bộ dữ liệu của mọi người' : 'dữ liệu của bạn'
-              if (!confirm(`Xóa ${subj} khỏi Check giá gốc - CK?`)) return
+              if (!confirm(`Xóa ${subj} khỏi Audit Giá Gốc?`)) return
               try {
                 const d = await apiDelete(`${API_PATH}/clear`)
                 if (d.success) { setResult(d.message); setGridKey(k => k + 1) }
@@ -341,7 +341,7 @@ export default function AuditGiaCKPage() {
       </div>
       <DataGrid
         key={gridKey}
-        title="Check giá gốc - CK"
+        title="Audit Giá Gốc"
         columns={columns}
         apiPath={API_PATH}
         searchable

@@ -366,7 +366,7 @@ export default function CheckChietKhauPage() {
             onClick={async () => {
               const isAdmin = user?.is_admin
               const subj = isAdmin ? 'toàn bộ dữ liệu của mọi người' : 'dữ liệu của bạn'
-              if (!confirm(`Xóa ${subj} khỏi Check chiết khấu?`)) return
+              if (!confirm(`Xóa ${subj} khỏi Audit Chiết Khấu?`)) return
               try {
                 const d = await apiDelete(`${API_PATH}/clear`)
                 if (d.success) { setResult(d.message); setThongKe(null); refresh() }
@@ -378,7 +378,7 @@ export default function CheckChietKhauPage() {
       </div>
       <DataGrid
         key={gridKey}
-        title="Check chiết khấu"
+        title="Audit Chiết Khấu"
         columns={columns}
         apiPath={API_PATH}
         searchable

@@ -38,7 +38,7 @@ function normPct(v: any): number | null {
 }
 
 // Chọn bảng số liệu cho "Tính toán & chốt" của quan-ly-thang:
-// ưu tiên file vừa upload ở Check chiết khấu (check_chiet_khau_test, TTL 6h) nếu có dòng,
+// ưu tiên file vừa upload ở Audit Chiết Khấu (check_chiet_khau_test, TTL 6h) nếu có dòng,
 // otherwise fallback về sổ bán hàng thật (so_chi_tiet_ban_hang).
 async function pickBangSo(db: D1Database): Promise<'check_chiet_khau_test' | 'so_chi_tiet_ban_hang'> {
   const { results } = await db.prepare(
@@ -354,7 +354,7 @@ router.post('/tinh-luy-tien', async (c) => {
 
 // POST /api/chiet-khau/tinh-het — tính & ghi ck_tinh / ck_tinh_pct / ck_tinh_detail cho MỌI dòng
 // (cần để bộ lọc đúng/sai ở /doi-chieu dùng kết quả engine mới nhất, không phải cột cũ)
-// Nếu đang có dữ liệu file Check chiết khấu (check_chiet_khau_test) thì tính trên file đó,
+// Nếu đang có dữ liệu file Audit Chiết Khấu (check_chiet_khau_test) thì tính trên file đó,
 // ngược lại tính trên sổ bán hàng thật.
 router.post('/tinh-het', async (c) => {
   try {
@@ -898,7 +898,7 @@ function traL3(ctx: Lop2Ctx | undefined, vung: string, hang: string, maKh: strin
 
 // ============ TỔNG HỢP DOANH SỐ THEO THÁNG (Lớp 4 + 5) ============
 // POST /api/chiet-khau/chot-thang — tính monthly_summary cho 1 tháng
-// Nếu có dữ liệu file Check chiết khấu (check_chiet_khau_test) thì chốt theo file đó,
+// Nếu có dữ liệu file Audit Chiết Khấu (check_chiet_khau_test) thì chốt theo file đó,
 // ngược lại chốt theo sổ bán hàng thật.
 router.post('/chot-thang', async (c) => {
   try {
@@ -1629,7 +1629,7 @@ router.get('/quan-ly-thang/khach-thang', async (c) => {
       for (const [maKh, arr] of ovMap) {
         if (arr.some(r => String(r.thang || '') === thang)) gdSet.add(maKh)
       }
-      // Gộp cả khách có giao dịch trong file Check chiết khấu vừa upload (bảng test, TTL 6h)
+      // Gộp cả khách có giao dịch trong file Audit Chiết Khấu vừa upload (bảng test, TTL 6h)
       const { results: gdTest } = await db.prepare(
         `SELECT DISTINCT ma_kh FROM check_chiet_khau_test
          WHERE substr(ngay,7,4) || '-' || substr(ngay,4,2) = ?

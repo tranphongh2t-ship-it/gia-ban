@@ -9,7 +9,7 @@ import { formatNum } from '../../lib/format'
 const CHUNK = 1500
 const API_PATH = '/so-doi-chieu'
 
-// 23 cột đúng file "Sổ chi tiết bán hàng file mới.xlsx" (chú ý: cột khác file Check giá gốc-CK!)
+// 23 cột đúng file "Sổ chi tiết bán hàng file mới.xlsx" (chú ý: cột khác file Audit Giá Gốc!)
 const FIELD_ALIASES: Record<string, string[]> = {
   ngay_hach_toan: ['ngày hạch toán'],
   ngay_chung_tu: ['ngày chứng từ', 'ngày c/t'],

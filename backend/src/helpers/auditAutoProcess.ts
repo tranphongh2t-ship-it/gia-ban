@@ -2,7 +2,7 @@ import type { D1Database } from '@cloudflare/workers-types'
 import { currentThang, syncMisaToBangsBulk } from './giaGocSync'
 
 // ============================================================
-// Luồng "Phân tích & Tự xử lý file audit" (Check giá gốc - CK)
+// Luồng "Phân tích & Tự xử lý file audit" (Audit Giá Gốc)
 // Sau khi import, với từng mã hàng trong file:
 //   A. THIẾU MÃ HÀNG      → tự động thêm mã mới vào ma_misa + bảng giá gốc theo đúng nhóm
 //   B. GIÁ MISA KHÁC AUDIT→ đổi giá MISA theo giá audit:
