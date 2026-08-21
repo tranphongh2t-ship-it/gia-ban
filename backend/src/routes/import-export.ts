@@ -15,6 +15,7 @@ interface TableMeta {
   exportQuery?: string
   exportColumns?: string[]
   exportAllColumns?: string[]
+  exportLabels?: Record<string, string>
 }
 
 const DB_TABLES: TableMeta[] = [
@@ -176,6 +177,13 @@ const DB_TABLES: TableMeta[] = [
         (COALESCE(t.gia_goc_ngay, m.gia_goc, 0) - t.don_gia) AS chech_lech
       FROM check_gia_goc_ck t
       LEFT JOIN ma_misa m ON m.ma_sp = t.ma_hang`,
+    exportLabels: {
+      ngay: 'Ngày', so_ct: 'Số CT', dien_giai: 'Diễn giải', ma_kh: 'Mã KH', ten_kh: 'Khách hàng',
+      ma_hang: 'Mã hàng', ten_hang: 'Tên hàng', sl_ban: 'SL bán', gia_goc: 'Giá gốc (MISA)',
+      gia_goc_ngay: 'Giá gốc ngày', gia_misa: 'Giá MISA', don_gia: 'Đơn giá',
+      chech_lech: 'Chênh lệch', doanh_so: 'Doanh số', ck: 'CK', sl_tra: 'SL trả',
+      gt_tra: 'GT trả', gt_giam: 'GT giảm', thue: 'Thuế', id: 'ID', created_at: 'Ngày tạo', owner_user_id: 'Chủ file',
+    },
     keyFields: ['id'] },
   { table: 'check_chiet_khau_test', label: 'Check chiết khấu', group: 'Dữ liệu',
     columns: ['ngay', 'so_ct', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_hang', 'ten_hang', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'dieu_kien', 'updated_by'],
@@ -186,6 +194,18 @@ const DB_TABLES: TableMeta[] = [
         (CASE WHEN t.doanh_so > 0 THEN (t.ck / t.doanh_so * 100) ELSE NULL END) AS ck_pct_thuc_te,
         (CASE WHEN ABS(t.ck - COALESCE(t.sua_ck_tinh, t.ck_tinh)) <= 1 THEN 'dung' ELSE 'sai' END) AS sai_so
       FROM check_chiet_khau_test t`,
+    exportLabels: {
+      ngay: 'Ngày', so_ct: 'Số CT', dien_giai: 'Diễn giải', ma_kh: 'Mã KH', ten_kh: 'Khách hàng',
+      ma_hang: 'Mã hàng', ten_hang: 'Tên hàng', sl_ban: 'SL bán', don_gia: 'Đơn giá',
+      doanh_so: 'Doanh số', ck: 'CK thực tế', sl_tra: 'SL trả', gt_tra: 'GT trả',
+      gt_giam: 'GT giảm', thue: 'Thuế', ck_pct_thuc_te: 'CK % (gốc)',
+      ck1_pct: 'CK1 (ván trơn/chỉ nẹp)', ck2_pct: 'CK2 (vận chuyển)', ck3_pct: 'CK3 (Melamine)',
+      tong_pct: 'Tổng % (engine)', ck_tinh: 'CK tính (engine)', sai_so: 'Đúng/Sai',
+      nhom_mau: 'Nhóm màu', dieu_kien: 'Điều kiện CK', giai_thich: 'Giải thích',
+      sua_ck1_pct: 'Sửa CK1', sua_ck2_pct: 'Sửa CK2', sua_ck3_pct: 'Sửa CK3',
+      sua_tong_pct: 'Sửa Tổng %', sua_ck_tinh: 'Sửa CK tính', sua_ghichu: 'Ghi chú sửa',
+      updated_by: 'Người sửa', id: 'ID', created_at: 'Ngày tạo', updated_at: 'Cập nhật', owner_user_id: 'Chủ file',
+    },
     keyFields: ['id'] },
   { table: 'so_doi_chieu', label: 'Sổ đối chiếu', group: 'Dữ liệu',
     columns: ['ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban'],
@@ -203,6 +223,22 @@ const DB_TABLES: TableMeta[] = [
       FROM so_doi_chieu t
       LEFT JOIN ma_misa m ON m.ma_sp = t.ma_hang
       LEFT JOIN gia_goc_by_ma g ON g.ma_sp = t.ma_hang`,
+    exportLabels: {
+      ngay_hach_toan: 'Ngày hạch toán', ngay_chung_tu: 'Ngày chứng từ', so_chung_tu: 'Số chứng từ',
+      ngay_hoa_don: 'Ngày hóa đơn', so_hoa_don: 'Số hóa đơn', dien_giai_chung: 'Diễn giải chung',
+      dien_giai: 'Diễn giải', ma_kh: 'Mã KH', ten_kh: 'Tên khách hàng', ma_nhom_kh: 'Mã nhóm KH',
+      ten_nhom_kh: 'Tên nhóm KH', ma_hang: 'Mã hàng', ten_hang: 'Tên hàng', dvt: 'ĐVT',
+      sl_ban: 'Tổng SL bán', don_gia: 'Đơn giá', doanh_so: 'Doanh số bán', ck: 'Chiết khấu',
+      sl_tra: 'Tổng SL trả lại', gt_tra: 'Giá trị trả lại', gt_giam: 'Giá trị giảm giá',
+      thue: 'Thuế GTGT', nv_ban: 'NV bán hàng', gia_goc: 'Giá gốc (MISA)', chech_lech: 'Chênh lệch',
+      ck_pct_thuc_te: 'CK % (gốc)', ck1_pct: 'CK1 (ván trơn/chỉ nẹp)', ck2_pct: 'CK2 (vận chuyển)',
+      ck3_pct: 'CK3 (Melamine)', tong_pct: 'Tổng % (engine)', ck_tinh: 'CK tính (engine)',
+      ck_kq: 'Đúng/Sai', nhom_mau: 'Nhóm màu', dieu_kien: 'Điều kiện CK', giai_thich: 'Giải thích',
+      sua_ck1_pct: 'Sửa CK1', sua_ck2_pct: 'Sửa CK2', sua_ck3_pct: 'Sửa CK3',
+      sua_tong_pct: 'Sửa Tổng %', sua_ck_tinh: 'Sửa CK tính', sua_ghichu: 'Ghi chú sửa',
+      updated_by: 'Người sửa', thue_pct: '% thuế', thue_dung: 'Thuế Sai/Đúng',
+      id: 'ID', created_at: 'Ngày tạo', updated_at: 'Cập nhật', owner_user_id: 'Chủ file',
+    },
     keyFields: ['ngay_hach_toan', 'so_chung_tu', 'ma_hang'] },
   { table: 'don_hang', label: 'Đơn hàng', group: 'Dữ liệu',
     columns: ['nv_sale', 'dh', 'kho', 'ngay', 'tinh_hinh', 'ma_kh', 'khach', 'ma_hang', 'dien_giai', 'sl_dat', 'tien_ck', 'dso', 'ty_le_ck', 'don_gia_ban', 'nhom_gia', 'es', 'hang_khach', 'giay', 'phim', 'mau', 'sl_mat', 'van_tron_chi', 'con_lai', 'gia_dung_kiem_lai', 'cl_sai_tam', 'tong_cl', 'dh_chieu', 'ck_dung', 'pt', 'cl_ck', 'hk', 'n', 'ck_vc', 'khach_text', 'kln', 'cl_ck2', 'gia_dh', 'cl', 'ghi_chu', 'mau_sang_trung_toi', 'vt', 'sai_ma', 'ten_hang', 'dd_chung', 'so_ct', 'dvt', 'sl_tra', 'gt_tra', 'gt_giam'],
@@ -696,6 +732,16 @@ router.get('/excel/:table', async (c) => {
 
     const wb = XLSX.utils.book_new()
     const ws = XLSX.utils.json_to_sheet(rows as Record<string, any>[])
+    // Replace DB column names with Vietnamese labels in header row
+    if (meta.exportLabels) {
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const cell = ws[XLSX.utils.encode_cell({ r: range.s.r, c })]
+        if (cell && cell.v && meta.exportLabels[cell.v]) {
+          cell.v = meta.exportLabels[cell.v]
+        }
+      }
+    }
     XLSX.utils.book_append_sheet(wb, ws, meta.label)
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
 
