@@ -1,6 +1,6 @@
 {
   "name": "gia-ban-frontend",
-  "version": "0.2.12",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "main": "dist-electron/main.js",
@@ -14,6 +14,7 @@
     "release": "node ../scripts/release.mjs"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^7.18.1",

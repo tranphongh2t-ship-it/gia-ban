@@ -6,7 +6,7 @@ import { useAuth } from '../../lib/auth'
 import { colors, btn } from '../../theme'
 import { formatNum } from '../../lib/format'
 
-const CHUNK = 1500
+const CHUNK = 300
 const API_PATH = '/so-doi-chieu'
 
 // 23 cột đúng file "Sổ chi tiết bán hàng file mới.xlsx" (chú ý: cột khác file Audit Giá Gốc!)
@@ -174,6 +174,7 @@ const columns: Column[] = [
     key: 'sua_ghichu', label: 'Ghi chú sửa', width: '180', computed: true,
     render: (v) => v ? <span style={{ color: '#b45309' }}>{v}</span> : '—',
   },
+  { key: 'ghi_chu', label: 'Ghi chú', type: 'text', width: '180' },
   { key: 'updated_by', label: 'Người sửa', type: 'text', width: '150' },
 
   { key: 'sl_tra', label: 'Tổng SL trả lại', type: 'number', width: '110' },

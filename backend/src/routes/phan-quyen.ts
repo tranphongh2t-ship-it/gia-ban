@@ -345,4 +345,51 @@ router.delete('/xoa-tat-ca', async (c) => {
   return c.json({ success: true })
 })
 
+// PUT /api/auth/profile — user tự sửa tên, email
+router.put('/profile', async (c) => {
+  const { DB } = c.env
+  const userId = c.req.header('x-user-id')
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const user = await DB.prepare(`SELECT id, ten FROM nhan_vien WHERE id = ?`).bind(userId).first() as any
+  if (!user) return c.json({ error: 'User not found' }, 404)
+
+  const { ten, email } = await c.req.json()
+  const updates: string[] = []
+  const vals: any[] = []
+
+  if (ten && ten !== user.ten) {
+    const exists = await DB.prepare(`SELECT id FROM nhan_vien WHERE ten = ? AND id != ?`).bind(ten, userId).first()
+    if (exists) return c.json({ error: `Tên "${ten}" đã tồn tại` }, 409)
+    updates.push('ten = ?'); vals.push(ten)
+  }
+  if (email !== undefined) { updates.push('email = ?'); vals.push(email) }
+  if (updates.length === 0) return c.json({ error: 'Không có thay đổi' }, 400)
+
+  vals.push(userId)
+  await DB.prepare(`UPDATE nhan_vien SET ${updates.join(', ')} WHERE id = ?`).bind(...vals).run()
+  return c.json({ success: true })
+})
+
+// POST /api/auth/change-password — user tự đổi mật khẩu
+router.post('/change-password', async (c) => {
+  const { DB } = c.env
+  const userId = c.req.header('x-user-id')
+  if (!userId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const user = await DB.prepare(`SELECT id, mat_khau FROM nhan_vien WHERE id = ?`).bind(userId).first() as any
+  if (!user) return c.json({ error: 'User not found' }, 404)
+
+  const { current_password, new_password } = await c.req.json()
+  if (!current_password || !new_password) return c.json({ error: 'Thiếu mật khẩu hiện tại hoặc mới' }, 400)
+  if (new_password.length < 4) return c.json({ error: 'Mật khẩu mới phải >= 4 ký tự' }, 400)
+
+  const hash = await hashPass(current_password)
+  if (user.mat_khau !== hash) return c.json({ error: 'Sai mật khẩu hiện tại' }, 401)
+
+  const newHash = await hashPass(new_password)
+  await DB.prepare(`UPDATE nhan_vien SET mat_khau = ? WHERE id = ?`).bind(newHash, userId).run()
+  return c.json({ success: true })
+})
+
 export default router

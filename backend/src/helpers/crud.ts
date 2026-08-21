@@ -251,6 +251,13 @@ export function crudRoutes(opts: CrudOptions) {
       const body = await c.req.json()
       const keys = Object.keys(body)
       if (keys.length === 0) return c.json({ error: 'No fields to update' }, 400)
+
+      // Auto-set updated_by from auth header (không trust frontend)
+      if (opts.ownerField && !body.updated_by) {
+        const me = await reqUser(c.env.DB, c)
+        if (me?.ten) body.updated_by = me.ten
+      }
+
       const values = Object.values(body)
 
       const ph = opts.priceHistory
@@ -330,6 +337,13 @@ export function crudRoutes(opts: CrudOptions) {
       const body = await c.req.json()
       const keys = Object.keys(body)
       if (keys.length === 0) return c.json({ error: 'Empty body' }, 400)
+
+      // Auto-set updated_by from auth header (không trust frontend)
+      if (opts.ownerField && !body.updated_by) {
+        const me = await reqUser(c.env.DB, c)
+        if (me?.ten) body.updated_by = me.ten
+      }
+
       const values = Object.values(body)
       const setClause = keys.map(k => `${k} = ?`).join(', ')
       const result = await c.env.DB.prepare(`UPDATE ${table} SET ${setClause} WHERE ${idField} = ?`).bind(...values, id).run()

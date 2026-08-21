@@ -208,10 +208,10 @@ const DB_TABLES: TableMeta[] = [
     },
     keyFields: ['id'] },
   { table: 'so_doi_chieu', label: 'Sổ đối chiếu', group: 'Dữ liệu',
-    columns: ['ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban'],
-    allColumns: ['id', 'ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'updated_by', 'created_at', 'updated_at', 'owner_user_id'],
-    exportColumns: ['ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'chech_lech', 'ck_pct_thuc_te', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'ck_kq', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'updated_by', 'thue_pct', 'thue_dung', 'id', 'created_at', 'updated_at', 'owner_user_id'],
-    exportAllColumns: ['id', 'ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'chech_lech', 'ck_pct_thuc_te', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'ck_kq', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'updated_by', 'thue_pct', 'thue_dung', 'created_at', 'updated_at', 'owner_user_id'],
+    columns: ['ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'ghi_chu'],
+    allColumns: ['id', 'ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'ghi_chu', 'updated_by', 'created_at', 'updated_at', 'owner_user_id'],
+    exportColumns: ['ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'chech_lech', 'ck_pct_thuc_te', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'ck_kq', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'ghi_chu', 'updated_by', 'thue_pct', 'thue_dung', 'id', 'created_at', 'updated_at', 'owner_user_id'],
+    exportAllColumns: ['id', 'ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'chech_lech', 'ck_pct_thuc_te', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'ck_kq', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'ghi_chu', 'updated_by', 'thue_pct', 'thue_dung', 'created_at', 'updated_at', 'owner_user_id'],
     exportQuery: `SELECT t.*,
         m.gia_goc AS gia_goc,
         (CASE WHEN t.don_gia > 0 AND t.ma_hang NOT LIKE 'Z%' THEN (m.gia_goc - t.don_gia) ELSE NULL END) AS chech_lech,
@@ -236,7 +236,7 @@ const DB_TABLES: TableMeta[] = [
       ck_kq: 'Đúng/Sai', nhom_mau: 'Nhóm màu', dieu_kien: 'Điều kiện CK', giai_thich: 'Giải thích',
       sua_ck1_pct: 'Sửa CK1', sua_ck2_pct: 'Sửa CK2', sua_ck3_pct: 'Sửa CK3',
       sua_tong_pct: 'Sửa Tổng %', sua_ck_tinh: 'Sửa CK tính', sua_ghichu: 'Ghi chú sửa',
-      updated_by: 'Người sửa', thue_pct: '% thuế', thue_dung: 'Thuế Sai/Đúng',
+      ghi_chu: 'Ghi chú', updated_by: 'Người sửa', thue_pct: '% thuế', thue_dung: 'Thuế Sai/Đúng',
       id: 'ID', created_at: 'Ngày tạo', updated_at: 'Cập nhật', owner_user_id: 'Chủ file',
     },
     keyFields: ['ngay_hach_toan', 'so_chung_tu', 'ma_hang'] },
@@ -586,9 +586,13 @@ router.post('/confirm', async (c) => {
       if (row.status === 'new') {
         const cols = meta.columns.filter(c => row.data[c] !== null && row.data[c] !== undefined && row.data[c] !== '')
         if (cols.length === 0) { skipped++; continue }
-        const vals = cols.map(c => row.data[c])
+        const db = c.env.DB
+        const isOwnedTable = OWNED_TABLES.has(meta.table)
+        const ownerId = isOwnedTable ? (Number(c.req.header('x-user-id')) || null) : null
+        const insertCols = isOwnedTable && ownerId != null ? [...cols, 'owner_user_id'] : cols
+        const vals = isOwnedTable && ownerId != null ? [...cols.map(c => row.data[c]), ownerId] : cols.map(c => row.data[c])
         await db.prepare(
-          `INSERT OR IGNORE INTO ${meta.table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`
+          `INSERT OR IGNORE INTO ${meta.table} (${insertCols.join(', ')}) VALUES (${insertCols.map(() => '?').join(', ')})`
         ).bind(...vals).run()
         inserted++
         auditEntries.push({

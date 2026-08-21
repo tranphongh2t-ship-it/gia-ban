@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { colors } from '../theme'
 import { useAuth } from '../lib/auth'
 import LoginOverlay from './LoginOverlay'
@@ -176,6 +176,7 @@ const subLabel: React.CSSProperties = {
 export default function Layout() {
   const { user, loading, hasPermission, logout } = useAuth()
   const loc = useLocation()
+  const nav = useNavigate()
 
   const [collapsed, setCollapsed] = useState(false)
   useEffect(() => {
@@ -412,11 +413,19 @@ export default function Layout() {
           })}
         </div>
         <div style={{ ...footerStyle, alignItems: collapsed ? 'center' : 'stretch' }}>
-          <div style={{ ...userBadge, justifyContent: collapsed ? 'center' : 'flex-start' }} onClick={logout} title="Click để đăng xuất">
+          <div style={{ ...userBadge, justifyContent: collapsed ? 'center' : 'flex-start' }} onClick={() => nav('/profile')} title="Quản lý tài khoản">
             <span style={userAvatar}>{(user.ten || '?').slice(0, 1).toUpperCase()}</span>
             {!collapsed && (
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user.ten} {user.is_admin ? <span style={{ color: colors.primary, fontWeight: 600 }}>· Admin</span> : ''}
+              </span>
+            )}
+            {!collapsed && (
+              <span onClick={e => { e.stopPropagation(); logout() }} title="Đăng xuất"
+                style={{ cursor: 'pointer', fontSize: 16, color: '#999', padding: '2px 4px', borderRadius: 4 }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#dc2626')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#999')}>
+                ⏻
               </span>
             )}
           </div>

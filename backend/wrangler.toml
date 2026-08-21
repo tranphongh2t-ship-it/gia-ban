@@ -6,9 +6,9 @@ compatibility_date = "2026-07-01"
 # Khi có bản mới: nâng APP_VERSION, đổi APP_INSTALLER_URL thành link download setup mới,
 # rồi `wrangler deploy`. 30 máy sẽ tự bật POPUP cập nhật.
 [vars]
-APP_VERSION = "0.2.12"
-APP_INSTALLER_URL = "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/latest/download/THANH.THUY.PRICE.Setup.0.2.12.exe"
-APP_UPDATE_NOTES = "Bổ sung tính ngăn Ghim Cột, Lọc Cột cho dễ nhìn dữ liệu, Export đầy đủ dữ liệu"
+APP_VERSION = "0.3.0"
+APP_INSTALLER_URL = "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/latest/download/THANH.THUY.PRICE_0.3.0_x64-setup.exe"
+APP_UPDATE_NOTES = "Đổi Electron sang Tauri từ 150MB xuống còn 14MB. Thêm trang Profile, sửa lỗi Import dữ liệu."
 
 [[d1_databases]]
 binding = "DB"

@@ -47,12 +47,14 @@ import TinhGiaOneLaminatePage from './modules/TinhGiaOneLaminate'
 import TinhGiaMirrorPage from './modules/TinhGiaMirror'
 import GiaGocTongHopPage from './modules/GiaGocTongHop'
 import KiemTraBangTinhGiaPage from './modules/KiemTraBangTinhGia'
+import Profile from './modules/Profile'
 import { AuthProvider } from './lib/auth'
 import { LockProvider } from './lib/lock'
 import UpdatePrompt from './components/UpdatePrompt'
 
 const isElectron = navigator.userAgent.includes('Electron')
-const Router = isElectron ? HashRouter : BrowserRouter
+const isTauri = !!(window as any).__TAURI_INTERNALS__
+const Router = (isElectron || isTauri) ? HashRouter : BrowserRouter
 
 function App() {
   return (
@@ -121,6 +123,7 @@ function App() {
               <Route path="/tinh-gia-one-laminate" element={<TinhGiaOneLaminatePage />} />
               <Route path="/tinh-gia-mirror" element={<TinhGiaMirrorPage />} />
               <Route path="/gia-goc-tong-hop" element={<GiaGocTongHopPage />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/kiem-tra-bang-tinh-gia" element={<KiemTraBangTinhGiaPage />} />
             </Route>
           </Routes>

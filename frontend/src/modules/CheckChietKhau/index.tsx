@@ -7,7 +7,7 @@ import { useAuth } from '../../lib/auth'
 import { colors, btn, select } from '../../theme'
 import { formatNum } from '../../lib/format'
 
-const CHUNK = 1500
+const CHUNK = 300
 const API_PATH = '/check-chiet-khau'
 // Detect cột theo tên header (dấu tiếng Việt ở file có thể khác nhau, chỉ match keyword)
 const FIELD_ALIASES: Record<string, string[]> = {

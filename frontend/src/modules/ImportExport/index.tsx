@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { apiGet, apiPost } from '../../lib/api'
+import { apiGet, apiPost, API_BASE, authHeaders, isTauriApp, tauriSaveFile } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { colors, shadow, radius, btn, input, select, pageContainer, pageTitle, pageSubtitle, section, sectionTitle, spinner, badge } from '../../theme'
 
@@ -72,7 +72,7 @@ export default function ImportExportPage() {
       const form = new FormData()
       form.append('file', file)
       form.append('table', importTable)
-      const res = await fetch('/api/import/preview', { method: 'POST', body: form })
+      const res = await fetch(`${API_BASE}/import/preview`, { method: 'POST', body: form, headers: authHeaders() })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Preview failed') }
       setPreview(await res.json())
     } catch (e: any) { setImportError(e.message) }
@@ -95,13 +95,18 @@ export default function ImportExportPage() {
 
   const downloadTemplate = async () => {
     try {
-      const res = await fetch(`/api/export/template/${importTable}`)
+      const res = await fetch(`${API_BASE}/export/template/${importTable}`, { headers: authHeaders() })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Download failed') }
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a'); a.href = url
-      a.download = `mau_import_${importTable}.xlsx`
-      a.click(); URL.revokeObjectURL(url)
+      if (isTauriApp()) {
+        const buf = await blob.arrayBuffer()
+        await tauriSaveFile(`mau_import_${importTable}.xlsx`, new Uint8Array(buf))
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a'); a.href = url
+        a.download = `mau_import_${importTable}.xlsx`
+        a.click(); URL.revokeObjectURL(url)
+      }
     } catch (e: any) { setImportError(e.message) }
   }
 
@@ -140,14 +145,19 @@ export default function ImportExportPage() {
       const params = new URLSearchParams()
       if (!selectAll) params.set('columns', selectedCols.join(','))
       const qs = params.toString()
-      const res = await fetch(`/api/export/${format}/${exportTableKey}${qs ? '?' + qs : ''}`)
+      const res = await fetch(`${API_BASE}/export/${format}/${exportTableKey}${qs ? '?' + qs : ''}`, { headers: authHeaders() })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${exportTable.label}_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'json'}`
-      a.click(); URL.revokeObjectURL(url)
+      if (isTauriApp()) {
+        const buf = await blob.arrayBuffer()
+        await tauriSaveFile(`${exportTable.label}_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'json'}`, new Uint8Array(buf))
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${exportTable.label}_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'json'}`
+        a.click(); URL.revokeObjectURL(url)
+      }
     } catch (e: any) { setExportError(e.message) }
     finally { setExportLoading(false) }
   }

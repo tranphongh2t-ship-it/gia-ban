@@ -218,15 +218,10 @@ async function upsertRecords(db: D1Database, records: any[], ownerId?: number | 
     `SELECT id, owner_user_id, ngay, so_ct, ma_hang FROM ${TABLE} WHERE ma_hang != ''`
   ).all()
   const ownMap = new Map<string, any>()
-  const foreignKeys = new Set<string>()
   for (const r of allExisting.results as any[]) {
-    const own = isOwned && Number(r.owner_user_id) === Number(ownerId)
+    const own = isOwned ? Number(r.owner_user_id) === Number(ownerId) : true
     const key = `${r.ngay}|${r.so_ct}|${r.ma_hang}`
-    if (own) {
-      ownMap.set(key, r)
-    } else {
-      foreignKeys.add(key)
-    }
+    if (own) ownMap.set(key, r)
   }
 
   const colNames = COL_MAP.map(m => m.db).join(', ')
@@ -257,7 +252,6 @@ async function upsertRecords(db: D1Database, records: any[], ownerId?: number | 
     if (!norm.ma_hang) { skipped++; continue }
 
     const key = `${norm.ngay}|${norm.so_ct}|${norm.ma_hang}`
-    if (foreignKeys.has(key)) { skipped++; continue }
 
     const existing = ownMap.get(key)
     if (existing) {

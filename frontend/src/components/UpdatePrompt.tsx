@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Modal from './Modal'
 import { colors, btn, radius, shadow } from '../theme'
+import { isTauriApp } from '../lib/api'
 
 interface UpdateInfo {
   version: string
@@ -45,6 +46,8 @@ const fill = (percent: number): React.CSSProperties => ({
   transition: 'width 150ms',
 })
 
+const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI?.isElectron
+
 export default function UpdatePrompt() {
   const [info, setInfo] = useState<UpdateInfo | null>(null)
   const [checkDone, setCheckDone] = useState(false)
@@ -52,8 +55,7 @@ export default function UpdatePrompt() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const api = (window as any).electronAPI
-    if (!api?.isElectron) return
+    if (!isElectron && !isTauriApp()) return
 
     let cancelled = false
 
@@ -64,6 +66,42 @@ export default function UpdatePrompt() {
       }
     }
 
+    if (isTauriApp()) {
+      import('@tauri-apps/api/core').then(({ invoke }) => {
+        import('@tauri-apps/api/event').then(({ listen }) => {
+          const unlistenUpdate = listen('app:update-available', (event: any) => {
+            if (!cancelled) {
+              setInfo(event.payload)
+              setCheckDone(true)
+            }
+          })
+
+          const unlistenProgress = listen('app:update-progress', (event: any) => {
+            if (!cancelled) {
+              setProgress(event.payload)
+              if (event.payload.state === 'done') {
+                setInfo(null)
+              }
+            }
+          })
+
+          invoke('check_update')
+            .then((res: any) => { if (!cancelled && res) apply(res) })
+            .catch(() => {})
+
+          return () => {
+            cancelled = true
+            unlistenUpdate.then((fn: () => void) => fn())
+            unlistenProgress.then((fn: () => void) => fn())
+          }
+        })
+      })
+
+      return () => { cancelled = true }
+    }
+
+    // Electron mode
+    const api = (window as any).electronAPI
     const off = api.onUpdateAvailable?.(apply) as (() => void) | undefined
     const offProgress = api.onUpdateProgress?.((p: { state: string; percent: number }) => {
       if (!cancelled) {
@@ -88,14 +126,38 @@ export default function UpdatePrompt() {
   const busy = progress !== null && (progress.state === 'downloading' || progress.state === 'installing')
   const visible = (info !== null) || busy
 
+  const handleSkip = async () => {
+    if (isTauriApp()) {
+      const { invoke } = await import('@tauri-apps/api/core')
+      invoke('skip_update').catch(() => {})
+    } else {
+      (window as any).electronAPI?.skipUpdate?.()
+    }
+    setInfo(null)
+  }
+
+  const handleInstall = async () => {
+    setError(null)
+    if (isTauriApp()) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core')
+        await invoke('install_update', { url: info?.url })
+      } catch (e: any) {
+        setError(e?.toString?.() || 'Lỗi cập nhật')
+      }
+    } else {
+      const res = await (window as any).electronAPI?.installUpdate?.()
+      if (res && !res.ok && res.error) setError(res.error)
+    }
+  }
+
   return (
     <Modal
       open={visible}
       title={busy ? 'Đang cập nhật phần mềm' : 'Có bản cập nhật phần mềm'}
       onClose={() => {
         if (busy) return
-        ;(window as any).electronAPI?.skipUpdate?.()
-        setInfo(null)
+        handleSkip()
       }}
     >
       {busy ? (
@@ -130,20 +192,13 @@ export default function UpdatePrompt() {
             <div style={actions}>
               <button
                 style={{ ...btn(colors.surfaceSecondary, colors.textSecondary, 'md'), border: `1px solid ${colors.border}` }}
-                onClick={() => {
-                  ;(window as any).electronAPI?.skipUpdate?.()
-                  setInfo(null)
-                }}
+                onClick={handleSkip}
               >
                 Bỏ qua
               </button>
               <button
                 style={{ ...btn(colors.info, '#fff', 'md'), boxShadow: shadow.cardHover }}
-                onClick={async () => {
-                  setError(null)
-                  const res = await (window as any).electronAPI?.installUpdate?.()
-                  if (res && !res.ok && res.error) setError(res.error)
-                }}
+                onClick={handleInstall}
               >
                 Cập nhật ngay
               </button>

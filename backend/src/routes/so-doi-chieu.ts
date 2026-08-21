@@ -237,6 +237,7 @@ const FIELD_ALIASES: Record<string, string[]> = {
   gt_giam: ['giá trị giảm'],
   thue: ['thuế'],
   nv_ban: ['nv bán hàng', 'bán hàng', 'người bán'],
+  ghi_chu: ['ghi chú'],
 }
 function normH(v: any): string {
   return String(v ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -304,15 +305,10 @@ async function upsertRecords(db: D1Database, records: any[], ownerId?: number | 
     `SELECT id, owner_user_id, ngay_hach_toan, so_chung_tu, ma_hang, ngay_chung_tu FROM ${TABLE} WHERE ma_hang != ''`
   ).all()
   const ownMap = new Map<string, any>()
-  const foreignKeys = new Set<string>()
   for (const r of allExisting.results as any[]) {
-    const own = isOwned && Number(r.owner_user_id) === Number(ownerId)
+    const own = isOwned ? Number(r.owner_user_id) === Number(ownerId) : true
     const key = `${r.ngay_hach_toan}|${r.so_chung_tu}|${r.ma_hang}`
-    if (own) {
-      ownMap.set(key, r)
-    } else {
-      foreignKeys.add(key)
-    }
+    if (own) ownMap.set(key, r)
   }
 
   const colNames = COL_ORDER.join(', ')
@@ -335,7 +331,6 @@ async function upsertRecords(db: D1Database, records: any[], ownerId?: number | 
     if (!norm.ma_hang) { skipped++; continue }
 
     const key = `${norm.ngay_hach_toan}|${norm.so_chung_tu}|${norm.ma_hang}`
-    if (foreignKeys.has(key)) { skipped++; continue }
 
     const existing = ownMap.get(key)
     if (existing) {
@@ -590,12 +585,16 @@ router.post('/sua-ck', async (c) => {
     const soTien = Math.round(doanhSo * tong)
     const moi = { sua_ck1_pct: sua1, sua_ck2_pct: sua2, sua_ck3_pct: sua3, sua_tong_pct: tong }
 
+    // Auto-set updated_by from auth header (không trust frontend)
+    const me = await c.env.DB.prepare(`SELECT ten FROM nhan_vien WHERE id = ?`).bind(Number(c.req.header('x-user-id')) || 0).first() as any
+    const updatedBy = me?.ten || body.updated_by || null
+
     await db.prepare(
       `UPDATE ${TABLE} SET
          sua_ck1_pct = ?, sua_ck2_pct = ?, sua_ck3_pct = ?, sua_tong_pct = ?, sua_ck_tinh = ?,
          sua_ghichu = ?, updated_by = ?, updated_at = datetime('now','+7 hours')
        WHERE id = ?`
-    ).bind(sua1, sua2, sua3, tong, soTien, body.sua_ghichu || null, body.updated_by || null, id).run()
+    ).bind(sua1, sua2, sua3, tong, soTien, body.sua_ghichu || null, updatedBy, id).run()
 
     const pctFmt = (v: any) => (v === null || v === undefined || v === '') ? '—' : `${(Number(v) * 100).toFixed(2)}%`
     const cols: Array<[string, any, any]> = [
@@ -613,7 +612,7 @@ router.post('/sua-ck', async (c) => {
       await db.prepare(
         `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).bind(TABLE, id, cot, pctFmt(cu), pctFmt(m), body.updated_by || null, thang).run()
+      ).bind(TABLE, id, cot, pctFmt(cu), pctFmt(m), updatedBy, thang).run()
     }
 
     const updated = await db.prepare(`SELECT * FROM ${TABLE} WHERE id = ?`).bind(id).first()

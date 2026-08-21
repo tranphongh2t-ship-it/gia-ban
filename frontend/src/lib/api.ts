@@ -1,4 +1,4 @@
-export const API_BASE = import.meta.env.DEV ? '/api' : 'https://gia-ban-backend.maketing.workers.dev/api'
+export const API_BASE = 'https://gia-ban-backend.maketing.workers.dev/api'
 
 declare global {
   interface Window {
@@ -18,9 +18,35 @@ declare global {
   }
 }
 
-const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron
+// Detect Tauri via @tauri-apps/api
+let tauriInvoke: ((cmd: string, args?: Record<string, any>) => Promise<any>) | null = null
+let _isTauri = false
 
-// Tự gắn x-user-id (nếu đã đăng nhập) vào mọi request — để backend biết ai đang truy cập.
+// Use __TAURI_INTERNALS__ for fast detection (injected by Tauri at page load)
+if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+  _isTauri = true
+}
+
+export function isTauriApp(): boolean {
+  return _isTauri
+}
+
+async function getTauriInvoke() {
+  if (tauriInvoke) return tauriInvoke
+  if (!_isTauri) return null
+  try {
+    const core = await import('@tauri-apps/api/core')
+    tauriInvoke = core.invoke
+    return tauriInvoke
+  } catch {
+    return null
+  }
+}
+
+function isElectronApp(): boolean {
+  return !!(window as any).electronAPI?.isElectron
+}
+
 export function authHeaders(extra?: Record<string, string>): Record<string, string> {
   try {
     const u = JSON.parse(localStorage.getItem('auth_user') || 'null')
@@ -29,8 +55,26 @@ export function authHeaders(extra?: Record<string, string>): Record<string, stri
   return { ...(extra || {}) }
 }
 
+export async function tauriSaveFile(filename: string, data: Uint8Array): Promise<string | null> {
+  const invoke = await getTauriInvoke()
+  if (!invoke) return null
+  return invoke('save_file', { filename, data: Array.from(data) })
+}
+
+export async function tauriTestDialog(): Promise<string> {
+  const invoke = await getTauriInvoke()
+  if (!invoke) throw new Error('Not in Tauri')
+  return invoke('test_dialog')
+}
+
 export async function apiGet(path: string, headers?: Record<string, string>) {
-  if (isElectron) {
+  const invoke = await getTauriInvoke()
+  if (invoke) {
+    const r = await invoke('api_get', { url: path, headers: authHeaders(headers) })
+    if (r?.error) throw new Error(r.error)
+    return r
+  }
+  if (isElectronApp()) {
     const r = await window.electronAPI!.apiGet(path, authHeaders(headers))
     if (!r.ok) throw new Error(r.data?.error || `HTTP ${r.status}`)
     return r.data
@@ -44,7 +88,13 @@ export async function apiGet(path: string, headers?: Record<string, string>) {
 }
 
 export async function apiPost(path: string, body: unknown, headers?: Record<string, string>) {
-  if (isElectron) {
+  const invoke = await getTauriInvoke()
+  if (invoke) {
+    const r = await invoke('api_post', { url: path, body, headers: authHeaders(headers) })
+    if (r?.error) throw new Error(r.error)
+    return r
+  }
+  if (isElectronApp()) {
     const r = await window.electronAPI!.apiPost(path, body, authHeaders(headers))
     if (!r.ok) throw new Error(r.data?.error || `HTTP ${r.status}`)
     return r.data
@@ -62,7 +112,13 @@ export async function apiPost(path: string, body: unknown, headers?: Record<stri
 }
 
 export async function apiPut(path: string, body: unknown, headers?: Record<string, string>) {
-  if (isElectron) {
+  const invoke = await getTauriInvoke()
+  if (invoke) {
+    const r = await invoke('api_patch', { url: path, body, headers: authHeaders(headers) })
+    if (r?.error) throw new Error(r.error)
+    return r
+  }
+  if (isElectronApp()) {
     const r = await window.electronAPI!.apiPatch(path, body, authHeaders(headers))
     if (!r.ok) throw new Error(r.data?.error || `HTTP ${r.status}`)
     return r.data
@@ -80,7 +136,13 @@ export async function apiPut(path: string, body: unknown, headers?: Record<strin
 }
 
 export async function apiPatch(path: string, body: unknown, headers?: Record<string, string>) {
-  if (isElectron) {
+  const invoke = await getTauriInvoke()
+  if (invoke) {
+    const r = await invoke('api_patch', { url: path, body, headers: authHeaders(headers) })
+    if (r?.error) throw new Error(r.error)
+    return r
+  }
+  if (isElectronApp()) {
     const r = await window.electronAPI!.apiPatch(path, body, authHeaders(headers))
     if (!r.ok) throw new Error(r.data?.error || `HTTP ${r.status}`)
     return r.data
@@ -98,7 +160,13 @@ export async function apiPatch(path: string, body: unknown, headers?: Record<str
 }
 
 export async function apiDelete(path: string, headers?: Record<string, string>) {
-  if (isElectron) {
+  const invoke = await getTauriInvoke()
+  if (invoke) {
+    const r = await invoke('api_delete', { url: path, headers: authHeaders(headers) })
+    if (r?.error) throw new Error(r.error)
+    return r
+  }
+  if (isElectronApp()) {
     const r = await window.electronAPI!.apiDelete(path, authHeaders(headers))
     if (!r.ok) throw new Error(r.data?.error || `HTTP ${r.status}`)
     return r.data

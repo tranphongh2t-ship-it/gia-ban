@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react'
-import { apiGet, apiPost, apiPatch, apiDelete, apiPut, API_BASE, authHeaders } from '../../lib/api'
+import { apiGet, apiPost, apiPatch, apiDelete, apiPut, API_BASE, authHeaders, isTauriApp, tauriSaveFile } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import Modal from '../Modal'
 import ConfirmDialog from '../ConfirmDialog'
@@ -572,7 +572,6 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
     try {
       const exportFormat = format === 'excel' ? 'excel' : 'json'
       if (demoMode) {
-        // Chế độ demo: xuất file từ dữ liệu hiện có, không gọi backend
         const rows: any[] = data
         if (rows.length === 0) throw new Error('Không có dữ liệu để xuất')
         const headers = Object.keys(rows[0])
@@ -584,26 +583,39 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
           ? JSON.stringify(rows, null, 2)
           : [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n')
         const blob = new Blob([exportFormat === 'json' ? body : '\ufeff' + body], { type: exportFormat === 'json' ? 'application/json' : 'text/csv;charset=utf-8;' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        const prefix = exportName || apiPath.replace(/\//g, '_')
-        a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.${exportFormat === 'json' ? 'json' : 'csv'}`
-        a.click()
-        URL.revokeObjectURL(url)
+        if (isTauriApp()) {
+          const buf = await blob.arrayBuffer()
+          const prefix = exportName || apiPath.replace(/\//g, '_')
+          await tauriSaveFile(`${prefix}_${new Date().toISOString().split('T')[0]}.${exportFormat === 'json' ? 'json' : 'csv'}`, new Uint8Array(buf))
+        } else {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          const prefix = exportName || apiPath.replace(/\//g, '_')
+          a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.${exportFormat === 'json' ? 'json' : 'csv'}`
+          a.click()
+          URL.revokeObjectURL(url)
+        }
         return
       }
       const res = await fetch(`${API_BASE}/export/${exportFormat}${apiPath}?${getExportParams(apiPath, search, filters, extraFilters)}`, { headers: authHeaders() })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const ext = format === 'excel' ? 'xlsx' : 'json'
-      const prefix = exportName || apiPath.replace(/\//g, '_')
-      a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.${ext}`
-      a.click()
-      URL.revokeObjectURL(url)
+      if (isTauriApp) {
+        const buf = await blob.arrayBuffer()
+        const ext = format === 'excel' ? 'xlsx' : 'json'
+        const prefix = exportName || apiPath.replace(/\//g, '_')
+        await tauriSaveFile(`${prefix}_${new Date().toISOString().split('T')[0]}.${ext}`, new Uint8Array(buf))
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const ext = format === 'excel' ? 'xlsx' : 'json'
+        const prefix = exportName || apiPath.replace(/\//g, '_')
+        a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.${ext}`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
     } catch (e: any) { setError(e.message) }
     finally { setExporting(false) }
   }
@@ -628,13 +640,19 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       }
       const csv = [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n')
       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const prefix = exportName || apiPath.replace(/\//g, '_')
-      a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
+      if (isTauriApp) {
+        const buf = await blob.arrayBuffer()
+        const prefix = exportName || apiPath.replace(/\//g, '_')
+        await tauriSaveFile(`${prefix}_${new Date().toISOString().split('T')[0]}.csv`, new Uint8Array(buf))
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        const prefix = exportName || apiPath.replace(/\//g, '_')
+        a.download = `${prefix}_${new Date().toISOString().split('T')[0]}.csv`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
     } catch (e: any) { setError(e.message) }
     finally { setExportingCsv(false) }
   }
