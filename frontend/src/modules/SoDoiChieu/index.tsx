@@ -456,7 +456,7 @@ export default function SoDoiChieuPage() {
         )}
         <span style={{ flex: 1 }} />
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ fontSize: 12, color: colors.textMuted }}>Lấy file người khác:</span>
+          <span style={{ fontSize: 12, color: colors.text, fontWeight: 500 }}>Lấy file người khác:</span>
           <select
             value={viewOwner}
             onChange={e => changeViewOwner(e.target.value)}
