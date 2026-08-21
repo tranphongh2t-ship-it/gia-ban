@@ -13,6 +13,56 @@ const TTL_HOURS = 12
 
 const router = new Hono<Env>()
 
+// Auto-sync mã MISA mới từ danh sách records (silent — chạy sau import, không cần admin).
+async function autoSyncNewMisaCodes(db: D1Database, records: Record<string, any>[]) {
+  try {
+    const byMa = new Map<string, { ten: string; dvt: string; don_gia: number }>()
+    for (const r of records) {
+      const ma = String(r.ma_hang || '').trim()
+      if (!ma || ma.startsWith('Z')) continue
+      const cur = byMa.get(ma)
+      const gia = Number(r.don_gia) || 0
+      if (!cur) byMa.set(ma, { ten: String(r.ten_hang || '').trim(), dvt: String(r.dvt || '').trim(), don_gia: gia })
+      else { if (!cur.ten && r.ten_hang) cur.ten = String(r.ten_hang).trim(); if (!cur.dvt && r.dvt) cur.dvt = String(r.dvt).trim() }
+    }
+    if (byMa.size === 0) return
+    const maList = Array.from(byMa.keys())
+    const existing = new Set<string>()
+    for (let i = 0; i < maList.length; i += 90) {
+      const chunk = maList.slice(i, i + 90)
+      const ph = chunk.map(() => '?').join(', ')
+      const res = await db.prepare(`SELECT ma_sp FROM ma_misa WHERE UPPER(ma_sp) IN (${ph})`).bind(...chunk.map(m => m.toUpperCase())).all()
+      for (const r of (res as any).results || []) existing.add(String(r.ma_sp).toUpperCase())
+    }
+    const thang = currentThang()
+    const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+    const maStmts: D1PreparedStatement[] = []
+    const histStmts: D1PreparedStatement[] = []
+    const gbStmts: D1PreparedStatement[] = []
+    for (const ma of maList) {
+      if (existing.has(ma.toUpperCase())) continue
+      const info = byMa.get(ma)!
+      maStmts.push(db.prepare(
+        `INSERT INTO ma_misa (ma_sp, ten_sp, dvt, gia_goc, match_status, updated_by, updated_at) VALUES (?, ?, ?, ?, 'pending', 'auto', datetime('now','+7 hours'))`
+      ).bind(ma, info.ten || ma, info.dvt || '', info.don_gia > 0 ? info.don_gia : null))
+      if (info.don_gia > 0) {
+        histStmts.push(db.prepare(
+          'INSERT INTO ma_misa_gia_history (ma_sp, thang, gia_cu, gia_goc, nguon, updated_by) VALUES (?, ?, NULL, ?, ?, ?)'
+        ).bind(ma, thang, info.don_gia, 'so-doi-chieu-auto', 'auto'))
+      }
+      gbStmts.push(db.prepare(
+        `INSERT INTO gia_ban (ma_sp, ten_sp, hieu_luc_tu, updated_by) VALUES (?, ?, ?, ?)`
+      ).bind(ma, info.ten || ma, today, 'auto'))
+    }
+    if (maStmts.length > 0) {
+      for (const arr of [maStmts, gbStmts, histStmts]) {
+        for (let i = 0; i < arr.length; i += 100) await db.batch(arr.slice(i, i + 100))
+      }
+      await recomputeGiaGoc(db)
+    }
+  } catch (e) { console.error('[autoSyncNewMisaCodes]', e) }
+}
+
 // Kiểm tra quyền truy cập 1 dòng theo chủ sở hữu (bảng tách theo user).
 // Trả về { ok } hoặc { ok:false, status, error }.
 async function checkOwnerRow(db: D1Database, c: any, id: string, modify: boolean): Promise<{ ok: boolean; status?: any; error?: string }> {
@@ -354,6 +404,7 @@ router.post('/import-rows', async (c) => {
     if (records.length === 0) return c.json({ error: 'Không có dữ liệu' }, 400)
     const ownerId = Number(c.req.header('x-user-id')) || null
     const { imported, skipped } = await upsertRecords(c.env.DB, records, ownerId)
+    await autoSyncNewMisaCodes(c.env.DB, records)
     return c.json({
       success: true,
       total: records.length,
@@ -415,6 +466,7 @@ router.post('/import-excel', async (c) => {
     if (records.length === 0) return c.json({ error: 'Không có dòng dữ liệu hợp lệ trong file' }, 400)
 
     const { imported, skipped } = await upsertRecords(c.env.DB, records, Number(c.req.header('x-user-id')) || null)
+    await autoSyncNewMisaCodes(c.env.DB, records)
     const reqOwnerId = Number(c.req.header('x-user-id')) || null
     const me = await reqUser(c.env.DB, c)
     const ownerId = me && isAdmin(me) ? null : reqOwnerId
