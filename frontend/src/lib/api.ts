@@ -31,7 +31,7 @@ export function authHeaders(extra?: Record<string, string>): Record<string, stri
 
 export async function apiGet(path: string, headers?: Record<string, string>) {
   if (isElectron) {
-    const r = await window.electronAPI!.apiGet(path, headers)
+    const r = await window.electronAPI!.apiGet(path, authHeaders(headers))
     if (!r.ok) throw new Error(r.data?.error || `HTTP ${r.status}`)
     return r.data
   }
