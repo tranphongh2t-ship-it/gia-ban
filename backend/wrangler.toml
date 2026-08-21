@@ -8,7 +8,7 @@ compatibility_date = "2026-07-01"
 [vars]
 APP_VERSION = "0.2.11"
 APP_INSTALLER_URL = "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/latest/download/THANH.THUY.PRICE.Setup.0.2.11.exe"
-APP_UPDATE_NOTES = "Cập nhật tính năng"
+APP_UPDATE_NOTES = "Bổ sung tính ngăn Ghim Cột, Lọc Cột cho dễ nhìn dữ liệu, Export đầy đủ dữ liệu"
 
 [[d1_databases]]
 binding = "DB"

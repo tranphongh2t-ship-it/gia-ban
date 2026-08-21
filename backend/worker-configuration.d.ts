@@ -3,6 +3,6 @@
 interface Env {
 	APP_VERSION: "0.2.4";
 	APP_INSTALLER_URL: "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/latest/download/THANH.THUY.PRICE.Setup.0.2.4.exe";
-	APP_UPDATE_NOTES: "Bản 0.2.4: người có quyền Import được xóa hết dữ liệu Audit Giá Gốc và Sổ chi tiết bán hàng.";
+	APP_UPDATE_NOTES: "Bổ sung tính ngăn Ghim Cột, Lọc Cột cho dễ nhìn dữ liệu, Export đầy đủ dữ liệu";
 	DB: D1Database;
 }
