@@ -350,7 +350,7 @@ export default function CheckChietKhauPage() {
           <select
             value={viewOwner}
             onChange={e => changeViewOwner(e.target.value)}
-            style={{ fontSize: 12, height: 32, border: `1px solid ${colors.border}`, borderRadius: 6, padding: '0 6px', background: '#fff', color: colors.text }}
+            style={{ fontSize: 12, height: 32, border: `1px solid ${colors.border}`, borderRadius: 6, padding: '0 6px', background: '#fff', color: '#1a2332' }}
           >
             <option value="">File của tôi</option>
             {user?.is_admin && <option value="__all">Tất cả (Admin)</option>}
