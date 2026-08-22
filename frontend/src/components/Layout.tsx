@@ -446,7 +446,7 @@ export default function Layout() {
       <main className="main-content" style={{ ...contentStyle, marginLeft: curSidebarW, transition: 'margin-left 160ms ease' }}>
         {isTauriApp() && !isOnline() && (
           <div style={{ padding: '6px 20px', background: 'rgba(245,159,0,0.15)', borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, color: colors.warning, fontWeight: 600 }}>⚡ Mất kết nối — Đang dùng dữ liệu ngoại tuyến</span>
+            <span style={{ fontSize: 12, color: colors.warning, fontWeight: 600 }}>⚡ Mất kết nối internet - Đang dùng dữ liệu ngoại tuyến</span>
             {isLocalReady() && <span style={{ fontSize: 11, color: colors.textMuted }}>(Đã tải sẵn {isOnline() ? '' : 'dữ liệu nền'})</span>}
           </div>
         )}
