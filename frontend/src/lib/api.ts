@@ -262,7 +262,7 @@ export async function apiPost(path: string, body: unknown, headers?: Record<stri
   return res.json()
 }
 
-// ─── API POST — offline-aware: save to local SQLite when offline ──
+// ─── API POST — offline-aware: save to local SQLite first, then try sync ──
 export async function apiPostOffline(path: string, body: unknown, options?: {
   table?: string
   keyFields?: string[]
@@ -270,8 +270,8 @@ export async function apiPostOffline(path: string, body: unknown, options?: {
 }) {
   const invoke = await getTauriInvoke()
   if (invoke) {
-    // If offline and table info provided → save to local SQLite
-    if (!_isOnline && options?.table && options?.keyFields) {
+    if (options?.table && options?.keyFields) {
+      // ALWAYS save to local SQLite (works both online & offline)
       const records = Array.isArray(body) ? body : (body as any)?.records || [body]
       const r = await invoke('local_import_rows', {
         table: options.table,
@@ -279,9 +279,16 @@ export async function apiPostOffline(path: string, body: unknown, options?: {
         keyFields: options.keyFields,
         user_name: JSON.parse(localStorage.getItem('auth_user') || 'null')?.ten || null,
       })
+      // Also try push to backend (best-effort, don't block on failure)
+      if (_isOnline) {
+        try {
+          const r2 = await invoke('api_post', { url: path, body, headers: authHeaders(options?.headers) })
+          // Backend accepted — good
+        } catch { /* offline or error — data already saved locally */ }
+      }
       return r
     }
-    // Online or no table info → normal API call
+    // No table info → normal API call
     const r = await invoke('api_post', { url: path, body, headers: authHeaders(options?.headers) })
     if (r?.error) throw new Error(r.error)
     return r
