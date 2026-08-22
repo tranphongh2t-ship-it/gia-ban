@@ -2,10 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import * as XLSX from 'xlsx'
 import DataGrid, { Column } from '../../components/DataGrid'
 import Modal from '../../components/Modal'
-import { apiDelete, apiPost, apiGet } from '../../lib/api'
+import { apiDelete, apiPost, apiGet, apiPostOffline, isOnline, isTauriApp } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { colors, btn, select } from '../../theme'
 import { formatNum } from '../../lib/format'
+import { tinhHetLocal } from '../../lib/local-calculate'
 
 const CHUNK = 300
 const API_PATH = '/check-chiet-khau'
@@ -229,23 +230,39 @@ export default function CheckChietKhauPage() {
       if (records.length === 0) throw new Error('Không có dòng dữ liệu hợp lệ trong file')
 
       let imported = 0, skipped = 0, khachMoi = 0
+      const offline = isTauriApp() && !isOnline()
       for (let i = 0; i < records.length; i += CHUNK) {
         const chunk = records.slice(i, i + CHUNK)
-        const data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+        let data: any
+        if (offline) {
+          data = await apiPostOffline(`${API_PATH}/import-rows`, { rows: chunk }, {
+            table: 'check-chiet-khau',
+            keyFields: ['ngay', 'so_ct', 'ma_hang'],
+          })
+        } else {
+          data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+        }
         if (data.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
-        imported += data.imported || 0
+        imported += data.imported || data.inserted || 0
         skipped += data.skipped || 0
         khachMoi += data.so_khach_moi || 0
       }
 
       // Tự tính lại CK theo chuẩn engine sau khi import
-      const tinh = await apiPost(`${API_PATH}/tinh-het`, {})
-      if (tinh.error) throw new Error('Lỗi tính lại CK: ' + tinh.error)
-
-      setResult(
-        `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. ` +
-        `Tự thêm ${khachMoi} khách mới vào bảng chiết khấu. ${tinh.message || ''}`
-      )
+      if (offline) {
+        const tinh = await tinhHetLocal(records)
+        setResult(
+          `Import ${imported} dòng thành công (offline — lưu local). ` +
+          `Đã tính CK cho ${tinh.length} dòng.`
+        )
+      } else {
+        const tinh = await apiPost(`${API_PATH}/tinh-het`, {})
+        if (tinh.error) throw new Error('Lỗi tính lại CK: ' + tinh.error)
+        setResult(
+          `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. ` +
+          `Tự thêm ${khachMoi} khách mới vào bảng chiết khấu. ${tinh.message || ''}`
+        )
+      }
       refresh()
       if (fileRef.current) fileRef.current.value = ''
     } catch (e: any) {
@@ -258,10 +275,42 @@ export default function CheckChietKhauPage() {
   const handleTinhHet = async () => {
     setTinhHet(true); setError(null); setResult(null)
     try {
-      const tinh = await apiPost(`${API_PATH}/tinh-het`, {})
-      if (tinh.error) throw new Error(tinh.error)
-      setResult(tinh.message || 'Đã tính lại CK.')
-      refresh()
+      const offline = isTauriApp() && !isOnline()
+      if (offline) {
+        // Offline: read all rows from local SQLite, calculate, update
+        const { invoke } = await import('@tauri-apps/api/core')
+        const localData: any = await invoke('local_query', { table: 'check-chiet-khau', limit: 100000 })
+        const rows = localData?.rows || []
+        if (rows.length === 0) {
+          setResult('Không có dữ liệu để tính. Hãy import file trước.')
+          return
+        }
+        const results = await tinhHetLocal(rows)
+        // Update each row in local SQLite
+        for (const r of results) {
+          if (r.id) {
+            await invoke('db_exec', {
+              sql: `UPDATE check_chiet_khau_test_local SET
+                ck1_pct=?, ck2_pct=?, ck3_pct=?, tong_pct=?, ck_tinh=?,
+                nhom_mau=?, dieu_kien=?, giai_thich=?
+                WHERE id=?`,
+              params: [
+                r.ck1_pct ?? 0, r.ck2_pct ?? 0, r.ck3_pct ?? 0,
+                r.tong_pct ?? 0, r.ck_tinh ?? 0,
+                r.nhom_mau ?? '', r.dieu_kien ?? '', r.giai_thich ?? '',
+                r.id,
+              ],
+            })
+          }
+        }
+        setResult(`Đã tính lại CK offline cho ${results.length} dòng.`)
+        refresh()
+      } else {
+        const tinh = await apiPost(`${API_PATH}/tinh-het`, {})
+        if (tinh.error) throw new Error(tinh.error)
+        setResult(tinh.message || 'Đã tính lại CK.')
+        refresh()
+      }
     } catch (e: any) { setError(e.message) }
     finally { setTinhHet(false) }
   }

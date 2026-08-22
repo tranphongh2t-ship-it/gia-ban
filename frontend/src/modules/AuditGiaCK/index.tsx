@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import DataGrid, { Column } from '../../components/DataGrid'
-import { apiDelete, apiPost, apiGet } from '../../lib/api'
+import { apiDelete, apiPost, apiGet, apiPostOffline, isOnline, isTauriApp } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { colors, btn } from '../../theme'
 import { formatNum } from '../../lib/format'
@@ -230,25 +230,37 @@ export default function AuditGiaCKPage() {
       if (records.length === 0) throw new Error('Không có dòng dữ liệu hợp lệ trong file')
 
       let imported = 0, skipped = 0, maMisaAdded = 0, giaGocAdded = 0
+      const offline = isTauriApp() && !isOnline()
       for (let i = 0; i < records.length; i += CHUNK) {
         const chunk = records.slice(i, i + CHUNK)
-        const data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+        let data: any
+        if (offline) {
+          data = await apiPostOffline(`${API_PATH}/import-rows`, { rows: chunk }, {
+            table: 'check-gia-goc-ck',
+            keyFields: ['ngay', 'so_ct', 'ma_hang'],
+          })
+        } else {
+          data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+        }
         if (data.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
-        imported += data.imported || 0
+        imported += data.imported || data.inserted || 0
         skipped += data.skipped || 0
         maMisaAdded += data.ma_misa_added || 0
         giaGocAdded += data.gia_goc_added || 0
       }
 
       // Tự chạy luồng "Phân tích & tự xử lý file audit" sau khi import toàn bộ file
-      const auto = await apiPost(`${API_PATH}/auto-xu-ly`, {})
-      if (auto.error) throw new Error('Lỗi tự xử lý: ' + auto.error)
-
-      setResult(
-        user?.is_admin
-          ? `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}${maMisaAdded ? `, thêm mới ${maMisaAdded} mã MISA` : ''}${giaGocAdded ? `, thêm ${giaGocAdded} giá gốc` : ''}. ${auto.message || ''}`
-          : `Import ${imported} dòng thành công`
-      )
+      if (!offline) {
+        const auto = await apiPost(`${API_PATH}/auto-xu-ly`, {})
+        if (auto.error) throw new Error('Lỗi tự xử lý: ' + auto.error)
+        setResult(
+          user?.is_admin
+            ? `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}${maMisaAdded ? `, thêm mới ${maMisaAdded} mã MISA` : ''}${giaGocAdded ? `, thêm ${giaGocAdded} giá gốc` : ''}. ${auto.message || ''}`
+            : `Import ${imported} dòng thành công`
+        )
+      } else {
+        setResult(`Import ${imported} dòng thành công (offline — lưu local).`)
+      }
       setGridKey(k => k + 1)
       if (fileRef.current) fileRef.current.value = ''
     } catch (e: any) {

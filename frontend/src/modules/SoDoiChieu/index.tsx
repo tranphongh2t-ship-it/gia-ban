@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import DataGrid, { Column } from '../../components/DataGrid'
-import { apiDelete, apiPost, apiGet } from '../../lib/api'
+import { apiDelete, apiPost, apiGet, apiPostOffline, isOnline, isTauriApp } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { colors, btn } from '../../theme'
 import { formatNum } from '../../lib/format'
+import { tinhHetLocal } from '../../lib/local-calculate'
 
 const CHUNK = 300
 const API_PATH = '/so-doi-chieu'
@@ -260,6 +261,33 @@ export default function SoDoiChieuPage() {
   }
 
   const recompute = async () => {
+    const offline = isTauriApp() && !isOnline()
+    if (offline) {
+      // Offline: read local data, calculate CK locally
+      const { invoke } = await import('@tauri-apps/api/core')
+      const localData: any = await invoke('local_query', { table: 'so-doi-chieu', limit: 100000 })
+      const rows = localData?.rows || []
+      if (rows.length === 0) return { so_dong: 0 }
+      const results = await tinhHetLocal(rows)
+      // Update each row in local SQLite
+      for (const r of results) {
+        if (r.id) {
+          await invoke('db_exec', {
+            sql: `UPDATE so_doi_chieu_local SET
+              ck1_pct=?, ck2_pct=?, ck3_pct=?, tong_pct=?, ck_tinh=?,
+              nhom_mau=?, dieu_kien=?, giai_thich=?
+              WHERE id=?`,
+            params: [
+              r.ck1_pct ?? 0, r.ck2_pct ?? 0, r.ck3_pct ?? 0,
+              r.tong_pct ?? 0, r.ck_tinh ?? 0,
+              r.nhom_mau ?? '', r.dieu_kien ?? '', r.giai_thich ?? '',
+              r.id,
+            ],
+          })
+        }
+      }
+      return { so_dong: results.length }
+    }
     await apiPost(`${API_PATH}/recompute-gia-goc`, {})
     const tinh = await apiPost(`${API_PATH}/tinh-het`, {})
     return tinh
@@ -378,11 +406,20 @@ export default function SoDoiChieuPage() {
       if (records.length === 0) throw new Error('Không có dòng dữ liệu hợp lệ trong file')
 
       let imported = 0, skipped = 0
+      const offline = isTauriApp() && !isOnline()
       for (let i = 0; i < records.length; i += CHUNK) {
         const chunk = records.slice(i, i + CHUNK)
-        const data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+        let data: any
+        if (offline) {
+          data = await apiPostOffline(`${API_PATH}/import-rows`, { rows: chunk }, {
+            table: 'so-doi-chieu',
+            keyFields: ['ngay_hach_toan', 'so_chung_tu', 'ma_hang'],
+          })
+        } else {
+          data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+        }
         if (data.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
-        imported += data.imported || 0
+        imported += data.imported || data.inserted || 0
         skipped += data.skipped || 0
       }
 

@@ -65,14 +65,24 @@ export function setLocalReady(v: boolean) { _localReady = v }
 
 // Tables available offline (must match SYNC_TABLES in offline.rs)
 const OFFLINE_TABLES = new Set([
+  // Core master data
   'khach-hang', 'ma-misa', 'phu-thu', 'phan-bo-kh',
+  // Price tables
   'bang-gia-ck', 'bang-gia-cot-go', 'bang-gia-nhom-mau', 'bang-gia-ma-mau',
   'gia-ban', 'bang-gia-veneers', 'bang-gia-chi', 'bang-gia-keo-nong',
   'bang-gia-acrylic-foil', 'bang-gia-van-phu-acrylic', 'bang-gia-laminate-one',
   'bang-gia-pvc-film', 'bang-gia-van-phu-pvc', 'bang-gia-nhua-pvc',
   'bang-gia-nhua-phu-mau', 'bang-gia-nhua-laminate', 'bang-gia-osb-laminate',
+  // Sales data
   'so-chi-tiet-ban-hang', 'don-hang-excel',
+  // Audit tables
   'so-doi-chieu', 'check-chiet-khau', 'check-gia-goc-ck',
+  // CK calculation tables
+  'khach-theo-thang', 'ck-op1', 'ck-op2', 'op2-bac-thang',
+  'policy-rules', 'ck-van-chuyen', 'ma-hang-nhom-mau',
+  'policy-revenue-tiers', 'monthly-summary',
+  // Customer list
+  'danh-sach-khach',
 ])
 
 function canServeOffline(path: string): boolean {
@@ -91,13 +101,36 @@ export function initOfflineListener() {
   try {
     // @ts-ignore
     window.__TAURI__?.event?.listen?.('online-status', (e: any) => {
+      const wasOffline = !_isOnline
       _isOnline = !!e.payload
+      // When coming back online, trigger sync of pending imports
+      if (wasOffline && _isOnline) {
+        triggerSyncPendingImports()
+      }
     })
     // @ts-ignore
     window.__TAURI__?.event?.listen?.('sync:local-ready', () => {
       _localReady = true
     })
   } catch { /* ignore */ }
+}
+
+// ─── Trigger sync of pending imports when coming back online ─────
+async function triggerSyncPendingImports() {
+  if (!_isTauri) return
+  try {
+    const invoke = await getTauriInvoke()
+    if (!invoke) return
+    // Check if sync is running, if not start it
+    const status = await invoke('sync_status')
+    if (!status?.running) {
+      const user = JSON.parse(localStorage.getItem('auth_user') || 'null')
+      if (user?.id) {
+        const deviceId = localStorage.getItem('tt_device_id') || 'web-' + Math.random().toString(36).slice(2, 10)
+        await invoke('start_sync', { userId: user.id, deviceId })
+      }
+    }
+  } catch { /* best effort */ }
 }
 
 // ─── Save File (Tauri) ──────────────────────────────────────────
@@ -227,6 +260,34 @@ export async function apiPost(path: string, body: unknown, headers?: Record<stri
     throw new Error(err.error || `HTTP ${res.status}`)
   }
   return res.json()
+}
+
+// ─── API POST — offline-aware: save to local SQLite when offline ──
+export async function apiPostOffline(path: string, body: unknown, options?: {
+  table?: string
+  keyFields?: string[]
+  headers?: Record<string, string>
+}) {
+  const invoke = await getTauriInvoke()
+  if (invoke) {
+    // If offline and table info provided → save to local SQLite
+    if (!_isOnline && options?.table && options?.keyFields) {
+      const records = Array.isArray(body) ? body : (body as any)?.records || [body]
+      const r = await invoke('local_import_rows', {
+        table: options.table,
+        records,
+        keyFields: options.keyFields,
+        user_name: JSON.parse(localStorage.getItem('auth_user') || 'null')?.ten || null,
+      })
+      return r
+    }
+    // Online or no table info → normal API call
+    const r = await invoke('api_post', { url: path, body, headers: authHeaders(options?.headers) })
+    if (r?.error) throw new Error(r.error)
+    return r
+  }
+  // Browser fallback
+  return apiPost(path, body, options?.headers)
 }
 
 // ─── API PUT ─────────────────────────────────────────────────────
