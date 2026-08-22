@@ -51,12 +51,16 @@ import Profile from './modules/Profile'
 import { AuthProvider } from './lib/auth'
 import { LockProvider } from './lib/lock'
 import UpdatePrompt from './components/UpdatePrompt'
+import { initOfflineListener } from './lib/api'
 
 const isElectron = navigator.userAgent.includes('Electron')
 const isTauri = !!(window as any).__TAURI_INTERNALS__
 const Router = (isElectron || isTauri) ? HashRouter : BrowserRouter
 
 function App() {
+  // Initialize offline listener for Tauri
+  if (isTauri) initOfflineListener()
+
   return (
     <AuthProvider>
       <LockProvider>

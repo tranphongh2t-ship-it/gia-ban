@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { colors } from '../theme'
 import { useAuth } from '../lib/auth'
+import { isOnline, isLocalReady, isTauriApp } from '../lib/api'
 import LoginOverlay from './LoginOverlay'
 import BangGiaLockToggle from './BangGiaLockToggle'
 
@@ -443,6 +444,12 @@ export default function Layout() {
           zIndex: 105, transition: 'left 160ms ease', borderRadius: 6,
         }}>{collapsed ? '⮞' : '⮜'}</button>
       <main className="main-content" style={{ ...contentStyle, marginLeft: curSidebarW, transition: 'margin-left 160ms ease' }}>
+        {isTauriApp() && !isOnline() && (
+          <div style={{ padding: '6px 20px', background: 'rgba(245,159,0,0.15)', borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: colors.warning, fontWeight: 600 }}>⚡ Mất kết nối — Đang dùng dữ liệu ngoại tuyến</span>
+            {isLocalReady() && <span style={{ fontSize: 11, color: colors.textMuted }}>(Đã tải sẵn {isOnline() ? '' : 'dữ liệu nền'})</span>}
+          </div>
+        )}
         {currentPerm === 'menu:/bang-tinh-gia' && (
           <div style={{ padding: '10px 20px', background: colors.card, borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center' }}>
             <span style={{ fontSize: 12.5, color: colors.textSecondary }}>Công tắc an toàn Bảng Tính Giá (12 nhóm)</span>

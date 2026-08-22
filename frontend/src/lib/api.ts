@@ -18,11 +18,10 @@ declare global {
   }
 }
 
-// Detect Tauri via @tauri-apps/api
+// ─── Tauri detection ─────────────────────────────────────────────
 let tauriInvoke: ((cmd: string, args?: Record<string, any>) => Promise<any>) | null = null
 let _isTauri = false
 
-// Use __TAURI_INTERNALS__ for fast detection (injected by Tauri at page load)
 if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
   _isTauri = true
 }
@@ -55,6 +54,53 @@ export function authHeaders(extra?: Record<string, string>): Record<string, stri
   return { ...(extra || {}) }
 }
 
+// ─── Offline state ───────────────────────────────────────────────
+let _isOnline = true
+let _localReady = false
+
+export function isOnline(): boolean { return _isOnline }
+export function setOnline(v: boolean) { _isOnline = v }
+export function isLocalReady(): boolean { return _localReady }
+export function setLocalReady(v: boolean) { _localReady = v }
+
+// Tables available offline (must match SYNC_TABLES in offline.rs)
+const OFFLINE_TABLES = new Set([
+  'khach-hang', 'ma-misa', 'phu-thu', 'phan-bo-kh',
+  'bang-gia-ck', 'bang-gia-cot-go', 'bang-gia-nhom-mau', 'bang-gia-ma-mau',
+  'gia-ban', 'bang-gia-veneers', 'bang-gia-chi', 'bang-gia-keo-nong',
+  'bang-gia-acrylic-foil', 'bang-gia-van-phu-acrylic', 'bang-gia-laminate-one',
+  'bang-gia-pvc-film', 'bang-gia-van-phu-pvc', 'bang-gia-nhua-pvc',
+  'bang-gia-nhua-phu-mau', 'bang-gia-nhua-laminate', 'bang-gia-osb-laminate',
+  'so-chi-tiet-ban-hang', 'don-hang-excel',
+  'so-doi-chieu', 'check-chiet-khau', 'check-gia-goc-ck',
+])
+
+function canServeOffline(path: string): boolean {
+  const table = path.trim().split('?')[0].replace(/^\//, '')
+  // Direct table read or list — can serve offline
+  if (OFFLINE_TABLES.has(table)) return true
+  // Sub-paths like /khach-hang/123 are also table reads
+  const root = table.split('/')[0]
+  if (OFFLINE_TABLES.has(root)) return true
+  return false
+}
+
+// ─── Listen for Tauri events (call once on app start) ────────────
+export function initOfflineListener() {
+  if (!_isTauri) return
+  try {
+    // @ts-ignore
+    window.__TAURI__?.event?.listen?.('online-status', (e: any) => {
+      _isOnline = !!e.payload
+    })
+    // @ts-ignore
+    window.__TAURI__?.event?.listen?.('sync:local-ready', () => {
+      _localReady = true
+    })
+  } catch { /* ignore */ }
+}
+
+// ─── Save File (Tauri) ──────────────────────────────────────────
 export async function tauriSaveFile(filename: string, data: Uint8Array): Promise<string | null> {
   const invoke = await getTauriInvoke()
   if (!invoke) return null
@@ -67,12 +113,38 @@ export async function tauriTestDialog(): Promise<string> {
   return invoke('test_dialog')
 }
 
+// ─── API GET — with offline fallback ─────────────────────────────
 export async function apiGet(path: string, headers?: Record<string, string>) {
   const invoke = await getTauriInvoke()
   if (invoke) {
-    const r = await invoke('api_get', { url: path, headers: authHeaders(headers) })
-    if (r?.error) throw new Error(r.error)
-    return r
+    // If offline AND local data ready AND table is syncable → read local
+    if (!_isOnline && _localReady && canServeOffline(path)) {
+      const table = path.trim().split('?')[0].replace(/^\//, '')
+      // Parse query params for search/limit/offset
+      const params = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '')
+      const search = params.get('search') || undefined
+      const limit = params.has('limit') ? Number(params.get('limit')) : undefined
+      const offset = params.has('offset') ? Number(params.get('offset')) : undefined
+      const r = await invoke('local_query', { table, search, limit, offset })
+      return r
+    }
+    // Online: try API, fallback to local on network error
+    try {
+      const r = await invoke('api_get', { url: path, headers: authHeaders(headers) })
+      if (r?.error) throw new Error(r.error)
+      return r
+    } catch (err) {
+      // If network error AND table is syncable → fallback to local
+      if (canServeOffline(path)) {
+        const table = path.trim().split('?')[0].replace(/^\//, '')
+        const params = new URLSearchParams(path.includes('?') ? path.split('?')[1] : '')
+        const search = params.get('search') || undefined
+        const limit = params.has('limit') ? Number(params.get('limit')) : undefined
+        const offset = params.has('offset') ? Number(params.get('offset')) : undefined
+        return await invoke('local_query', { table, search, limit, offset })
+      }
+      throw err
+    }
   }
   if (isElectronApp()) {
     const r = await window.electronAPI!.apiGet(path, authHeaders(headers))
@@ -87,6 +159,7 @@ export async function apiGet(path: string, headers?: Record<string, string>) {
   return res.json()
 }
 
+// ─── API POST ────────────────────────────────────────────────────
 export async function apiPost(path: string, body: unknown, headers?: Record<string, string>) {
   const invoke = await getTauriInvoke()
   if (invoke) {
@@ -111,6 +184,7 @@ export async function apiPost(path: string, body: unknown, headers?: Record<stri
   return res.json()
 }
 
+// ─── API PUT ─────────────────────────────────────────────────────
 export async function apiPut(path: string, body: unknown, headers?: Record<string, string>) {
   const invoke = await getTauriInvoke()
   if (invoke) {
@@ -135,6 +209,7 @@ export async function apiPut(path: string, body: unknown, headers?: Record<strin
   return res.json()
 }
 
+// ─── API PATCH ───────────────────────────────────────────────────
 export async function apiPatch(path: string, body: unknown, headers?: Record<string, string>) {
   const invoke = await getTauriInvoke()
   if (invoke) {
@@ -159,6 +234,7 @@ export async function apiPatch(path: string, body: unknown, headers?: Record<str
   return res.json()
 }
 
+// ─── API DELETE ──────────────────────────────────────────────────
 export async function apiDelete(path: string, headers?: Record<string, string>) {
   const invoke = await getTauriInvoke()
   if (invoke) {
