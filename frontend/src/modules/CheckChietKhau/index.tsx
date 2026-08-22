@@ -230,26 +230,43 @@ export default function CheckChietKhauPage() {
       if (records.length === 0) throw new Error('Không có dòng dữ liệu hợp lệ trong file')
 
       let imported = 0, skipped = 0, khachMoi = 0
-      const offline = isTauriApp() && !isOnline()
+      let usedOffline = false
+      // Try online first; fallback to offline on network error
+      let tryOffline = isTauriApp() && !isOnline()
       for (let i = 0; i < records.length; i += CHUNK) {
         const chunk = records.slice(i, i + CHUNK)
         let data: any
-        if (offline) {
+        if (tryOffline) {
           data = await apiPostOffline(`${API_PATH}/import-rows`, { rows: chunk }, {
             table: 'check-chiet-khau',
             keyFields: ['ngay', 'so_ct', 'ma_hang'],
           })
+          usedOffline = true
         } else {
-          data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+          try {
+            data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+          } catch (err: any) {
+            // Network error → fallback to offline for remaining chunks
+            if (isTauriApp() && (err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('Connect') || err.message?.includes('timeout') || err.message?.includes('reqwest'))) {
+              tryOffline = true
+              usedOffline = true
+              data = await apiPostOffline(`${API_PATH}/import-rows`, { rows: chunk }, {
+                table: 'check-chiet-khau',
+                keyFields: ['ngay', 'so_ct', 'ma_hang'],
+              })
+            } else {
+              throw err
+            }
+          }
         }
-        if (data.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
-        imported += data.imported || data.inserted || 0
-        skipped += data.skipped || 0
-        khachMoi += data.so_khach_moi || 0
+        if (data?.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
+        imported += data?.imported || data?.inserted || 0
+        skipped += data?.skipped || 0
+        khachMoi += data?.so_khach_moi || 0
       }
 
       // Tự tính lại CK theo chuẩn engine sau khi import
-      if (offline) {
+      if (usedOffline) {
         const tinh = await tinhHetLocal(records)
         setResult(
           `Import ${imported} dòng thành công (offline — lưu local). ` +
@@ -272,44 +289,49 @@ export default function CheckChietKhauPage() {
     }
   }
 
+  const tinhHetOffline = async () => {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const localData: any = await invoke('local_query', { table: 'check-chiet-khau', limit: 100000 })
+    const rows = localData?.rows || []
+    if (rows.length === 0) {
+      setResult('Không có dữ liệu để tính. Hãy import file trước.')
+      return
+    }
+    const results = await tinhHetLocal(rows)
+    for (const r of results) {
+      if (r.id) {
+        await invoke('db_exec', {
+          sql: `UPDATE check_chiet_khau_test_local SET
+            ck1_pct=?, ck2_pct=?, ck3_pct=?, tong_pct=?, ck_tinh=?,
+            nhom_mau=?, dieu_kien=?, giai_thich=?
+            WHERE id=?`,
+          params: [
+            r.ck1_pct ?? 0, r.ck2_pct ?? 0, r.ck3_pct ?? 0,
+            r.tong_pct ?? 0, r.ck_tinh ?? 0,
+            r.nhom_mau ?? '', r.dieu_kien ?? '', r.giai_thich ?? '',
+            r.id,
+          ],
+        })
+      }
+    }
+    setResult(`Đã tính lại CK offline cho ${results.length} dòng.`)
+    refresh()
+  }
+
   const handleTinhHet = async () => {
     setTinhHet(true); setError(null); setResult(null)
     try {
-      const offline = isTauriApp() && !isOnline()
-      if (offline) {
-        // Offline: read all rows from local SQLite, calculate, update
-        const { invoke } = await import('@tauri-apps/api/core')
-        const localData: any = await invoke('local_query', { table: 'check-chiet-khau', limit: 100000 })
-        const rows = localData?.rows || []
-        if (rows.length === 0) {
-          setResult('Không có dữ liệu để tính. Hãy import file trước.')
-          return
-        }
-        const results = await tinhHetLocal(rows)
-        // Update each row in local SQLite
-        for (const r of results) {
-          if (r.id) {
-            await invoke('db_exec', {
-              sql: `UPDATE check_chiet_khau_test_local SET
-                ck1_pct=?, ck2_pct=?, ck3_pct=?, tong_pct=?, ck_tinh=?,
-                nhom_mau=?, dieu_kien=?, giai_thich=?
-                WHERE id=?`,
-              params: [
-                r.ck1_pct ?? 0, r.ck2_pct ?? 0, r.ck3_pct ?? 0,
-                r.tong_pct ?? 0, r.ck_tinh ?? 0,
-                r.nhom_mau ?? '', r.dieu_kien ?? '', r.giai_thich ?? '',
-                r.id,
-              ],
-            })
-          }
-        }
-        setResult(`Đã tính lại CK offline cho ${results.length} dòng.`)
-        refresh()
-      } else {
+      try {
         const tinh = await apiPost(`${API_PATH}/tinh-het`, {})
         if (tinh.error) throw new Error(tinh.error)
         setResult(tinh.message || 'Đã tính lại CK.')
         refresh()
+      } catch (err: any) {
+        if (isTauriApp() && (err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('Connect') || err.message?.includes('timeout') || err.message?.includes('reqwest'))) {
+          await tinhHetOffline()
+        } else {
+          throw err
+        }
       }
     } catch (e: any) { setError(e.message) }
     finally { setTinhHet(false) }

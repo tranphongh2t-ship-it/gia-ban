@@ -99,6 +99,19 @@ function canServeOffline(path: string): boolean {
 export function initOfflineListener() {
   if (!_isTauri) return
   try {
+    // Initial online check — don't wait 10s for first event
+    getTauriInvoke().then(invoke => {
+      if (invoke) {
+        invoke('check_online').then((online: any) => {
+          _isOnline = !!online
+          // If offline on startup, mark local as ready (user can import/export locally)
+          if (!_isOnline) _localReady = true
+        }).catch(() => {
+          _isOnline = false
+          _localReady = true
+        })
+      }
+    })
     // @ts-ignore
     window.__TAURI__?.event?.listen?.('online-status', (e: any) => {
       const wasOffline = !_isOnline
@@ -241,9 +254,14 @@ export async function apiGet(path: string, headers?: Record<string, string>) {
 export async function apiPost(path: string, body: unknown, headers?: Record<string, string>) {
   const invoke = await getTauriInvoke()
   if (invoke) {
-    const r = await invoke('api_post', { url: path, body, headers: authHeaders(headers) })
-    if (r?.error) throw new Error(r.error)
-    return r
+    try {
+      const r = await invoke('api_post', { url: path, body, headers: authHeaders(headers) })
+      if (r?.error) throw new Error(r.error)
+      return r
+    } catch (err: any) {
+      // Network error in Tauri — rethrow so caller can handle
+      throw err
+    }
   }
   if (isElectronApp()) {
     const r = await window.electronAPI!.apiPost(path, body, authHeaders(headers))

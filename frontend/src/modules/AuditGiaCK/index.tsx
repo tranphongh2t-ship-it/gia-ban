@@ -230,27 +230,42 @@ export default function AuditGiaCKPage() {
       if (records.length === 0) throw new Error('Không có dòng dữ liệu hợp lệ trong file')
 
       let imported = 0, skipped = 0, maMisaAdded = 0, giaGocAdded = 0
-      const offline = isTauriApp() && !isOnline()
+      let usedOffline = false
+      let tryOffline = isTauriApp() && !isOnline()
       for (let i = 0; i < records.length; i += CHUNK) {
         const chunk = records.slice(i, i + CHUNK)
         let data: any
-        if (offline) {
+        if (tryOffline) {
           data = await apiPostOffline(`${API_PATH}/import-rows`, { rows: chunk }, {
             table: 'check-gia-goc-ck',
             keyFields: ['ngay', 'so_ct', 'ma_hang'],
           })
+          usedOffline = true
         } else {
-          data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+          try {
+            data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
+          } catch (err: any) {
+            if (isTauriApp() && (err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('Connect') || err.message?.includes('timeout') || err.message?.includes('reqwest'))) {
+              tryOffline = true
+              usedOffline = true
+              data = await apiPostOffline(`${API_PATH}/import-rows`, { rows: chunk }, {
+                table: 'check-gia-goc-ck',
+                keyFields: ['ngay', 'so_ct', 'ma_hang'],
+              })
+            } else {
+              throw err
+            }
+          }
         }
-        if (data.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
-        imported += data.imported || data.inserted || 0
-        skipped += data.skipped || 0
-        maMisaAdded += data.ma_misa_added || 0
-        giaGocAdded += data.gia_goc_added || 0
+        if (data?.error) throw new Error(data.error || `Lỗi chunk ${Math.floor(i / CHUNK) + 1}`)
+        imported += data?.imported || data?.inserted || 0
+        skipped += data?.skipped || 0
+        maMisaAdded += data?.ma_misa_added || 0
+        giaGocAdded += data?.gia_goc_added || 0
       }
 
       // Tự chạy luồng "Phân tích & tự xử lý file audit" sau khi import toàn bộ file
-      if (!offline) {
+      if (!usedOffline) {
         const auto = await apiPost(`${API_PATH}/auto-xu-ly`, {})
         if (auto.error) throw new Error('Lỗi tự xử lý: ' + auto.error)
         setResult(
