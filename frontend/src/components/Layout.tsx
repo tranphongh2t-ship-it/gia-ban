@@ -51,7 +51,7 @@ const PATH_ICONS: Record<string, string> = {
   '/bang-gia-ck': '⌗', '/phan-bo-kh': '⇋', '/danh-sach-khach': '☰',
   '/so-sanh-gia-goc': '⇵', '/so-chi-tiet-ban-hang': '▤', '/audit-gia-ck': '☑', '/so-doi-chieu': '☑', '/check-chiet-khau': '☑', '/bang-khach-thang': '☑', '/don-hang-excel': '▣',
   '/tinh-gia-goc': '¤',
-  '/import-export': '⇅', '/phu-thu': '⊕', '/phan-quyen': '☷',
+  '/import-export': '⇅', '/phu-thu': '⊕',   '/phan-quyen': '☷', '/quan-ly-tai-khoan': '☰', '/nhat-ky-thiet-bi': '▤',
   '/chiet-khau': '⌗', '/bang-ck-thang': '▤', '/quan-ly-thang': '◫', '/danh-sach-khach-nhom': '☰', '/log-thay-doi': '▤',
 }
 
@@ -321,6 +321,8 @@ export default function Layout() {
       { label: 'Import/Export', path: '/import-export', perm: 'menu:/import-export' },
       { label: 'Phụ thu', path: '/phu-thu', perm: 'menu:/phu-thu' },
       { label: 'Phân quyền', path: '/phan-quyen', perm: 'menu:/phan-quyen' },
+      { label: 'Quản lý tài khoản', path: '/quan-ly-tai-khoan', perm: 'menu:/quan-ly-tai-khoan' },
+      { label: 'Nhật ký thiết bị', path: '/nhat-ky-thiet-bi', perm: 'menu:/nhat-ky-thiet-bi' },
       { label: 'Log lịch sử thay đổi', path: '/log-thay-doi', perm: 'menu:/log-thay-doi' },
     ]},
   ]

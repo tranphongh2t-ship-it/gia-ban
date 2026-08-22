@@ -48,6 +48,8 @@ import TinhGiaMirrorPage from './modules/TinhGiaMirror'
 import GiaGocTongHopPage from './modules/GiaGocTongHop'
 import KiemTraBangTinhGiaPage from './modules/KiemTraBangTinhGia'
 import Profile from './modules/Profile'
+import QuanLyTaiKhoan from './modules/QuanLyTaiKhoan'
+import NhatKyThietBi from './modules/NhatKyThietBi'
 import { AuthProvider } from './lib/auth'
 import { LockProvider } from './lib/lock'
 import UpdatePrompt from './components/UpdatePrompt'
@@ -128,6 +130,8 @@ function App() {
               <Route path="/tinh-gia-mirror" element={<TinhGiaMirrorPage />} />
               <Route path="/gia-goc-tong-hop" element={<GiaGocTongHopPage />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/quan-ly-tai-khoan" element={<QuanLyTaiKhoan />} />
+              <Route path="/nhat-ky-thiet-bi" element={<NhatKyThietBi />} />
               <Route path="/kiem-tra-bang-tinh-gia" element={<KiemTraBangTinhGiaPage />} />
             </Route>
           </Routes>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
-import { apiPost, apiGet } from './api'
+import { apiPost, apiGet, logDeviceActivity } from './api'
 
 export interface AuthUser {
   id: number
@@ -63,11 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const u: AuthUser = { ...res, is_admin: res.is_admin }
     localStorage.setItem('auth_user', JSON.stringify(u))
     setUser(u)
+    logDeviceActivity('login', `User "${username}" logged in`)
   }, [])
 
   const logout = useCallback(() => {
+    const stored = localStorage.getItem('auth_user')
+    let userName = ''
+    try { userName = JSON.parse(stored || '{}').ten || '' } catch { /* ignore */ }
     localStorage.removeItem('auth_user')
     setUser(null)
+    logDeviceActivity('logout', `User "${userName}" logged out`)
   }, [])
 
   const hasPermission = useCallback((perm: string) => {

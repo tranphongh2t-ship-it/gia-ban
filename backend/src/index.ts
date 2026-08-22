@@ -27,6 +27,7 @@ import giaChuanRouter from './routes/gia-chuan'
 import userPrefsRouter from './routes/user-prefs'
 import bangGiaLockRouter from './routes/bang-gia-lock'
 import chietKhauRouter from './routes/chiet-khau'
+import deviceLogsRouter from './routes/device-logs'
 
 type Bindings = {
   DB: D1Database
@@ -86,6 +87,7 @@ app.route('/api/gia-chuan', giaChuanRouter)
 app.route('/api/user-prefs', userPrefsRouter)
 app.route('/api/bang-gia-lock', bangGiaLockRouter)
 app.route('/api/chiet-khau', chietKhauRouter)
+app.route('/api/device-logs', deviceLogsRouter)
 
 export default app
 

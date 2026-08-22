@@ -113,6 +113,51 @@ export async function tauriTestDialog(): Promise<string> {
   return invoke('test_dialog')
 }
 
+// ─── Log Device Activity ────────────────────────────────────────
+function getDeviceId(): string {
+  try {
+    let id = localStorage.getItem('tt_device_id')
+    if (!id) {
+      id = 'web-' + Math.random().toString(36).slice(2, 10)
+      localStorage.setItem('tt_device_id', id)
+    }
+    return id
+  } catch { return 'unknown' }
+}
+
+export async function logDeviceActivity(action: string, detail?: string) {
+  const user = JSON.parse(localStorage.getItem('auth_user') || 'null')
+  const deviceId = getDeviceId()
+  const body = {
+    device_id: deviceId,
+    user_name: user?.ten || null,
+    user_id: user?.id || null,
+    action,
+    detail: detail || null,
+    app_version: 'web',
+  }
+  try {
+    if (_isTauri) {
+      const invoke = await getTauriInvoke()
+      if (invoke) {
+        await invoke('log_activity', {
+          device_id: deviceId,
+          user_name: user?.ten || null,
+          user_id: user?.id || null,
+          action,
+          detail: detail || null,
+        })
+        return
+      }
+    }
+    await fetch(`${API_BASE}/device-logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch { /* best effort */ }
+}
+
 // ─── API GET — with offline fallback ─────────────────────────────
 export async function apiGet(path: string, headers?: Record<string, string>) {
   const invoke = await getTauriInvoke()

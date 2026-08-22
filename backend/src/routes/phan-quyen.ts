@@ -40,6 +40,8 @@ const ALL_MENU_ITEMS = [
   { key: 'menu:/import-export', label: 'Import/Export', group: 'Công cụ' },
   { key: 'menu:/phu-thu', label: 'Phụ thu', group: 'Công cụ' },
   { key: 'menu:/phan-quyen', label: 'Phân quyền', group: 'Công cụ' },
+  { key: 'menu:/quan-ly-tai-khoan', label: 'Quản lý tài khoản', group: 'Công cụ' },
+  { key: 'menu:/nhat-ky-thiet-bi', label: 'Nhật ký thiết bị', group: 'Công cụ' },
   { key: 'menu:/log-thay-doi', label: 'Log lịch sử thay đổi', group: 'Công cụ' },
 ]
 
@@ -97,15 +99,85 @@ async function seedAdmin(db: D1Database) {
   return Number(result.meta.last_row_id)
 }
 
-// GET /api/auth/users — danh sách người dùng
+// GET /api/auth/users — danh sách người dùng (admin: xem full info including password status)
 router.get('/users', async (c) => {
   const { DB } = c.env
   await ensureTables(DB)
   await seedAdmin(DB)
+
+  const requestUserId = c.req.header('x-user-id')
+  const isAdmin = await (async () => {
+    if (!requestUserId) return false
+    const u = await DB.prepare(`SELECT vai_tro FROM nhan_vien WHERE id = ?`).bind(requestUserId).first() as any
+    return u?.vai_tro === 'admin'
+  })()
+
+  if (isAdmin) {
+    // Admin sees full info: password status, email, role, online status
+    const users = await DB.prepare(
+      `SELECT id, ten, email, vai_tro, trang_thai, last_seen_at,
+              CASE WHEN mat_khau IS NOT NULL AND mat_khau != '' THEN 1 ELSE 0 END AS has_password,
+              ${onlineExpr()} AS online
+       FROM nhan_vien ORDER BY CASE WHEN vai_tro = 'admin' THEN 0 ELSE 1 END, ten`
+    ).all()
+    return c.json(users.results || [])
+  }
+
+  // Non-admin: limited info
   const users = await DB.prepare(
     `SELECT id, ten, email, vai_tro, trang_thai, last_seen_at, ${onlineExpr()} AS online FROM nhan_vien ORDER BY ten`
   ).all()
   return c.json(users.results || [])
+})
+
+// POST /api/auth/admin/reset-password — Admin reset password cho user khác
+router.post('/admin/reset-password', async (c) => {
+  const { DB } = c.env
+  await ensureTables(DB)
+  const requestUserId = c.req.header('x-user-id')
+  if (!requestUserId) return c.json({ error: 'Unauthorized' }, 401)
+
+  const admin = await DB.prepare(`SELECT vai_tro FROM nhan_vien WHERE id = ?`).bind(requestUserId).first() as any
+  if (!admin || admin.vai_tro !== 'admin') return c.json({ error: 'Admin only' }, 403)
+
+  const { user_id, new_password } = await c.req.json()
+  if (!user_id || !new_password) return c.json({ error: 'Missing user_id or new_password' }, 400)
+  if (new_password.length < 4) return c.json({ error: 'Password must be >= 4 characters' }, 400)
+
+  const user = await DB.prepare(`SELECT id, ten FROM nhan_vien WHERE id = ?`).bind(user_id).first() as any
+  if (!user) return c.json({ error: 'User not found' }, 404)
+
+  const hash = await hashPass(new_password)
+  await DB.prepare(`UPDATE nhan_vien SET mat_khau = ? WHERE id = ?`).bind(hash, user_id).run()
+
+  return c.json({ success: true, message: `Reset password for "${user.ten}"` })
+})
+
+// GET /api/auth/admin/user-detail/:id — Chi tiết user (admin only)
+router.get('/admin/user-detail/:id', async (c) => {
+  const { DB } = c.env
+  await ensureTables(DB)
+  const requestUserId = c.req.header('x-user-id')
+  if (!requestUserId) return c.json({ error: 'Unauthorized' }, 401)
+  const admin = await DB.prepare(`SELECT vai_tro FROM nhan_vien WHERE id = ?`).bind(requestUserId).first() as any
+  if (!admin || admin.vai_tro !== 'admin') return c.json({ error: 'Admin only' }, 403)
+
+  const id = parseInt(c.req.param('id'))
+  const user = await DB.prepare(
+    `SELECT id, ten, email, vai_tro, trang_thai, last_seen_at,
+            CASE WHEN mat_khau IS NOT NULL AND mat_khau != '' THEN 1 ELSE 0 END AS has_password,
+            ${onlineExpr()} AS online
+     FROM nhan_vien WHERE id = ?`
+  ).bind(id).first() as any
+  if (!user) return c.json({ error: 'User not found' }, 404)
+
+  // Get device logs summary for this user
+  const logs = await DB.prepare(
+    `SELECT action, COUNT(*) as count, MAX(created_at) as last_at
+     FROM device_logs WHERE user_name = ? GROUP BY action ORDER BY last_at DESC`
+  ).bind(user.ten).all()
+
+  return c.json({ user, device_logs: logs.results || [] })
 })
 
 // POST /api/auth/heartbeat — cập nhật last_seen_at của user đang đăng nhập
