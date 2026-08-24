@@ -89,6 +89,40 @@ app.route('/api/bang-gia-lock', bangGiaLockRouter)
 app.route('/api/chiet-khau', chietKhauRouter)
 app.route('/api/device-logs', deviceLogsRouter)
 
+// ─── Generic D1 query: serves any table for offline sync ──────────
+// Whitelist: only tables that exist in SYNC_TABLES on the desktop app
+const D1_WHITELIST = new Set([
+  'khach_hang', 'ma_misa', 'phu_thu', 'phan_bo_kh',
+  'bang_gia_ck', 'bang_gia_cot_go', 'bang_gia_nhom_mau', 'bang_gia_ma_mau',
+  'gia_ban', 'bang_gia_veneers', 'bang_gia_chi', 'bang_gia_keo_nong',
+  'bang_gia_acrylic_foil', 'bang_gia_van_phu_acrylic', 'bang_gia_laminate_one',
+  'bang_gia_pvc_film', 'bang_gia_van_phu_pvc', 'bang_gia_nhua_pvc',
+  'bang_gia_nhua_phu_mau', 'bang_gia_nhua_laminate', 'bang_gia_osb_laminate',
+  'so_chi_tiet_ban_hang', 'don_hang_excel',
+  'so_doi_chieu', 'check_chiet_khau_test', 'check_gia_goc_ck',
+  'khach_theo_thang', 'ck_op1', 'ck_op2', 'op2_bac_thang',
+  'policy_rules', 'ck_van_chuyen', 'ma_hang_nhom_mau',
+  'policy_revenue_tiers', 'monthly_summary',
+  'danh_sach_khach',
+])
+
+app.get('/api/d1/:table', async (c) => {
+  const table = c.req.param('table')
+  if (!D1_WHITELIST.has(table)) {
+    return c.json({ error: 'table not allowed', table }, 404)
+  }
+  const limit = Math.min(Number(c.req.query('limit') || 50000), 50000)
+  const offset = Number(c.req.query('offset') || 0)
+  try {
+    const result = await c.env.DB.prepare(`SELECT * FROM ${table} LIMIT ? OFFSET ?`)
+      .bind(limit, offset)
+      .all()
+    return c.json({ data: result.results, total: result.results.length })
+  } catch (e: any) {
+    return c.json({ error: e.message, table }, 500)
+  }
+})
+
 export default app
 
 
