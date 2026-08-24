@@ -290,7 +290,7 @@ export async function apiPostOffline(path: string, body: unknown, options?: {
   if (invoke) {
     if (options?.table && options?.keyFields) {
       // ALWAYS save to local SQLite (works both online & offline)
-      const records = Array.isArray(body) ? body : (body as any)?.records || [body]
+      const records = Array.isArray(body) ? body : (body as any)?.records || (body as any)?.rows || [body]
       const r = await invoke('local_import_rows', {
         table: options.table,
         records,
