@@ -63,6 +63,18 @@ export function setOnline(v: boolean) { _isOnline = v }
 export function isLocalReady(): boolean { return _localReady }
 export function setLocalReady(v: boolean) { _localReady = v }
 
+// ─── Check if local SQLite has reference data for offline CK calc ──
+export async function checkLocalDataReady(): Promise<{ ready: boolean; details: Record<string, number> }> {
+  const invoke = await getTauriInvoke()
+  if (!invoke) return { ready: false, details: {} }
+  try {
+    const r: any = await invoke('check_local_data')
+    return { ready: !!r?._ready, details: r || {} }
+  } catch {
+    return { ready: false, details: {} }
+  }
+}
+
 // Tables available offline (must match SYNC_TABLES in offline.rs)
 const OFFLINE_TABLES = new Set([
   // Core master data

@@ -552,7 +552,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       }
 
       const res = await apiGet(`${apiPath}?${params}`)
-      setData(res.data || []); setTotal(res.total || 0)
+      setData(res.data || res.rows || []); setTotal(res.total || 0)
     } catch (e: any) { setError(e.message) }
     finally { setLoading(false) }
   }, [apiPath, search, limit, offset, filters, extraFilters, demoMode, localRows, sortKey, sortDir])

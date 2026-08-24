@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { colors } from '../theme'
 import { useAuth } from '../lib/auth'
-import { isOnline, isLocalReady, isTauriApp } from '../lib/api'
+import { isOnline, isLocalReady, isTauriApp, checkLocalDataReady } from '../lib/api'
 import LoginOverlay from './LoginOverlay'
 import BangGiaLockToggle from './BangGiaLockToggle'
 
@@ -180,6 +180,7 @@ export default function Layout() {
   const nav = useNavigate()
 
   const [collapsed, setCollapsed] = useState(false)
+  const [localDataInfo, setLocalDataInfo] = useState<{ ready: boolean; total: number }>({ ready: true, total: 0 })
   useEffect(() => {
     try {
       const v = localStorage.getItem('tt_sidebar_collapsed')
@@ -193,6 +194,15 @@ export default function Layout() {
       return next
     })
   }
+
+  // Check local data readiness when offline
+  useEffect(() => {
+    if (isTauriApp()) {
+      checkLocalDataReady().then(r => {
+        setLocalDataInfo({ ready: r.ready, total: Object.values(r.details).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0) })
+      }).catch(() => {})
+    }
+  }, [])
 
   const curSidebarW = collapsed ? sidebarWCollapsed : sidebarW
 
@@ -432,7 +442,7 @@ export default function Layout() {
               </span>
             )}
           </div>
-          {!collapsed && <div>v0.4.5</div>}
+          {!collapsed && <div>v0.4.6</div>}
         </div>
       </nav>
       <button onClick={toggleCollapsed} title={collapsed ? 'Xổ menu ra (mở rộng)' : 'Thu menu vào (gọn)'}
@@ -447,9 +457,11 @@ export default function Layout() {
         }}>{collapsed ? '⮞' : '⮜'}</button>
       <main className="main-content" style={{ ...contentStyle, marginLeft: curSidebarW, transition: 'margin-left 160ms ease' }}>
         {isTauriApp() && !isOnline() && (
-          <div style={{ padding: '6px 20px', background: 'rgba(245,159,0,0.15)', borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 12, color: colors.warning, fontWeight: 600 }}>⚡ Mất kết nối internet - Đang dùng dữ liệu ngoại tuyến</span>
-            {isLocalReady() && <span style={{ fontSize: 11, color: colors.textMuted }}>(Đã tải sẵn {isOnline() ? '' : 'dữ liệu nền'})</span>}
+          <div style={{ padding: '6px 20px', background: localDataInfo.ready ? 'rgba(245,159,0,0.15)' : 'rgba(220,53,69,0.15)', borderBottom: `1px solid ${localDataInfo.ready ? colors.warning : colors.danger}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: localDataInfo.ready ? colors.warning : colors.danger, fontWeight: 600 }}>
+              {localDataInfo.ready ? '⚡ Mất kết nối internet - Đang dùng dữ liệu ngoại tuyến' : '⚠ Chưa có dữ liệu tham chiếu offline - Cần kết nối internet 1 lần để tải dữ liệu'}
+            </span>
+            {localDataInfo.ready && localDataInfo.total > 0 && <span style={{ fontSize: 11, color: colors.textMuted }}>({localDataInfo.total} dòng dữ liệu nền)</span>}
           </div>
         )}
         {currentPerm === 'menu:/bang-tinh-gia' && (
