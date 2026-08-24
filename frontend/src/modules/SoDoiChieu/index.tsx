@@ -291,7 +291,7 @@ export default function SoDoiChieuPage() {
       const tinh = await apiPost(`${API_PATH}/tinh-het`, {})
       return tinh
     } catch (err: any) {
-      if (isTauriApp() && (err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('Connect') || err.message?.includes('timeout') || err.message?.includes('reqwest'))) {
+      if (isTauriApp() && (err.message === 'offline' || err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('Connect') || err.message?.includes('timeout') || err.message?.includes('reqwest'))) {
         return await recomputeOffline()
       }
       throw err
@@ -426,7 +426,7 @@ export default function SoDoiChieuPage() {
           try {
             data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
           } catch (err: any) {
-            if (isTauriApp() && (err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('Connect') || err.message?.includes('timeout') || err.message?.includes('reqwest'))) {
+            if (isTauriApp() && (err.message === 'offline' || err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('Connect') || err.message?.includes('timeout') || err.message?.includes('reqwest'))) {
               tryOffline = true
               usedOffline = true
               data = await apiPostOffline(`${API_PATH}/import-rows`, { rows: chunk }, {

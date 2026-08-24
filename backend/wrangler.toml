@@ -6,8 +6,8 @@ compatibility_date = "2026-07-01"
 # Khi có bản mới: nâng APP_VERSION, đổi APP_INSTALLER_URL thành link download setup mới,
 # rồi `wrangler deploy`. 30 máy sẽ tự bật POPUP cập nhật.
 [vars]
-APP_VERSION = "0.4.4"
-APP_INSTALLER_URL = "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/download/v0.4.4/thanh-thuy-price-0.4.4-x64-setup.exe"
+APP_VERSION = "0.4.5"
+APP_INSTALLER_URL = "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/download/v0.4.5/thanh-thuy-price-0.4.5-x64-setup.exe"
 APP_UPDATE_NOTES = "Offline-first: Mất mạng vẫn xem dữ liệu. Backup 5 file JSON xoay vòng 7 ngày. Tự sync khi có mạng."
 
 [[d1_databases]]

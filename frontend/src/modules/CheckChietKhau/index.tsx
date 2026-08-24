@@ -247,7 +247,7 @@ export default function CheckChietKhauPage() {
             data = await apiPost(`${API_PATH}/import-rows`, { rows: chunk })
           } catch (err: any) {
             // Network error → fallback to offline for remaining chunks
-            if (isTauriApp() && (err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('Connect') || err.message?.includes('timeout') || err.message?.includes('reqwest'))) {
+            if (isTauriApp() && (err.message === 'offline' || err.message?.includes('network') || err.message?.includes('fetch') || err.message?.includes('Connect') || err.message?.includes('timeout') || err.message?.includes('reqwest'))) {
               tryOffline = true
               usedOffline = true
               data = await apiPostOffline(`${API_PATH}/import-rows`, { rows: chunk }, {

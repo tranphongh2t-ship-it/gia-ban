@@ -223,6 +223,7 @@ export async function apiGet(path: string, headers?: Record<string, string>) {
     try {
       const r = await invoke('api_get', { url: path, headers: authHeaders(headers) })
       if (r?.error) throw new Error(r.error)
+      if (r?.offline) throw new Error('offline')
       return r
     } catch (err) {
       // If network error AND table is syncable → fallback to local
@@ -257,9 +258,9 @@ export async function apiPost(path: string, body: unknown, headers?: Record<stri
     try {
       const r = await invoke('api_post', { url: path, body, headers: authHeaders(headers) })
       if (r?.error) throw new Error(r.error)
+      if (r?.offline) throw new Error('offline')
       return r
     } catch (err: any) {
-      // Network error in Tauri — rethrow so caller can handle
       throw err
     }
   }
