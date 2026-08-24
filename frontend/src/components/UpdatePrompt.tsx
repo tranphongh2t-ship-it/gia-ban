@@ -143,11 +143,17 @@ export default function UpdatePrompt() {
         const { invoke } = await import('@tauri-apps/api/core')
         await invoke('install_update', { url: info?.url })
       } catch (e: any) {
-        setError(e?.toString?.() || 'Lỗi cập nhật')
+        setError('Tự động cài đặt thất bại. Vui lòng tải về và cài đặt thủ công.')
       }
     } else {
       const res = await (window as any).electronAPI?.installUpdate?.()
       if (res && !res.ok && res.error) setError(res.error)
+    }
+  }
+
+  const handleManualDownload = () => {
+    if (info?.url) {
+      window.open(info.url, '_blank')
     }
   }
 
@@ -186,7 +192,7 @@ export default function UpdatePrompt() {
             </p>
             {error && (
               <p style={{ margin: '0 0 12px', fontSize: 12.5, color: colors.danger }}>
-                Lỗi cập nhật: {error}
+                {error}
               </p>
             )}
             <div style={actions}>
@@ -196,6 +202,14 @@ export default function UpdatePrompt() {
               >
                 Bỏ qua
               </button>
+              {info?.url && (
+                <button
+                  style={{ ...btn(colors.surfaceSecondary, colors.textSecondary, 'md'), border: `1px solid ${colors.border}` }}
+                  onClick={handleManualDownload}
+                >
+                  Tải về thủ công
+                </button>
+              )}
               <button
                 style={{ ...btn(colors.info, '#fff', 'md'), boxShadow: shadow.cardHover }}
                 onClick={handleInstall}

@@ -442,7 +442,7 @@ export default function Layout() {
               </span>
             )}
           </div>
-          {!collapsed && <div>v0.4.8</div>}
+          {!collapsed && <div>v0.4.9</div>}
         </div>
       </nav>
       <button onClick={toggleCollapsed} title={collapsed ? 'Xổ menu ra (mở rộng)' : 'Thu menu vào (gọn)'}
