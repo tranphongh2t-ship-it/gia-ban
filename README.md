@@ -195,6 +195,47 @@ frontend/
 
 ---
 
+## D1 Index Guidelines
+
+**Luôn luôn** thêm index khi tạo table mới hoặc thêm column mới dùng trong WHERE/JOIN/ORDER BY.
+
+### Free tier limits (Important!)
+- **Reads:** 5M/day (5 machines × ~100 requests/machine/day × ~15 queries/request = ~7,500 reads/day → an toàn)
+- **Writes:** 100K/day (imports 1-2 lần/ngày × ~2K rows = ~4K writes/day → dư)
+- **Backup:** 1 backup/ngày × ~45MB = ~45MB/ngày
+
+### Migration pattern
+```sql
+-- Luôn dùng IF NOT EXISTS để migration idempotent
+CREATE INDEX IF NOT EXISTS idx_table_column ON table_name(column);
+
+-- Composite index cho multi-column WHERE
+CREATE INDEX IF NOT EXISTS idx_table_col1_col2 ON table_name(col1, col2);
+```
+
+### Current indexes (0097)
+| Table | Index | Columns | Purpose |
+|-------|-------|---------|---------|
+| `so_chi_tiet_ban_hang` | `idx_sctbh_ma_hang` | `ma_hang` | Product lookup |
+| `so_chi_tiet_ban_hang` | `idx_sctbh_ma_kh` | `ma_kh` | Customer lookup |
+| `so_chi_tiet_ban_hang` | `idx_sctbh_kh_ngay` | `ma_kh, ngay` | Progressive revenue calc |
+| `danh_sach_khach` | `idx_dskh_nhom` | `nhom` | Group filter |
+| `danh_sach_khach` | `idx_dskh_vung` | `vung` | Region filter |
+| `khach_hang` | `idx_kh_sales_phu_trach` | `sales_phu_trach_id` | Permission cleanup |
+| `check_chiet_khau_test` | `idx_cck_ma_ngay` | `ma_hang, ngay` | CK calculation |
+| `check_chiet_khau_test` | `idx_cck_created_owner` | `created_at, owner_user_id` | TTL cleanup |
+| `so_doi_chieu` | `idx_sdc_ma_ngay_ct` | `ma_hang, ngay_chung_tu, so_chung_tu` | Sync lookup |
+| `so_doi_chieu` | `idx_sdc_created_owner` | `created_at, owner_user_id` | TTL cleanup |
+
+### Rules
+1. **Query前三思:** Phân tích query sẽ dùng `WHERE`, `JOIN`, `ORDER BY` gì
+2. **Index trước khi deploy:** Không deploy code dùng WHERE trên column chưa có index
+3. **Verify bằng EXPLAIN QUERY PLAN:** Luôn check D1 dùng đúng index
+4. **Tránh over-indexing:** Index tăng write time, chỉ tạo cho columns filter thường xuyên
+5. **PRAGMA optimize:** Cuối migration chạy `PRAGMA optimize;` để D1 cập nhật statistics
+
+---
+
 ## API Endpoints
 
 ### Health & Debug
