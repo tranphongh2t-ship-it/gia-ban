@@ -170,7 +170,9 @@ export default function UpdatePrompt() {
         <>
           <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 500, color: colors.text }}>
             {progress.state === 'downloading'
-              ? `Đang tải bản cập nhật ${info ? info.version : ''}... ${progress.percent}%`
+              ? progress.percent > 0
+                ? `Đang tải bản cập nhật ${info ? info.version : ''}... ${progress.percent}%`
+                : `Đang tải bản cập nhật ${info ? info.version : ''}... ${(progress as any).received_mb || '...'} MB`
               : 'Đang cài đặt... Windows sẽ hỏi xác nhận (UAC) một lần.'}
           </p>
           <div style={track}>

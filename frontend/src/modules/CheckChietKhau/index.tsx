@@ -27,8 +27,9 @@ const FIELD_ALIASES: Record<string, string[]> = {
   gt_tra: ['giá trị trả'],
   gt_giam: ['giá trị giảm'],
   thue: ['thuế'],
+  gia_goc: ['giá gốc', 'giá gốc misa', 'giá misa'],
 }
-const NUM_FIELDS = ['sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue']
+const NUM_FIELDS = ['sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'gia_goc']
 
 function normHeader(v: any): string {
   return String(v ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -81,6 +82,7 @@ const columns: Column[] = [
   { key: 'sl_ban', label: 'SL bán', type: 'number' },
   { key: 'don_gia', label: 'Đơn giá', type: 'number' },
   { key: 'doanh_so', label: 'Doanh số', type: 'number' },
+  { key: 'gia_goc', label: 'Giá Gốc (Misa)', type: 'number' },
   { key: 'ck', label: 'CK thực tế', type: 'number' },
   {
     key: 'ck_pct_thuc_te', label: 'CK % (gốc)', type: 'number', computed: true,
@@ -123,7 +125,17 @@ const columns: Column[] = [
       return <span style={{ fontWeight: 700, color: ok ? '#16a34a' : '#dc2626' }}>{ok ? 'Đúng' : 'Sai'}</span>
     },
   },
+  { key: 'nhom_mau', label: 'Nhóm màu', type: 'text' },
+  {
+    key: 'chenh_lech', label: 'Chênh lệch', type: 'number',
+    render: (v, r) => {
+      const n = Number(v)
+      if (isNaN(n) || v === null || v === undefined) return '—'
+      return <span style={{ fontWeight: 700, color: n === 0 ? '#16a34a' : '#dc2626' }}>{formatNum(n)}đ</span>
+    },
+  },
   { key: 'dieu_kien', label: 'Điều kiện CK' },
+  { key: 'giai_thich', label: 'Giải thích', type: 'text' },
   {
     key: 'sua_ghichu', label: 'Ghi chú sửa', type: 'text',
     render: (v) => v ? <span style={{ color: '#b45309' }}>{v}</span> : '—',
@@ -268,6 +280,34 @@ export default function CheckChietKhauPage() {
       // Tự tính lại CK theo chuẩn engine sau khi import
       if (usedOffline) {
         const tinh = await tinhHetLocal(records)
+        // Lưu kết quả CK tính được vào local SQLite
+        const { invoke } = await import('@tauri-apps/api/core')
+        // Ensure CK columns exist (first import may not have them)
+        const ckCols = ['gia_goc', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'nhom_mau', 'dieu_kien', 'giai_thich', 'chenh_lech']
+        for (const col of ckCols) {
+          await invoke('db_exec', {
+            sql: `ALTER TABLE check_chiet_khau_test_local ADD COLUMN ${col} TEXT`,
+            params: [],
+          }).catch(() => {})
+        }
+        for (const r of tinh) {
+          if (r.ma_hang && r.ngay) {
+            await invoke('db_exec', {
+              sql: `UPDATE check_chiet_khau_test_local SET
+                gia_goc=?, ck1_pct=?, ck2_pct=?, ck3_pct=?, tong_pct=?, ck_tinh=?,
+                nhom_mau=?, dieu_kien=?, giai_thich=?, chenh_lech=?
+                WHERE ma_hang=? AND ngay=? AND so_ct=?`,
+              params: [
+                r.gia_goc ?? 0,
+                r.ck1_pct ?? 0, r.ck2_pct ?? 0, r.ck3_pct ?? 0,
+                r.tong_pct ?? 0, r.ck_tinh ?? 0,
+                r.nhom_mau ?? '', r.dieu_kien ?? '', r.giai_thich ?? '',
+                r.chenh_lech ?? 0,
+                r.ma_hang, r.ngay, r.so_ct ?? '',
+              ],
+            })
+          }
+        }
         setResult(
           `Import ${imported} dòng thành công (offline — lưu local). ` +
           `Đã tính CK cho ${tinh.length} dòng.`
@@ -298,17 +338,27 @@ export default function CheckChietKhauPage() {
       return
     }
     const results = await tinhHetLocal(rows)
+    // Ensure CK columns exist
+    const ckCols = ['gia_goc', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'nhom_mau', 'dieu_kien', 'giai_thich', 'chenh_lech']
+    for (const col of ckCols) {
+      await invoke('db_exec', {
+        sql: `ALTER TABLE check_chiet_khau_test_local ADD COLUMN ${col} TEXT`,
+        params: [],
+      }).catch(() => {})
+    }
     for (const r of results) {
       if (r.id) {
         await invoke('db_exec', {
           sql: `UPDATE check_chiet_khau_test_local SET
-            ck1_pct=?, ck2_pct=?, ck3_pct=?, tong_pct=?, ck_tinh=?,
-            nhom_mau=?, dieu_kien=?, giai_thich=?
+            gia_goc=?, ck1_pct=?, ck2_pct=?, ck3_pct=?, tong_pct=?, ck_tinh=?,
+            nhom_mau=?, dieu_kien=?, giai_thich=?, chenh_lech=?
             WHERE id=?`,
           params: [
+            r.gia_goc ?? 0,
             r.ck1_pct ?? 0, r.ck2_pct ?? 0, r.ck3_pct ?? 0,
             r.tong_pct ?? 0, r.ck_tinh ?? 0,
             r.nhom_mau ?? '', r.dieu_kien ?? '', r.giai_thich ?? '',
+            r.chenh_lech ?? 0,
             r.id,
           ],
         })

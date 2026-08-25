@@ -24,6 +24,12 @@ let _isTauri = false
 
 if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
   _isTauri = true
+  // Read app version from Tauri at startup
+  import('@tauri-apps/api/app').then(({ getVersion }) => {
+    getVersion().then((v: string) => {
+      (window as any).__appVersion = 'v' + v
+    }).catch(() => {})
+  }).catch(() => {})
 }
 
 export function isTauriApp(): boolean {

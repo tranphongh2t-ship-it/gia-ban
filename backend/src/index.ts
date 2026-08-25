@@ -49,7 +49,12 @@ app.get('/api/app/update', (c) => {
   const version = c.env.APP_VERSION || '0.1.0'
   const url = c.env.APP_INSTALLER_URL || ''
   const notes = c.env.APP_UPDATE_NOTES || ''
-  return c.json({ version, url, notes })
+  return c.json({ version, url, notes }, {
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache',
+    },
+  })
 })
 
 app.get('/api/db-check', async (c) => {
