@@ -50,12 +50,14 @@ const LOAI_OP_LABEL: Record<string, string> = {
 }
 
 const nhomHienThi = (r: KhachRow): string => {
-  if (String(r.hang || '').toLowerCase() === 'premium') return 'PREMIUM'
-  if (String(r.loai_op || '') === 'OP2' || r.co_bac) return 'Đại lý OP2'
-  if (String(r.loai_op || '') === 'OP1') return 'Đại lý OP1'
-  return 'Khách thường'
+  const hang = String(r.hang || '').toLowerCase()
+  if (hang === 'premium') return 'PREMIUM'
+  if (hang === 'thuong') return 'Xưởng thường'
+  if (hang === 'op2' || String(r.loai_op || '') === 'OP2' || r.co_bac) return 'Đại lý OP2'
+  if (hang === 'op1' || String(r.loai_op || '') === 'OP1') return 'Đại lý OP1'
+  return 'Xưởng thường'
 }
-const NHOM_ORDER = ['PREMIUM', 'Đại lý OP1', 'Đại lý OP2', 'Khách thường']
+const NHOM_ORDER = ['PREMIUM', 'Đại lý OP1', 'Đại lý OP2', 'Xưởng thường']
 
 const PCT_COLS = [
   { key: 'ck_ds_98mau_pct', hdKey: 'hd_98', label: 'CK 98 màu %' },
@@ -89,7 +91,7 @@ export default function BangKhachThangPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
-  const [mode, setMode] = useState<'rieng' | 'all'>('rieng')
+  const [mode, setMode] = useState<'rieng' | 'all'>('all')
   const [onlyDiff, setOnlyDiff] = useState(false)
   const [filterText, setFilterText] = useState('')
   const [showAddSearch, setShowAddSearch] = useState(false)
@@ -286,7 +288,7 @@ export default function BangKhachThangPage() {
     { key: 'PREMIUM', label: 'PREMIUM', color: '#d6336c' },
     { key: 'Đại lý OP1', label: 'Đại lý OP1', color: '#2f9e44' },
     { key: 'Đại lý OP2', label: 'Đại lý OP2', color: '#066fd1' },
-    { key: 'Khách thường', label: 'Khách thường', color: colors.textMuted },
+    { key: 'Xưởng thường', label: 'Xưởng thường', color: colors.textMuted },
   ]
 
   const gridColsWithNguon: EditableCol[] = useMemo(() => {
