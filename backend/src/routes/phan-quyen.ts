@@ -85,14 +85,10 @@ function onlineExpr(): string {
 async function seedAdmin(db: D1Database) {
   // Check if "Admin" user exists
   const existing = await db.prepare(`SELECT id FROM nhan_vien WHERE ten = 'Admin'`).first() as any
-  if (existing) {
-    // Ensure password is set
-    const hash = await hashPass('Bangdang190891')
-    await db.prepare(`UPDATE nhan_vien SET mat_khau = ?, vai_tro = 'admin' WHERE id = ?`).bind(hash, existing.id).run()
-    return existing.id
-  }
-  // Create admin
-  const hash = await hashPass('Bangdang190891')
+  if (existing) return existing.id
+  // Create admin with default password (change via /api/auth/admin/reset-password)
+  const defaultPass = 'Admin1234'
+  const hash = await hashPass(defaultPass)
   const result = await db.prepare(
     `INSERT INTO nhan_vien (ten, email, vai_tro, trang_thai, mat_khau) VALUES ('Admin', 'admin@bangdang.com', 'admin', 'dang_lam_viec', ?)`
   ).bind(hash).run()
