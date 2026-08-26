@@ -52,9 +52,9 @@ const LOAI_OP_LABEL: Record<string, string> = {
 const nhomHienThi = (r: KhachRow): string => {
   const hang = String(r.hang || '').toLowerCase()
   if (hang === 'premium') return 'PREMIUM'
-  if (hang === 'thuong') return 'Xưởng thường'
-  if (hang === 'op2' || String(r.loai_op || '') === 'OP2' || r.co_bac) return 'Đại lý - Tự lấy (OP2)'
-  if (hang === 'op1' || String(r.loai_op || '') === 'OP1') return 'Đại lý - Giao hàng (OP1)'
+  if (hang === 'op1') return 'Đại lý - Giao hàng (OP1)'
+  if (hang === 'op2') return 'Đại lý - Tự lấy (OP2)'
+  // hang='Thuong' hoặc hang=null → Xưởng thường (mặc định)
   return 'Xưởng thường'
 }
 const NHOM_ORDER = ['PREMIUM', 'Đại lý - Giao hàng (OP1)', 'Đại lý - Tự lấy (OP2)', 'Xưởng thường']
