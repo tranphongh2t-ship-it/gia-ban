@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { crudRoutes } from '../helpers/crud'
-import { tinhCKChoDong, buildLop2Ctx } from './chiet-khau'
+import { tinhCKChoDong, buildLop2Ctx, invalidateCtxCache } from './chiet-khau'
 import * as XLSX from 'xlsx'
 
 type Env = { Bindings: { DB: D1Database } }
@@ -242,6 +242,7 @@ router.post('/import-excel', async (c) => {
 
     // Tự thêm khách mới vào bảng chiết khấu
     const soKhachMoi = await themKhachMoiVaoBangCK(c.env.DB)
+    if (soKhachMoi > 0) invalidateCtxCache()
 
     return c.json({
       success: true,

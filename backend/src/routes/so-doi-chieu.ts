@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { crudRoutes, reqUser, isAdmin } from '../helpers/crud'
 import { isMisaSyncLocked } from '../helpers/auditAutoProcess'
 import { currentThang, syncMisaToBangsBulk } from '../helpers/giaGocSync'
-import { buildLop2Ctx, tinhCKChoDong, layRateTheoKH } from './chiet-khau'
+import { buildLop2Ctx, tinhCKChoDong, layRateTheoKH, invalidateCtxCache } from './chiet-khau'
 import * as XLSX from 'xlsx'
 
 type Env = { Bindings: { DB: D1Database } }
@@ -533,6 +533,7 @@ router.post('/import-rows', async (c) => {
     const { imported, skipped } = await upsertRecords(c.env.DB, records, ownerId)
     await autoSyncNewMisaCodes(c.env.DB, records)
     await autoSyncNewCustomers(c.env.DB, records)
+    invalidateCtxCache()
     return c.json({
       success: true,
       total: records.length,

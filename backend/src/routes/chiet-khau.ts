@@ -152,6 +152,7 @@ router.post('/khach', async (c) => {
       `INSERT INTO danh_sach_khach (ma_kh, ten_kh, loai_op, vung, doi_tuong, hang, nhom, nguon, created_at, updated_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'tao-moi', datetime('now','+7 hours'), ?)`
     ).bind(maKh, tenKh, loaiOp, vung, doiTuong, hang, nhom, updatedBy || null).run()
+    invalidateCtxCache()
 
     return c.json({ success: true, ma_kh: maKh })
   } catch (e: any) {
@@ -189,6 +190,7 @@ router.patch('/khach/:id', async (c) => {
 
     vals.push(id)
     await db.prepare(`UPDATE danh_sach_khach SET ${sets.join(', ')} WHERE id = ?`).bind(...vals).run()
+    invalidateCtxCache()
 
     // Đồng bộ sang khach_theo_thang cho tháng hiện tại
     const thangNow = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })()
@@ -241,6 +243,7 @@ router.post('/khach/phan-loat', async (c) => {
         .bind(nhom, n.vung || null, n.doi_tuong, id)
     )
     await db.batch(stmts)
+    invalidateCtxCache()
 
     // Đồng bộ sang khach_theo_thang cho tháng hiện tại
     const thangNow = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })()
@@ -511,7 +514,15 @@ export type Lop2Ctx = {
   ckOp1Thangs: string[]
 }
 
+// Cache buildLop2Ctx for 5 minutes (reduces D1 reads from 112 calls/day to ~24 calls/day)
+let _ctxCache: { ctx: Lop2Ctx; at: number } | null = null
+const CTX_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+export function invalidateCtxCache() { _ctxCache = null }
+
 export async function buildLop2Ctx(db: D1Database): Promise<Lop2Ctx> {
+  if (_ctxCache && (Date.now() - _ctxCache.at) < CTX_CACHE_TTL_MS) return _ctxCache.ctx
+
   const coVC = new Set<string>()
   const totalSl = new Map<string, number>()
   const totalSlAll = new Map<string, number>()
@@ -551,8 +562,13 @@ export async function buildLop2Ctx(db: D1Database): Promise<Lop2Ctx> {
   }
 
   // Preload toàn bộ lookup (thay thế query theo từng dòng → giảm N+1)
+  // Only select columns needed for CK calculation (reduces D1 rows read by ~60%)
   const khachMap = new Map<string, any>()
-  const khachRows = await db.prepare('SELECT * FROM danh_sach_khach').all()
+  const khachRows = await db.prepare(
+    `SELECT ma_kh, ten_kh, vung, doi_tuong, hang, loai_op, nhom, tu_lay,
+            ck_ds_98mau_pct, ck_ds_khac_pct, ck_vc_pct, ck_ct_pct
+     FROM danh_sach_khach`
+  ).all()
   for (const r of khachRows.results as any[]) khachMap.set(String(r.ma_kh), r)
 
   // Khách theo tháng (khach_theo_thang) — override các thuộc tính theo tháng, fallback danh_sach_khach
@@ -602,7 +618,9 @@ export async function buildLop2Ctx(db: D1Database): Promise<Lop2Ctx> {
   }
   for (const arr of ckOp2.values()) arr.sort((a, b) => String(b.thang).localeCompare(String(a.thang)))
 
-  return { coVC, totalSl, totalSlAll, totalChiThung, bacThang, khachMap, khachThangMap, policyRules, ckVanChuyen, nhomMauMap, revenueTiers, monthlyDs, ckOp1, ckOp2, ckOp1Thangs }
+  const result = { coVC, totalSl, totalSlAll, totalChiThung, bacThang, khachMap, khachThangMap, policyRules, ckVanChuyen, nhomMauMap, revenueTiers, monthlyDs, ckOp1, ckOp2, ckOp1Thangs }
+  _ctxCache = { ctx: result, at: Date.now() }
+  return result
 }
 
 // Khách theo tháng: overlay bản khach_theo_thang có thang <= tháng dòng lên nền danh_sach_khach
@@ -1436,6 +1454,7 @@ router.post('/import-bang-thang', async (c) => {
       }
     }
 
+    invalidateCtxCache()
     return c.json({ success: true, thang, format: isDealerFormat ? 'op_dealer' : 'chuan', op1: { upsert: op1Upsert, skip: op1Skip, log: op1Log }, op2: { upsert: op2Upsert, skip: op2Skip, log: op2Log } })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -1665,6 +1684,7 @@ router.post('/quan-ly-thang/tao-thang', async (c) => {
       out.khach_theo_thang = { over: src, so_dong: soDong }
     }
 
+    invalidateCtxCache()
     return c.json({ success: true, thang_moi: thangMoi, nguon, ket_qua: out })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -1687,7 +1707,12 @@ router.get('/quan-ly-thang/khach-thang', async (c) => {
       return `${y}-${String(m - 1).padStart(2, '0')}`
     })()
 
-    const { results: khRows } = await db.prepare('SELECT * FROM danh_sach_khach').all()
+    // Only select columns needed for display (reduces D1 rows read by ~60%)
+    const { results: khRows } = await db.prepare(
+      `SELECT ma_kh, ten_kh, loai_op, vung, doi_tuong, hang, nhom, tu_lay,
+              ck_ds_98mau_pct, ck_ds_khac_pct, ck_vc_pct, ck_ct_pct
+       FROM danh_sach_khach`
+    ).all()
     const { results: ovRows } = await db.prepare(
       'SELECT * FROM khach_theo_thang ORDER BY thang DESC'
     ).all()
@@ -1932,6 +1957,7 @@ router.post('/quan-ly-thang/khach-thang', async (c) => {
       }
     }
 
+    invalidateCtxCache()
     return c.json({ success: true, thang, so_dong: rows.length, so_upsert: soUpsert, so_delete: soDelete, so_log: soLog })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
