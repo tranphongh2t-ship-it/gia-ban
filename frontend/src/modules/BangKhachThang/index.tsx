@@ -29,7 +29,7 @@ const nextMonth = (m: string): string => {
 
 const HANG_LABEL: Record<string, string> = {
   OP1: 'Đại lý - Giao hàng (CK flat %)',
-  OP2: 'Đại lý - Tự lấy (CK lũy tiến)',
+  OP2: 'Đại lý - Tự lấy hàng (CK lũy tiến)',
   Premium: 'Premium — Ưu đãi cao nhất',
   Thuong: 'Xưởng thường — Không CK riêng',
 }
@@ -46,18 +46,20 @@ const DOI_TUONG_LABEL: Record<string, string> = {
 
 const LOAI_OP_LABEL: Record<string, string> = {
   OP1: 'Giao hàng (Thanh Thùy giao)',
-  OP2: 'Tự lấy (Khách tự lấy)',
+  OP2: 'Tự lấy hàng (Khách tự lấy)',
 }
 
 const nhomHienThi = (r: KhachRow): string => {
   const hang = String(r.hang || '').toLowerCase()
+  const loaiOp = String(r.loai_op || '').toUpperCase()
   if (hang === 'premium') return 'PREMIUM'
   if (hang === 'op1') return 'Đại lý - Giao hàng (OP1)'
-  if (hang === 'op2') return 'Đại lý - Tự lấy (OP2)'
-  // hang='Thuong' hoặc hang=null → Xưởng thường (mặc định)
-  return 'Xưởng thường'
+  if (hang === 'op2') return 'Đại lý - Tự lấy hàng (OP2)'
+  // hang='Thuong' hoặc hang=null → phân theo loai_op
+  if (loaiOp === 'OP2') return 'Xưởng thường - Tự lấy hàng (OP2)'
+  return 'Xưởng thường - Giao hàng (OP1)'
 }
-const NHOM_ORDER = ['PREMIUM', 'Đại lý - Giao hàng (OP1)', 'Đại lý - Tự lấy (OP2)', 'Xưởng thường']
+const NHOM_ORDER = ['PREMIUM', 'Đại lý - Giao hàng (OP1)', 'Đại lý - Tự lấy hàng (OP2)', 'Xưởng thường - Giao hàng (OP1)', 'Xưởng thường - Tự lấy hàng (OP2)']
 
 const PCT_COLS = [
   { key: 'ck_ds_98mau_pct', hdKey: 'hd_98', label: 'CK 98 màu %' },
@@ -287,8 +289,9 @@ export default function BangKhachThangPage() {
   const riengTabs: GroupTab[] = [
     { key: 'PREMIUM', label: 'PREMIUM', color: '#d6336c' },
     { key: 'Đại lý - Giao hàng (OP1)', label: 'Đại lý - Giao hàng (OP1)', color: '#2f9e44' },
-    { key: 'Đại lý - Tự lấy (OP2)', label: 'Đại lý - Tự lấy (OP2)', color: '#066fd1' },
-    { key: 'Xưởng thường', label: 'Xưởng thường', color: colors.textMuted },
+    { key: 'Đại lý - Tự lấy hàng (OP2)', label: 'Đại lý - Tự lấy hàng (OP2)', color: '#066fd1' },
+    { key: 'Xưởng thường - Giao hàng (OP1)', label: 'Xưởng thường - Giao hàng (OP1)', color: '#868e96' },
+    { key: 'Xưởng thường - Tự lấy hàng (OP2)', label: 'Xưởng thường - Tự lấy hàng (OP2)', color: '#fab005' },
   ]
 
   const gridColsWithNguon: EditableCol[] = useMemo(() => {

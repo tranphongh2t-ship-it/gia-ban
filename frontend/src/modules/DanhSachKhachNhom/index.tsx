@@ -145,7 +145,7 @@ export default function DanhSachKhachNhomPage() {
           <table style={{ borderCollapse: 'collapse', fontSize: 12.5, width: '100%' }}>
             <thead>
               <tr>
-                {['Mã KH', 'Tên KH', 'Nhóm', 'Vùng', 'Đối tượng', 'Hạng', 'CK VC (động)', 'CK 98 màu', 'CK màu khác', 'Tự lấy', 'Ghi chú', ''].map(h => (
+                {['Mã KH', 'Tên KH', 'Nhóm', 'Vùng', 'Đối tượng', 'Hạng', 'CK VC (động)', 'CK 98 màu', 'CK màu khác', 'Tự lấy hàng', 'Ghi chú', ''].map(h => (
                   <th key={h} style={{ ...tableStyle.th, whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -241,7 +241,7 @@ export default function DanhSachKhachNhomPage() {
             <Field label="Ghi chú">
               <input style={input} value={editRow.ghi_chu || ''} onChange={e => setEditRow({ ...editRow, ghi_chu: e.target.value })} />
             </Field>
-            <Field label="Tự lấy (CK vận chuyển)"> 
+            <Field label="Tự lấy hàng (CK vận chuyển)"> 
               <select style={select} value={editRow.tu_lay ? '1' : '0'} onChange={e => setEditRow({ ...editRow, tu_lay: e.target.value === '1' ? 1 : 0 })}>
                 <option value="1">Có — tự lấy (được CK VC)</option>
                 <option value="0">Giao hàng (không CK VC)</option>

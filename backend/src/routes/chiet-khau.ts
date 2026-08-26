@@ -681,6 +681,9 @@ export async function tinhCKChoDong(db: D1Database, row: DongBan, ctx?: Lop2Ctx)
   const doiTuong = kh?.doi_tuong || 'PREMIER'
   const vung = kh?.vung || 'SaiGon'
   const hang = kh?.hang || kh?.loai_op || 'OP1'
+  const loaiOp = kh?.loai_op || 'OP1'
+  // OP2 logic: hang='OP2' HOẶC (hang='Thuong' AND loai_op='OP2') → lũy tiến
+  const isOP2 = hang === 'OP2' || (hang === 'Thuong' && loaiOp === 'OP2')
 
   // ---------- Lớp 1 HOẶC Lớp 3 (thay thế nhau) ----------
   let ck1 = 0, ck3 = 0, ck1Fixed = 0
@@ -690,7 +693,7 @@ export async function tinhCKChoDong(db: D1Database, row: DongBan, ctx?: Lop2Ctx)
     // Lớp 3: CK doanh số Melamine theo nhóm màu + OP1/OP2
     const nhomMau = await xacDinhNhomMau(db, ctx, maHang)
     const dsMelRunning = Number(row.ds_mel_running) || 0
-    const pct = traL3(ctx, vung, hang, maKh, thang, nhomMau, dsMelRunning)
+    const pct = traL3(ctx, vung, hang, isOP2, maKh, thang, nhomMau, dsMelRunning)
     ck3 = pct
     chiTiet.nhom_mau = nhomMau
     chiTiet.ck3 = pct
@@ -948,12 +951,12 @@ async function xacDinhNhomMau(db: D1Database, ctx: Lop2Ctx | undefined, maHang: 
 }
 
 // Tra Lớp 3: OP1 mức chung / OP2 theo bậc doanh số tháng (lũy tiến tại thời điểm giao dịch)
-function traL3(ctx: Lop2Ctx | undefined, vung: string, hang: string, maKh: string, thang: string, nhomMau: '98_pho_thong' | 'khac', dsMelRunning = 0): number {
+function traL3(ctx: Lop2Ctx | undefined, vung: string, hang: string, isOP2: boolean, maKh: string, thang: string, nhomMau: '98_pho_thong' | 'khac', dsMelRunning = 0): number {
   const col = nhomMau === '98_pho_thong' ? 'pct_98mau' : 'pct_khac'
   const tiers = ctx?.revenueTiers || []
 
   // OP2: theo bậc doanh số lũy tiến (ưu tiên ds_mel_running của dòng; fallback monthly_summary)
-  if (hang === 'OP2') {
+  if (isOP2) {
     let ds = dsMelRunning
     if (!ds) ds = ctx?.monthlyDs.get(`${maKh}|${thang}`) || 0
     // Bảng OP2 theo tháng (ck_op2): tháng gần nhất <= thang
