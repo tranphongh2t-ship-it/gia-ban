@@ -140,6 +140,10 @@ export const input = {
 export const select = {
   ...input,
   cursor: 'pointer',
+  width: '100%',
+  boxSizing: 'border-box' as const,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
 }
 
 export const badge = (bg: string, color: string) => ({

@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { crudRoutes, reqUser, isAdmin } from '../helpers/crud'
 import { isMisaSyncLocked } from '../helpers/auditAutoProcess'
 import { currentThang, syncMisaToBangsBulk } from '../helpers/giaGocSync'
-import { buildLop2Ctx, tinhCKChoDong } from './chiet-khau'
+import { buildLop2Ctx, tinhCKChoDong, layRateTheoKH } from './chiet-khau'
 import * as XLSX from 'xlsx'
 
 type Env = { Bindings: { DB: D1Database } }
@@ -390,6 +390,138 @@ async function tinhHet(db: D1Database, ownerId?: number | null): Promise<number>
   return stmts.length
 }
 
+// Auto-sync khách hàng mới từ records → danh_sach_khach + khach_theo_thang (silent — chạy sau import).
+async function autoSyncNewCustomers(db: D1Database, records: Record<string, any>[]) {
+  try {
+    // 1. Thu thập unique ma_kh + ten_kh từ records
+    const byMa: Record<string, string> = {}
+    for (const r of records) {
+      const ma = String(r.ma_kh || '').trim()
+      if (!ma) continue
+      const ten = String(r.ten_kh || '').trim()
+      if (!byMa[ma]) byMa[ma] = ten
+      else if (ten && !byMa[ma]) byMa[ma] = ten
+    }
+    const maKeys = Object.keys(byMa)
+    if (maKeys.length === 0) return
+
+    // 2. Kiểm tra khách đã tồn tại trong danh_sach_khach
+    const existing = new Set<string>()
+    const existingRows: Record<string, any> = {}
+    for (let i = 0; i < maKeys.length; i += 90) {
+      const chunk = maKeys.slice(i, i + 90)
+      const ph = chunk.map(() => '?').join(', ')
+      const res = await db.prepare(
+        `SELECT ma_kh, vung, doi_tuong, hang, loai_op, ck_ds_98mau_pct, ck_ds_khac_pct, ck_vc_pct
+         FROM danh_sach_khach WHERE ma_kh IN (${ph})`
+      ).bind(...chunk).all()
+      for (const r of (res as any).results || []) {
+        const mk = String(r.ma_kh)
+        existing.add(mk)
+        existingRows[mk] = r
+      }
+    }
+
+    // 3. Preload ck_op1 rules cho tháng hiện tại (MDFOKAL_MEL cho 98mau/khac, VAN_CHUYEN cho vc)
+    const thang = currentThang()
+    const [op1Rows, vcRows] = await Promise.all([
+      db.prepare(
+        `SELECT dieu_kien, dl_tinh, dl_nt, dl_sg, xuong_thuong, xuong_premium
+         FROM ck_op1 WHERE thang = ? AND nhom_sp IN ('MDFOKAL_MEL', 'VAN_DAM_OKAL')`
+      ).bind(thang).all(),
+      db.prepare(
+        `SELECT dieu_kien, dl_tinh, dl_nt, dl_sg, xuong_thuong, xuong_premium
+         FROM ck_op1 WHERE thang = ? AND nhom_sp = 'VAN_CHUYEN' AND dieu_kien = 'mel'`
+      ).bind(thang).all(),
+    ])
+
+    // Map rule theo nhom_sp + dieu_kien
+    const ruleMap = new Map<string, any>()
+    for (const r of (op1Rows as any).results || []) {
+      ruleMap.set(`MDFOKAL_MEL|${r.dieu_kien}`, r)
+    }
+    // VAN_DAM_OKAL dùng chung rule với MDFOKAL_MEL cho 98mau/khac
+    for (const r of (op1Rows as any).results || []) {
+      if (!ruleMap.has(`VAN_DAM_OKAL|${r.dieu_kien}`)) {
+        ruleMap.set(`VAN_DAM_OKAL|${r.dieu_kien}`, r)
+      }
+    }
+    const ruleVC = ((vcRows as any).results || [])[0] || null
+
+    // 4. Tạo khách mới + cập nhật CK cho khách đã có
+    const stmts: D1PreparedStatement[] = []
+    for (const ma of maKeys) {
+      const ten = byMa[ma] || ma
+      const cur = existingRows[ma]
+
+      if (!cur) {
+        // Khách mới: tạo với defaults + tính CK từ rules
+        const doiTuong = 'PREMIER'
+        const vung = 'SaiGon'
+        const hang = 'OP1'
+
+        // Tính CK từ rules
+        const rule98 = ruleMap.get('MDFOKAL_MEL|98mau')
+        const ruleKhac = ruleMap.get('MDFOKAL_MEL|khac')
+        const ck98 = rule98 ? layRateTheoKH(rule98, doiTuong, vung, hang) : null
+        const ckKhac = ruleKhac ? layRateTheoKH(ruleKhac, doiTuong, vung, hang) : null
+        const ckVC = ruleVC ? layRateTheoKH(ruleVC, doiTuong, vung, hang) : null
+
+        stmts.push(db.prepare(
+          `INSERT OR IGNORE INTO danh_sach_khach (ma_kh, ten_kh, loai_op, vung, doi_tuong, hang, ck_ds_98mau_pct, ck_ds_khac_pct, ck_vc_pct, nguon, created_at)
+           VALUES (?, ?, 'OP1', ?, ?, ?, ?, ?, ?, 'so-doi-chieu-auto', datetime('now','+7 hours'))`
+        ).bind(ma, ten, vung, doiTuong, hang, ck98, ckKhac, ckVC))
+        stmts.push(db.prepare(
+          `INSERT OR IGNORE INTO khach_theo_thang (ma_kh, thang, loai_op, vung, doi_tuong, hang, ck_ds_98mau_pct, ck_ds_khac_pct, ck_vc_pct, updated_by, updated_at)
+           VALUES (?, ?, 'OP1', ?, ?, ?, ?, ?, ?, 'auto-sync', datetime('now','+7 hours'))`
+        ).bind(ma, thang, vung, doiTuong, hang, ck98, ckKhac, ckVC))
+      } else {
+        // Khách đã có: cập nhật CK nếu các trường CK là NULL
+        const vung = cur.vung || 'SaiGon'
+        const doiTuong = cur.doi_tuong || 'PREMIER'
+        const hang = cur.hang || cur.loai_op || 'OP1'
+
+        // Chỉ cập nhật nếu字段为NULL
+        const needUpdate98 = cur.ck_ds_98mau_pct == null
+        const needUpdateKhac = cur.ck_ds_khac_pct == null
+        const needUpdateVC = cur.ck_vc_pct == null
+
+        if (needUpdate98 || needUpdateKhac || needUpdateVC) {
+          const rule98 = ruleMap.get('MDFOKAL_MEL|98mau')
+          const ruleKhac = ruleMap.get('MDFOKAL_MEL|khac')
+          const ck98 = needUpdate98 && rule98 ? layRateTheoKH(rule98, doiTuong, vung, hang) : null
+          const ckKhac = needUpdateKhac && ruleKhac ? layRateTheoKH(ruleKhac, doiTuong, vung, hang) : null
+          const ckVC = needUpdateVC && ruleVC ? layRateTheoKH(ruleVC, doiTuong, vung, hang) : null
+
+          if (ck98 != null || ckKhac != null || ckVC != null) {
+            const sets: string[] = []
+            const vals: any[] = []
+            if (ck98 != null) { sets.push('ck_ds_98mau_pct = ?'); vals.push(ck98) }
+            if (ckKhac != null) { sets.push('ck_ds_khac_pct = ?'); vals.push(ckKhac) }
+            if (ckVC != null) { sets.push('ck_vc_pct = ?'); vals.push(ckVC) }
+            vals.push(ma)
+            stmts.push(db.prepare(
+              `UPDATE danh_sach_khach SET ${sets.join(', ')} WHERE ma_kh = ?`
+            ).bind(...vals))
+          }
+        }
+
+        // Đồng bộ khach_theo_thang nếu chưa có
+        stmts.push(db.prepare(
+          `INSERT OR IGNORE INTO khach_theo_thang (ma_kh, thang, loai_op, vung, doi_tuong, hang, updated_by, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'auto-sync', datetime('now','+7 hours'))`
+        ).bind(ma, thang, cur.loai_op || 'OP1', vung, doiTuong, hang))
+      }
+    }
+
+    if (stmts.length > 0) {
+      for (let i = 0; i < stmts.length; i += 100) {
+        await db.batch(stmts.slice(i, i + 100))
+      }
+    }
+  } catch (e) { console.error('[autoSyncNewCustomers]', e) }
+}
+
 // POST /import-rows — nhận sẵn mảng dòng JSON (đã parse xlsx bên ngoài), upsert.
 // KHÔNG tính lại CK ở đây (file chia chunk, tránh recompute N lần) — frontend gọi /tinh-het sau khi xong toàn bộ file.
 router.post('/import-rows', async (c) => {
@@ -400,6 +532,7 @@ router.post('/import-rows', async (c) => {
     const ownerId = Number(c.req.header('x-user-id')) || null
     const { imported, skipped } = await upsertRecords(c.env.DB, records, ownerId)
     await autoSyncNewMisaCodes(c.env.DB, records)
+    await autoSyncNewCustomers(c.env.DB, records)
     return c.json({
       success: true,
       total: records.length,

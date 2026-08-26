@@ -4,12 +4,11 @@ import { apiGet, apiPost } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import {
   colors, shadow, radius, btn, input, select,
-  tableStyle, pageContainer, pageTitle, pageSubtitle, section, sectionTitle,
-  spinner, badge,
+  tableStyle, pageContainer, pageTitle, pageSubtitle, spinner, badge,
 } from '../../theme'
 import { formatNum } from '../../lib/format'
 
-type Tab = 'op1' | 'op2' | 'log'
+type Tab = 'op1' | 'op2'
 
 const currentMonth = (): string => {
   const d = new Date()
@@ -17,19 +16,40 @@ const currentMonth = (): string => {
   return `${d.getFullYear()}-${m}`
 }
 
+const OP1_FIELDS = [
+  { key: 'dl_tinh', label: 'ĐL Tỉnh', pct: true },
+  { key: 'dl_nt', label: 'Ngoại thành', pct: true },
+  { key: 'dl_sg', label: 'Sài Gòn', pct: true },
+  { key: 'xuong_thuong', label: 'Xưởng thường', pct: true },
+  { key: 'xuong_premium', label: 'Xưởng premium', pct: true },
+  { key: 'ghi_chu', label: 'Ghi chú', pct: false },
+]
+
+const OP2_FIELDS = [
+  { key: 'pct_98mau', label: '98 màu', pct: true },
+  { key: 'pct_khac', label: 'Khác', pct: true },
+  { key: 'pct_vc_mel', label: 'VC Mel', pct: true },
+  { key: 'pct_vc_khac', label: 'VC khác', pct: true },
+]
+
 export default function BangCkThangPage() {
   const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('op1')
   const [thang, setThang] = useState(currentMonth())
   const [thangs, setThangs] = useState<string[]>([])
   const [rows, setRows] = useState<any[]>([])
-  const [draft, setDraft] = useState<Record<number, Record<string, string>>>({})
   const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
-  const [dirtyCount, setDirtyCount] = useState(0)
-  const [importing, setImporting] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+
+  // Edit modal
+  const [editRow, setEditRow] = useState<any | null>(null)
+  const [editDraft, setEditDraft] = useState<Record<string, any>>({})
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  // Log modal
+  const [showLog, setShowLog] = useState(false)
+  const [logData, setLogData] = useState<any[]>([])
+  const [loadingLog, setLoadingLog] = useState(false)
 
   const fetchBang = useCallback(async (b: 'ck_op1' | 'ck_op2', t: string) => {
     setLoading(true); setMsg(null)
@@ -37,8 +57,6 @@ export default function BangCkThangPage() {
       const res = await apiGet(`/chiet-khau/bang-thang?bang=${b}&thang=${t}`)
       setRows(res.data || [])
       setThangs(res.thangs || [])
-      setDraft({})
-      setDirtyCount(0)
     } catch (e: any) { setMsg({ type: 'err', text: e.message }) }
     finally { setLoading(false) }
   }, [])
@@ -77,103 +95,66 @@ export default function BangCkThangPage() {
     return formatNum(v)
   }
 
-  const setVal = (id: number, key: string, val: string) => {
-    setDraft(prev => {
-      const rowDraft = { ...(prev[id] || {}) }
-      if (!val) delete rowDraft[key]
-      else rowDraft[key] = val
-      const next = { ...prev, [id]: rowDraft }
-      setDirtyCount(Object.keys(next).length)
-      return next
-    })
-  }
+  const editFields = tab === 'op1' ? OP1_FIELDS : OP2_FIELDS
 
-  const parseCell = (v: string, c: { key: string; pct?: boolean }) => {
-    if (c.pct) {
-      const n = parseFloat(v.replace('%', ''))
-      return isNaN(n) ? null : n / 100
+  const openEdit = (r: any) => {
+    setEditRow(r)
+    const draft: Record<string, any> = {}
+    for (const f of editFields) {
+      const v = r[f.key]
+      if (f.pct) draft[f.key] = v != null ? String(Number(v) * 100) : ''
+      else draft[f.key] = v ?? ''
     }
-    return v.trim() === '' ? null : v
+    setEditDraft(draft)
   }
 
-  const save = async () => {
-    const changed = Object.keys(draft).map(idStr => {
-      const id = Number(idStr)
-      const r = rows.find(x => x.id === id)
-      if (!r) return null
-      const body: any = {}
-      for (const c of cols) {
-        if (c.ro) continue
-        const dv = draft[id][c.key]
-        if (dv === undefined) continue
-        const pv = parseCell(dv, c as any)
-        if (pv !== null) body[c.key] = pv
-      }
-      if (Object.keys(body).length === 0) return null
-      for (const c of cols) {
-        if (c.ro) { body[c.key] = r[c.key]; continue }
-      }
-      return body
-    }).filter(Boolean)
-
-    if (changed.length === 0) { setMsg({ type: 'err', text: 'Không có thay đổi nào để lưu' }); return }
-    const keyField = tab === 'op1' ? 'nhom_sp' : 'vung'
-    const rowsPayload = changed.map(b => {
-      if (tab === 'op1') return { nhom_sp: b.nhom_sp, dieu_kien: b.dieu_kien, ...stripKeys(b) }
-      return { vung: b.vung, bac_tu: b.bac_tu, ...stripKeys(b) }
-    })
-
-    setSaving(true); setMsg(null)
+  const saveEdit = async () => {
+    if (!editRow) return
+    setSavingEdit(true); setMsg(null)
     try {
+      const body: any = {}
+      const keyField = tab === 'op1' ? 'nhom_sp' : 'vung'
+      body[keyField] = editRow[keyField]
+      if (tab === 'op1') body.dieu_kien = editRow.dieu_kien
+      else body.bac_tu = editRow.bac_tu
+
+      for (const f of editFields) {
+        const v = editDraft[f.key]
+        if (v === '' || v === undefined) body[f.key] = null
+        else if (f.pct) body[f.key] = Math.round(parseFloat(v) * 100) / 10000
+        else body[f.key] = v
+      }
+
       const res = await apiPost('/chiet-khau/ap-dung-thang', {
         bang: tab === 'op1' ? 'ck_op1' : 'ck_op2',
         thang,
-        rows: rowsPayload,
+        rows: [body],
         updated_by: user?.ten || '',
       })
-      setMsg({ type: 'ok', text: `Đã lưu ${res.so_dong} dòng, ghi ${res.so_log} thay đổi vào lịch sử` })
+      setMsg({ type: 'ok', text: `Đã lưu — ghi ${res.so_log || 0} thay đổi` })
+      setEditRow(null)
       fetchBang(tab === 'op1' ? 'ck_op1' : 'ck_op2', thang)
     } catch (e: any) { setMsg({ type: 'err', text: e.message }) }
-    finally { setSaving(false) }
+    finally { setSavingEdit(false) }
   }
 
-  const importExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (!f) return
-    const fd = new FormData()
-    fd.append('file', f)
-    fd.append('thang', thang)
-    fd.append('updated_by', user?.ten || '')
-    setImporting(true); setMsg(null)
+  const loadLog = async () => {
+    setLoadingLog(true)
     try {
-      const res = await fetch(`/api/chiet-khau/import-bang-thang`, { method: 'POST', body: fd })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }))
-        throw new Error(err.error || `HTTP ${res.status}`)
-      }
-      const data = await res.json()
-      setMsg({ type: 'ok', text: `Đã import OP1 ${data.op1.upsert} dòng${data.op1.skip ? ` (skip ${data.op1.skip})` : ''} + OP2 ${data.op2.upsert} đại lý` })
-      fetchBang(tab === 'op1' ? 'ck_op1' : 'ck_op2', thang)
-    } catch (err: any) { setMsg({ type: 'err', text: err.message }) }
-    finally { setImporting(false); if (fileRef.current) fileRef.current.value = '' }
+      const res = await apiGet(`/chiet-khau/log?thang=${thang}&limit=200`)
+      setLogData(res.data || [])
+    } catch (e: any) { setMsg({ type: 'err', text: e.message }) }
+    finally { setLoadingLog(false) }
   }
 
-  const stripKeys = (b: any) => {
-    const o: Record<string, any> = {}
-    for (const [k, v] of Object.entries(b)) {
-      if (k === 'nhom_sp' || k === 'dieu_kien' || k === 'vung' || k === 'bac_tu') continue
-      o[k] = v
-    }
-    return o
-  }
+  const openLog = () => { setShowLog(true); loadLog() }
 
   return (
     <div style={pageContainer}>
       <h1 style={pageTitle}>Bảng CK theo tháng</h1>
       <p style={pageSubtitle}>
         Mức chung theo tháng: <b>OP1</b> = theo nhóm SP × vùng (minmap mục 2), <b>OP2</b> = bậc doanh số theo vùng.
-        Mọi thay đổi được ghi vào lịch sử (thay_doi_log).
-        Mức riêng theo từng khách (minmap mục 3) chỉnh tại <Link to="/bang-khach-thang" style={{ color: colors.infoDark, fontWeight: 700 }}>Khách hàng theo tháng →</Link>
+        Nhấn ✏️ để sửa dòng. Mọi thay đổi được ghi vào lịch sử.
       </p>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
@@ -182,7 +163,7 @@ export default function BangCkThangPage() {
           {thangs.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
         <div style={{ display: 'flex', gap: 4, background: colors.surfaceSecondary, borderRadius: radius.md, padding: 4 }}>
-          {([['op1', 'Bảng OP1'], ['op2', 'Bảng OP2'], ['log', 'Lịch sử']] as [Tab, string][]).map(([k, label]) => {
+          {([['op1', 'Bảng OP1'], ['op2', 'Bảng OP2']] as [Tab, string][]).map(([k, label]) => {
             const on = tab === k
             return (
               <button key={k} onClick={() => setTab(k)} style={{
@@ -193,115 +174,125 @@ export default function BangCkThangPage() {
             )
           })}
         </div>
-        {tab !== 'log' && (
-          <>
-            <button style={btn(colors.primary, '#fff')} disabled={dirtyCount === 0 || saving} onClick={save}>
-              {saving ? 'Đang lưu...' : `Lưu thay đổi${dirtyCount ? ` (${dirtyCount})` : ''}`}
-            </button>
-            <button style={btn(colors.surfaceSecondary, colors.textSecondary)} disabled={dirtyCount === 0} onClick={() => { setDraft({}); setDirtyCount(0) }}>
-              Hủy sửa
-            </button>
-          </>
-        )}
-        <label style={{ ...btn(colors.primaryDark, '#fff'), cursor: 'pointer', display: 'inline-flex' }}>
-          {importing ? 'Đang import...' : 'Import file Excel tháng này'}
-          <input ref={fileRef} type="file" accept=".xlsx" hidden onChange={importExcel} disabled={importing} />
-        </label>
+        <span style={{ flex: 1 }} />
+        <button style={btn(colors.surfaceSecondary, colors.textSecondary)} onClick={openLog}>📜 Lịch sử</button>
       </div>
 
       {msg && (
-        <div style={{ padding: 12, background: msg.type === 'ok' ? colors.successLight : colors.dangerLight, color: msg.type === 'ok' ? colors.success : colors.danger, borderRadius: radius.md, marginBottom: 12 }}>
+        <div style={{ padding: 12, background: msg.type === 'ok' ? colors.successLight : colors.dangerLight, color: msg.type === 'ok' ? colors.success : colors.danger, borderRadius: radius.md, marginBottom: 12, fontSize: 13 }}>
           {msg.text}
         </div>
       )}
 
-      {tab === 'log' ? (
-        <LogTab thang={thang} />
-      ) : (
-        <div style={{ overflowX: 'auto', background: colors.card, borderRadius: radius.lg, boxShadow: shadow.card, border: `1px solid ${colors.border}` }}>
-          {loading ? <div style={spinner}>Đang tải...</div> : (
-            <table style={{ borderCollapse: 'collapse', fontSize: 12.5, width: '100%' }}>
-              <thead>
-                <tr>
-                  {cols.map(c => (
-                    <th key={c.key} style={{ ...tableStyle.th, whiteSpace: 'nowrap' }}>{c.label}</th>
-                  ))}
+      {/* Table */}
+      <div style={{ overflowX: 'auto', background: colors.card, borderRadius: radius.lg, boxShadow: shadow.card, border: `1px solid ${colors.border}` }}>
+        {loading ? <div style={spinner}>Đang tải...</div> : (
+          <table style={{ borderCollapse: 'collapse', fontSize: 12.5, width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ ...tableStyle.th, width: 60, textAlign: 'center', cursor: 'default' }}>Thao tác</th>
+                {cols.map((c, ci) => {
+                  const isLast = ci === cols.length - 1
+                  return (
+                    <th key={c.key} style={{ ...tableStyle.th, ...(isLast ? { borderRight: 'none' } : {}) }}>
+                      {c.label}
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={cols.length + 1} style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Chưa có bảng cho tháng này</td></tr>
+              ) : rows.map((r: any) => (
+                <tr key={r.id}>
+                  <td style={{ ...tableStyle.td, textAlign: 'center' }}>
+                    <button style={{ ...btn(colors.primary, '#fff', 'sm'), padding: '3px 8px', fontSize: 11 }} onClick={() => openEdit(r)} title="Chỉnh sửa">✏️</button>
+                  </td>
+                  {cols.map((c, ci) => {
+                    const isLast = ci === cols.length - 1
+                    return (
+                      <td key={c.key} style={{ ...tableStyle.td, ...(isLast ? { borderRight: 'none' } : {}), fontWeight: c.ro ? 600 : 400 }}>
+                        {fmtCell(r, c as any)}
+                      </td>
+                    )
+                  })}
                 </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr><td colSpan={cols.length} style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Chưa có bảng cho tháng này</td></tr>
-                ) : rows.map(r => (
-                  <tr key={r.id} style={{ background: draft[r.id] ? colors.warningLight : undefined }}>
-                    {cols.map(c => {
-                      const isDirty = draft[r.id]?.[c.key] !== undefined
-                      const val = isDirty ? draft[r.id][c.key] : fmtCell(r, c as any)
-                      if (c.ro) {
-                        return <td key={c.key} style={{ ...tableStyle.td, whiteSpace: 'nowrap', fontWeight: 600 }}>{val}</td>
-                      }
-                      return (
-                        <td key={c.key} style={{ ...tableStyle.td, padding: '2px 6px' }}>
-                          <input
-                            style={{ ...input, padding: '6px 8px', fontSize: 12.5, borderColor: isDirty ? colors.warning : colors.border }}
-                            value={val as string}
-                            onChange={e => setVal(r.id, c.key, e.target.value)}
-                            placeholder={fmtCell(r, c as any)}
-                          />
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* ========== EDIT MODAL ========== */}
+      {editRow && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setEditRow(null)}>
+          <div style={{ background: colors.card, borderRadius: 12, padding: 20, width: 520, maxWidth: '94vw', boxShadow: shadow.modal }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+              Chỉnh sửa — {tab === 'op1' ? `OP1: ${editRow.nhom_sp} / ${editRow.dieu_kien}` : `OP2: ${editRow.vung} — Bậc ${editRow.bac_tu}`}
+            </div>
+            <div style={{ fontSize: 12, color: colors.textMuted, marginBottom: 12 }}>Tháng {thang}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {editFields.map(f => (
+                <div key={f.key}>
+                  <label style={{ display: 'block', fontSize: 12, color: colors.textMuted, marginBottom: 4 }}>{f.label} {f.pct ? '(%)' : ''}</label>
+                  <input style={{ ...input, width: '100%', boxSizing: 'border-box' }}
+                    type={f.pct ? 'number' : 'text'} step="0.01"
+                    value={editDraft[f.key] ?? ''}
+                    onChange={e => setEditDraft({ ...editDraft, [f.key]: e.target.value })} />
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button style={{ ...btn(colors.textSecondary, '#fff'), fontSize: 13 }} onClick={() => setEditRow(null)}>Hủy</button>
+              <button style={btn(colors.success)} disabled={savingEdit} onClick={saveEdit}>{savingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}</button>
+            </div>
+          </div>
         </div>
       )}
-    </div>
-  )
-}
 
-function LogTab({ thang }: { thang: string }) {
-  const [rows, setRows] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [err, setErr] = useState<string | null>(null)
-
-  useEffect(() => {
-    setLoading(true); setErr(null)
-    apiGet(`/chiet-khau/log?thang=${thang}&limit=200`)
-      .then(res => setRows(res.data || []))
-      .catch((e: any) => setErr(e.message))
-      .finally(() => setLoading(false))
-  }, [thang])
-
-  return (
-    <div style={{ background: colors.card, borderRadius: radius.lg, boxShadow: shadow.card, border: `1px solid ${colors.border}` }}>
-      {loading ? <div style={spinner}>Đang tải...</div> : err ? (
-        <div style={{ padding: 12, color: colors.danger }}>{err}</div>
-      ) : (
-        <table style={{ borderCollapse: 'collapse', fontSize: 12.5, width: '100%' }}>
-          <thead>
-            <tr>
-              {['Thời gian', 'Bảng', 'User', 'Cột', 'Giá trị cũ', 'Giá trị mới'].map(h => (
-                <th key={h} style={{ ...tableStyle.th, whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: colors.textMuted }}>Chưa có thay đổi nào cho tháng này</td></tr>
-            ) : rows.map(r => (
-              <tr key={r.id}>
-                <td style={tableStyle.td}>{r.created_at}</td>
-                <td style={{ ...tableStyle.td, fontFamily: 'monospace' }}>{r.bang}</td>
-                <td style={tableStyle.td}>{r.updated_by}</td>
-                <td style={{ ...tableStyle.td, fontFamily: 'monospace' }}>{r.cot}</td>
-                <td style={tableStyle.td}>{r.gia_tri_cu}</td>
-                <td style={{ ...tableStyle.td, color: colors.success, fontWeight: 600 }}>{r.gia_tri_moi}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* ========== LOG MODAL ========== */}
+      {showLog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => setShowLog(false)}>
+          <div style={{ background: colors.card, borderRadius: 12, padding: 20, width: 700, maxWidth: '94vw', maxHeight: '85vh', boxShadow: shadow.modal, display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>📜 Lịch sử thay đổi — Tháng {thang}</div>
+                <div style={{ fontSize: 12, color: colors.textMuted }}>{logData.length} bản ghi</div>
+              </div>
+              <button style={{ ...btn(colors.textSecondary, '#fff', 'sm'), fontSize: 12 }} onClick={() => setShowLog(false)}>✕ Đóng</button>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              {loadingLog ? (
+                <div style={spinner}>Đang tải...</div>
+              ) : logData.length === 0 ? (
+                <div style={{ padding: 30, textAlign: 'center', color: colors.textMuted }}>Chưa có lịch sử</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      {['Thời gian', 'Bảng', 'User', 'Cột', 'Giá trị cũ', 'Giá trị mới'].map(h => (
+                        <th key={h} style={{ ...tableStyle.th, padding: '6px 8px', textAlign: 'left', position: 'sticky', top: 0, background: colors.surfaceSecondary }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logData.map((l: any, i: number) => (
+                      <tr key={l.id || i} style={{ background: i % 2 === 1 ? `${colors.surfaceSecondary}44` : undefined }}>
+                        <td style={{ ...tableStyle.td, padding: '5px 8px', whiteSpace: 'nowrap' }}>{l.created_at}</td>
+                        <td style={{ ...tableStyle.td, padding: '5px 8px', fontFamily: 'monospace' }}>{l.bang}</td>
+                        <td style={{ ...tableStyle.td, padding: '5px 8px' }}>{l.updated_by}</td>
+                        <td style={{ ...tableStyle.td, padding: '5px 8px', fontFamily: 'monospace' }}>{l.cot}</td>
+                        <td style={{ ...tableStyle.td, padding: '5px 8px', color: colors.danger }}>{l.gia_tri_cu || '—'}</td>
+                        <td style={{ ...tableStyle.td, padding: '5px 8px', color: colors.success, fontWeight: 600 }}>{l.gia_tri_moi || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

@@ -128,6 +128,37 @@ router.get('/khach', async (c) => {
   }
 })
 
+// POST /api/chiet-khau/khach — tạo khách mới trong danh_sach_khach
+router.post('/khach', async (c) => {
+  try {
+    const db = c.env.DB
+    const body = await c.req.json() as any
+    const maKh = String(body.ma_kh || '').trim()
+    const tenKh = String(body.ten_kh || '').trim()
+    if (!maKh) return c.json({ error: 'ma_kh bắt buộc' }, 400)
+    if (!tenKh) return c.json({ error: 'ten_kh bắt buộc' }, 400)
+
+    const exists = await db.prepare('SELECT ma_kh FROM danh_sach_khach WHERE ma_kh = ?').bind(maKh).first()
+    if (exists) return c.json({ error: `Mã khách ${maKh} đã tồn tại` }, 400)
+
+    const loaiOp = body.loai_op || 'OP1'
+    const vung = body.vung || 'SaiGon'
+    const doiTuong = body.doi_tuong || 'PREMIER'
+    const hang = body.hang || 'OP1'
+    const nhom = body.nhom || null
+    const updatedBy = String(body.updated_by || '').trim()
+
+    await db.prepare(
+      `INSERT INTO danh_sach_khach (ma_kh, ten_kh, loai_op, vung, doi_tuong, hang, nhom, nguon, created_at, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'tao-moi', datetime('now','+7 hours'), ?)`
+    ).bind(maKh, tenKh, loaiOp, vung, doiTuong, hang, nhom, updatedBy || null).run()
+
+    return c.json({ success: true, ma_kh: maKh })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 // POST /api/chiet-khau/khach/:id — cập nhật phân nhóm + mức CK của 1 khách
 router.patch('/khach/:id', async (c) => {
   try {
@@ -158,6 +189,38 @@ router.patch('/khach/:id', async (c) => {
 
     vals.push(id)
     await db.prepare(`UPDATE danh_sach_khach SET ${sets.join(', ')} WHERE id = ?`).bind(...vals).run()
+
+    // Đồng bộ sang khach_theo_thang cho tháng hiện tại
+    const thangNow = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })()
+    const maKhRow = await db.prepare('SELECT ma_kh FROM danh_sach_khach WHERE id = ?').bind(id).first() as any
+    if (maKhRow?.ma_kh) {
+      const maKh = String(maKhRow.ma_kh)
+      const syncCols = ['vung', 'doi_tuong', 'hang', 'loai_op', 'nhom', 'tu_lay', 'ck_vc_pct', 'ck_ds_98mau_pct', 'ck_ds_khac_pct', 'ghi_chu']
+      const syncVals: Record<string, any> = {}
+      for (const k of syncCols) {
+        if (body[k] !== undefined) syncVals[k] = body[k]
+      }
+      if (Object.keys(syncVals).length > 0) {
+        const existing = await db.prepare('SELECT * FROM khach_theo_thang WHERE ma_kh = ? AND thang = ?').bind(maKh, thangNow).first() as any
+        if (existing) {
+          const uSets: string[] = []
+          const uVals: any[] = []
+          for (const [k, v] of Object.entries(syncVals)) {
+            uSets.push(`${k} = ?`)
+            uVals.push(k === 'tu_lay' ? (v ? 1 : 0) : (v === '' ? null : v))
+          }
+          uVals.push(maKh, thangNow)
+          await db.prepare(`UPDATE khach_theo_thang SET ${uSets.join(', ')}, updated_at = datetime('now','+7 hours'), updated_by = 'sync-danh-sach' WHERE ma_kh = ? AND thang = ?`).bind(...uVals).run()
+        } else {
+          const insCols = ['ma_kh', 'thang', ...Object.keys(syncVals)]
+          const insVals = [maKh, thangNow, ...Object.values(syncVals).map((v: any) => v === '' ? null : v)]
+          await db.prepare(
+            `INSERT INTO khach_theo_thang (${insCols.join(', ')}, updated_at, updated_by) VALUES (${insCols.map(() => '?').join(', ')}, datetime('now','+7 hours'), 'sync-danh-sach')`
+          ).bind(...insVals).run()
+        }
+      }
+    }
+
     return c.json({ success: true })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -178,6 +241,25 @@ router.post('/khach/phan-loat', async (c) => {
         .bind(nhom, n.vung || null, n.doi_tuong, id)
     )
     await db.batch(stmts)
+
+    // Đồng bộ sang khach_theo_thang cho tháng hiện tại
+    const thangNow = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })()
+    for (const id of ids) {
+      const row = await db.prepare('SELECT ma_kh FROM danh_sach_khach WHERE id = ?').bind(id).first() as any
+      if (!row?.ma_kh) continue
+      const maKh = String(row.ma_kh)
+      const existing = await db.prepare('SELECT * FROM khach_theo_thang WHERE ma_kh = ? AND thang = ?').bind(maKh, thangNow).first() as any
+      if (existing) {
+        await db.prepare(
+          `UPDATE khach_theo_thang SET nhom = ?, vung = ?, doi_tuong = ?, hang = COALESCE(hang, 'OP1'), updated_at = datetime('now','+7 hours'), updated_by = 'sync-phan-loat' WHERE ma_kh = ? AND thang = ?`
+        ).bind(nhom, n.vung || null, n.doi_tuong, maKh, thangNow).run()
+      } else {
+        await db.prepare(
+          `INSERT INTO khach_theo_thang (ma_kh, thang, nhom, vung, doi_tuong, hang, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, COALESCE(?, 'OP1'), datetime('now','+7 hours'), 'sync-phan-loat')`
+        ).bind(maKh, thangNow, nhom, n.vung || null, n.doi_tuong, null).run()
+      }
+    }
+
     return c.json({ success: true, count: ids.length })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -816,7 +898,7 @@ function xacDinhDieuKien(nhomSP: string, sl: number, orderSl: number, thungLine 
 }
 
 // Lấy mức CK theo loại khách (doiTuong + vung + hang)
-function layRateTheoKH(rule: any, doiTuong: string, vung: string, hang: string): number | null {
+export function layRateTheoKH(rule: any, doiTuong: string, vung: string, hang: string): number | null {
   if (doiTuong === 'PREMIER') {
     if (vung === 'Tinh') return rule.dl_tinh ?? null
     if (vung === 'NgoaiThanh') return rule.dl_nt ?? null
@@ -1730,6 +1812,26 @@ router.get('/quan-ly-thang/khach-thang', async (c) => {
   }
 })
 
+// GET /api/chiet-khau/quan-ly-thang/khach-thang/log?thang=YYYY-MM&ma_kh=xxx
+router.get('/quan-ly-thang/khach-thang/log', async (c) => {
+  try {
+    const db = c.env.DB
+    const thang = (c.req.query('thang') || '').trim()
+    const maKh = (c.req.query('ma_kh') || '').trim()
+    if (!/^\d{4}-\d{2}$/.test(thang)) return c.json({ error: 'thang phải YYYY-MM' }, 400)
+
+    let query = `SELECT * FROM thay_doi_log WHERE bang = 'khach_theo_thang' AND thang = ?`
+    const binds: any[] = [thang]
+    if (maKh) { query += ` AND ref_id = ?`; binds.push(maKh) }
+    query += ` ORDER BY created_at DESC LIMIT 200`
+
+    const { results } = await db.prepare(query).bind(...binds).all()
+    return c.json({ data: results })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
 // POST /api/chiet-khau/quan-ly-thang/khach-thang — upsert thuộc tính khách theo tháng
 // body: { thang, rows: [{ ma_kh, [loai_op|vung|doi_tuong|hang|nhom|tu_lay|ck_vc_pct|ck_ds_98mau_pct|ck_ds_khac_pct|ck_ct_pct], delete? }], updated_by }
 router.post('/quan-ly-thang/khach-thang', async (c) => {
@@ -1809,6 +1911,23 @@ router.post('/quan-ly-thang/khach-thang', async (c) => {
             ).bind(maKh, col, String(updates[col]), updatedBy, thang).run()
             soLog++
           }
+        }
+      }
+
+      // Đồng bộ sang danh_sach_khach (master) — cập nhật các trường phân loại + CK
+      if (r.delete !== true && r.delete !== 1 && String(r.delete).toLowerCase() !== 'true') {
+        const syncToMaster = ['vung', 'doi_tuong', 'hang', 'loai_op', 'nhom', 'tu_lay', 'ck_vc_pct', 'ck_ds_98mau_pct', 'ck_ds_khac_pct', 'ghi_chu']
+        const masterSets: string[] = []
+        const masterVals: any[] = []
+        for (const col of syncToMaster) {
+          if (r[col] !== undefined && r[col] !== null) {
+            masterSets.push(`${col} = ?`)
+            masterVals.push(col === 'tu_lay' ? (r[col] ? 1 : 0) : (r[col] === '' ? null : r[col]))
+          }
+        }
+        if (masterSets.length > 0) {
+          masterVals.push(maKh)
+          await db.prepare(`UPDATE danh_sach_khach SET ${masterSets.join(', ')} WHERE ma_kh = ?`).bind(...masterVals).run()
         }
       }
     }
