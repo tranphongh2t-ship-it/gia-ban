@@ -28,7 +28,7 @@ gia-ban-app/
 backend/
 ├── src/
 │   ├── index.ts                  # Root router: khởi tạo Hono, mount all routes
-│   ├── seed.ts                   # Seed dữ liệu mẫu (Admin/Bangdang190891)
+│   ├── seed.ts                   # Seed dữ liệu mẫu (Admin/****)
 │   ├── helpers/
 │   │   └── crud.ts               # Generic CRUD helper: listQuery, defaultFilters, filter alias
 │   ├── logic/
