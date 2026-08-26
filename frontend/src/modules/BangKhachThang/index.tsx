@@ -28,10 +28,10 @@ const nextMonth = (m: string): string => {
 }
 
 const HANG_LABEL: Record<string, string> = {
-  OP1: 'OP1 — Mức chung (CK flat)',
-  OP2: 'OP2 — Bậc thang (CK lũy tiến)',
+  OP1: 'Đại lý - Giao hàng (CK flat %)',
+  OP2: 'Đại lý - Tự lấy (CK lũy tiến)',
   Premium: 'Premium — Ưu đãi cao nhất',
-  Thuong: 'Thường — Không CK riêng',
+  Thuong: 'Xưởng thường — Không CK riêng',
 }
 
 const VUNG_LABEL: Record<string, string> = {
@@ -45,19 +45,19 @@ const DOI_TUONG_LABEL: Record<string, string> = {
 }
 
 const LOAI_OP_LABEL: Record<string, string> = {
-  OP1: 'OP1 — Thanh Thùy giao',
-  OP2: 'OP2 — Khách tự lấy',
+  OP1: 'Giao hàng (Thanh Thùy giao)',
+  OP2: 'Tự lấy (Khách tự lấy)',
 }
 
 const nhomHienThi = (r: KhachRow): string => {
   const hang = String(r.hang || '').toLowerCase()
   if (hang === 'premium') return 'PREMIUM'
   if (hang === 'thuong') return 'Xưởng thường'
-  if (hang === 'op2' || String(r.loai_op || '') === 'OP2' || r.co_bac) return 'Đại lý OP2'
-  if (hang === 'op1' || String(r.loai_op || '') === 'OP1') return 'Đại lý OP1'
+  if (hang === 'op2' || String(r.loai_op || '') === 'OP2' || r.co_bac) return 'Đại lý - Tự lấy (OP2)'
+  if (hang === 'op1' || String(r.loai_op || '') === 'OP1') return 'Đại lý - Giao hàng (OP1)'
   return 'Xưởng thường'
 }
-const NHOM_ORDER = ['PREMIUM', 'Đại lý OP1', 'Đại lý OP2', 'Xưởng thường']
+const NHOM_ORDER = ['PREMIUM', 'Đại lý - Giao hàng (OP1)', 'Đại lý - Tự lấy (OP2)', 'Xưởng thường']
 
 const PCT_COLS = [
   { key: 'ck_ds_98mau_pct', hdKey: 'hd_98', label: 'CK 98 màu %' },
@@ -286,8 +286,8 @@ export default function BangKhachThangPage() {
 
   const riengTabs: GroupTab[] = [
     { key: 'PREMIUM', label: 'PREMIUM', color: '#d6336c' },
-    { key: 'Đại lý OP1', label: 'Đại lý OP1', color: '#2f9e44' },
-    { key: 'Đại lý OP2', label: 'Đại lý OP2', color: '#066fd1' },
+    { key: 'Đại lý - Giao hàng (OP1)', label: 'Đại lý - Giao hàng (OP1)', color: '#2f9e44' },
+    { key: 'Đại lý - Tự lấy (OP2)', label: 'Đại lý - Tự lấy (OP2)', color: '#066fd1' },
     { key: 'Xưởng thường', label: 'Xưởng thường', color: colors.textMuted },
   ]
 
