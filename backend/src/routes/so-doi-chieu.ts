@@ -390,6 +390,72 @@ async function tinhHet(db: D1Database, ownerId?: number | null): Promise<number>
   return stmts.length
 }
 
+// Auto-map tu_lay cho khách hàng dựa trên so sánh CK gốc (ck) vs CK tính (ck_tinh).
+// Logic:
+//   ck > ck_tinh  → đơn có CKVC (khách tự lấy) → tu_lay = 1
+//   ck < ck_tinh  → đơn không CKVC (giao hàng)  → tu_lay = 0
+//   ck ≈ ck_tinh  → giữ nguyên
+// Chỉ áp dụng cho hàng thường (không phải Melamine), vì Melamine CK2 giờ không phụ thuộc tu_lay.
+async function autoMapTuLay(db: D1Database, ownerId?: number | null): Promise<{ updated: number; details: Record<string, string> }> {
+  const ownerCond = ownerId != null ? ' AND owner_user_id = ?' : ''
+  const params = ownerId != null ? [ownerId] : []
+  const { results: rows } = await db.prepare(
+    `SELECT ma_kh, doanh_so, ck, ck_tinh, tong_pct
+     FROM ${TABLE}
+     WHERE ma_kh IS NOT NULL AND ma_kh != '' AND doanh_so > 0
+     ${ownerCond}`
+  ).bind(...params).all()
+
+  // Aggregate theo ma_kh: đếm số đơn ck > ck_tinh vs ck < ck_tinh
+  const stats: Record<string, { coVC: number; khongVC: number; total: number; doanhSo: number }> = {}
+  for (const r of rows as any[]) {
+    const ma = String(r.ma_kh).trim()
+    if (!ma) continue
+    if (!stats[ma]) stats[ma] = { coVC: 0, khongVC: 0, total: 0, doanhSo: 0 }
+    const s = stats[ma]
+    s.total++
+    s.doanhSo += Number(r.doanh_so) || 0
+    const ckGoc = Number(r.ck) || 0
+    const ckTinh = Number(r.ck_tinh) || 0
+    // Sai số 1% doanh_so (dung sai cho phép ~0.5%)
+    const dungSai = (Number(r.doanh_so) || 0) * 0.005
+    if (ckGoc > ckTinh + dungSai) {
+      s.coVC++  // CK gốc cao hơn → có CKVC
+    } else if (ckGoc < ckTinh - dungSai) {
+      s.khongVC++  // CK gốc thấp hơn → không CKVC
+    }
+  }
+
+  // Quyết định tu_lay cho từng khách:
+  //   >50% đơn coVC → tu_lay = 1
+  //   >50% đơn khongVC → tu_lay = 0
+  //   otherwise → giữ nguyên
+  const updates: D1PreparedStatement[] = []
+  const details: Record<string, string> = {}
+  for (const [ma, s] of Object.entries(stats)) {
+    if (s.total < 1) continue
+    let newTuLay: number | null = null
+    if (s.coVC > s.khongVC && s.coVC >= s.total * 0.5) {
+      newTuLay = 1
+    } else if (s.khongVC > s.coVC && s.khongVC >= s.total * 0.5) {
+      newTuLay = 0
+    }
+    if (newTuLay !== null) {
+      updates.push(
+        db.prepare(`UPDATE danh_sach_khach SET tu_lay = ? WHERE ma_kh = ? AND (tu_lay IS NULL OR tu_lay != ?)`)
+          .bind(newTuLay, ma, newTuLay)
+      )
+      details[ma] = newTuLay === 1 ? `Có VC (${s.coVC}/${s.total} đơn)` : `Không VC (${s.khongVC}/${s.total} đơn)`
+    }
+  }
+
+  const BATCH = 100
+  for (let i = 0; i < updates.length; i += BATCH) {
+    await db.batch(updates.slice(i, i + BATCH))
+  }
+  return { updated: updates.length, details }
+}
+
 // Auto-sync khách hàng mới từ records → danh_sach_khach + khach_theo_thang (silent — chạy sau import).
 async function autoSyncNewCustomers(db: D1Database, records: Record<string, any>[]) {
   try {
@@ -600,13 +666,16 @@ router.post('/import-excel', async (c) => {
     const me = await reqUser(c.env.DB, c)
     const ownerId = me && isAdmin(me) ? null : reqOwnerId
     const soDongTinh = await tinhHet(c.env.DB, ownerId)
+    const tuLayResult = await autoMapTuLay(c.env.DB, ownerId)
     return c.json({
       success: true,
       total: records.length,
       imported,
       skipped,
       so_dong_tinh: soDongTinh,
-      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Đã tính lại CK cho ${soDongTinh} dòng.`,
+      tu_lay_updated: tuLayResult.updated,
+      tu_lay_details: tuLayResult.details,
+      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Đã tính lại CK cho ${soDongTinh} dòng. Auto-map tu_lay: ${tuLayResult.updated} khách.`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -629,6 +698,23 @@ router.post('/recompute-gia-goc', async (c) => {
     const ownerId = me && !isAdmin(me) ? me.id : null
     const updated = await recomputeGiaGoc(c.env.DB, ownerId)
     return c.json({ success: true, updated })
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500)
+  }
+})
+
+// POST /auto-map-tu-lay — tự động map tu_lay cho khách hàng dựa trên CK gốc vs CK tính
+router.post('/auto-map-tu-lay', async (c) => {
+  try {
+    const me = await reqUser(c.env.DB, c)
+    const ownerId = me && !isAdmin(me) ? me.id : null
+    const result = await autoMapTuLay(c.env.DB, ownerId)
+    return c.json({
+      success: true,
+      updated: result.updated,
+      details: result.details,
+      message: `Đã auto-map tu_lay cho ${result.updated} khách hàng.`,
+    })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
