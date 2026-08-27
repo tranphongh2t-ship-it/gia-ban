@@ -93,7 +93,7 @@ export default function BangKhachThangPage() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
-  const [mode, setMode] = useState<'rieng' | 'all'>('all')
+  const mode = 'rieng'
   const [onlyDiff, setOnlyDiff] = useState(false)
   const [filterText, setFilterText] = useState('')
   const [showAddSearch, setShowAddSearch] = useState(false)
@@ -134,11 +134,11 @@ export default function BangKhachThangPage() {
   const load = useCallback(async (t: string) => {
     setLoading(true); setMsg(null)
     try {
-      const res = await apiGet(`/chiet-khau/quan-ly-thang/khach-thang?thang=${t}&mode=${mode}`)
+      const res = await apiGet(`/chiet-khau/quan-ly-thang/khach-thang?thang=${t}&mode=rieng`)
       setRows(res.data || [])
     } catch (e: any) { setMsg({ type: 'err', text: e.message }) }
     finally { setLoading(false) }
-  }, [mode])
+  }, [])
 
   useEffect(() => { void load(thang) }, [load, thang])
 
@@ -324,9 +324,9 @@ export default function BangKhachThangPage() {
       columns={gridColsWithNguon}
       rows={displayRows}
       rowKey="ma_kh"
-      storageKey={`bkt-${thang}-${mode}`}
-      groupBy={mode === 'rieng' ? groupByNhom : undefined}
-      groupTabs={mode === 'rieng' ? riengTabs : undefined}
+      storageKey={`bkt-${thang}`}
+      groupBy={groupByNhom}
+      groupTabs={riengTabs}
       actions={actionsCol}
     />
   )
@@ -347,22 +347,6 @@ export default function BangKhachThangPage() {
           {thangs.filter(t => t !== thang).map(t => <option key={t} value={t}>{t}</option>)}
         </select>
         <input style={{ ...input, width: 240 }} placeholder="Lọc mã / tên khách" value={filterText} onChange={e => setFilterText(e.target.value)} />
-        {/* Mode buttons */}
-        <div style={{ display: 'flex', gap: 4, background: colors.surfaceSecondary, borderRadius: radius.md, padding: 4 }}>
-          {[
-            { key: 'rieng' as const, label: '🎯 Mức riêng', icon: '' },
-            { key: 'all' as const, label: '📋 Tất cả', icon: '' },
-          ].map(m => (
-            <button key={m.key} onClick={() => setMode(m.key)} style={{
-              padding: '7px 14px', borderRadius: radius.sm, border: 'none', cursor: 'pointer',
-              fontSize: 12.5, fontWeight: mode === m.key ? 700 : 500,
-              background: mode === m.key ? colors.primary : 'transparent',
-              color: mode === m.key ? '#fff' : colors.textMuted,
-            }}>
-              {m.label}
-            </button>
-          ))}
-        </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
           <input type="checkbox" checked={onlyDiff} onChange={() => setOnlyDiff(!onlyDiff)} />
           Chỉ khác tháng trước
