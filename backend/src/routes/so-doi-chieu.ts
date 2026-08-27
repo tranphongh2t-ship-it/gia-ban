@@ -665,17 +665,21 @@ router.post('/import-excel', async (c) => {
     const reqOwnerId = Number(c.req.header('x-user-id')) || null
     const me = await reqUser(c.env.DB, c)
     const ownerId = me && isAdmin(me) ? null : reqOwnerId
+    // Bước 1: Tính CK với tu_lay hiện tại
     const soDongTinh = await tinhHet(c.env.DB, ownerId)
+    // Bước 2: Auto-map tu_lay dựa trên CK gốc vs CK tính
     const tuLayResult = await autoMapTuLay(c.env.DB, ownerId)
+    // Bước 3: Tính lại CK với tu_lay mới (để CK2 cập nhật đúng)
+    const soDongTinh2 = tuLayResult.updated > 0 ? await tinhHet(c.env.DB, ownerId) : 0
     return c.json({
       success: true,
       total: records.length,
       imported,
       skipped,
-      so_dong_tinh: soDongTinh,
+      so_dong_tinh: soDongTinh + soDongTinh2,
       tu_lay_updated: tuLayResult.updated,
       tu_lay_details: tuLayResult.details,
-      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Đã tính lại CK cho ${soDongTinh} dòng. Auto-map tu_lay: ${tuLayResult.updated} khách.`,
+      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Đã tính lại CK cho ${soDongTinh + soDongTinh2} dòng. Auto-map tu_lay: ${tuLayResult.updated} khách.`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -726,7 +730,15 @@ router.post('/tinh-het', async (c) => {
     const me = await reqUser(c.env.DB, c)
     const ownerId = me && !isAdmin(me) ? me.id : null
     const soDong = await tinhHet(c.env.DB, ownerId)
-    return c.json({ success: true, so_dong: soDong, message: `Tính lại CK cho ${soDong} dòng theo chuẩn bang-ck-thang.` })
+    const tuLayResult = await autoMapTuLay(c.env.DB, ownerId)
+    const soDong2 = tuLayResult.updated > 0 ? await tinhHet(c.env.DB, ownerId) : 0
+    return c.json({
+      success: true,
+      so_dong: soDong + soDong2,
+      tu_lay_updated: tuLayResult.updated,
+      tu_lay_details: tuLayResult.details,
+      message: `Tính lại CK cho ${soDong + soDong2} dòng. Auto-map tu_lay: ${tuLayResult.updated} khách.`,
+    })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }
