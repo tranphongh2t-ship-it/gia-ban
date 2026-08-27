@@ -755,38 +755,28 @@ export async function tinhCKChoDong(db: D1Database, row: DongBan, ctx?: Lop2Ctx)
     chiTiet.ck1 = ck1
   }
 
-  // ---------- Lớp 2: CK vận chuyển (theo BẢNG TỔNG HỢP OP1) ----------
-  // MDF/Okal phủ Mel: Tinh 4% (luôn), NT/SG/Xưởng 1% (≥1 kiện).
-  // Hàng còn lại (chỉ nẹp, ván trơn, keo...): 1% khi khách TỰ LẤY tại kho.
-  //   Dữ kiện 08/2026: khách tự cho xe tới lấy hàng (SG) cũng hưởng 1% — được đánh dấu bằng cờ tu_lay=1.
+  // ---------- Lớp 2: CK vận chuyển ----------
+  // Quy tắc mới:
+  //   0% = không có CK vận chuyển
+  //   1% = có CK vận chuyển (hàng thường, tự lấy)
+  //   4% = Đại lý Tỉnh mua MDF/Okal phủ Melamine
   let ck2 = 0
-  // Mức CK riêng khách đã bao gồm vận chuyển -> không cộng thêm Lớp 2
-  const vc = ck1Override ? null : findCkVanChuyen(ctx?.ckVanChuyen, doiTuong, vung)
   const khTuLay = Number(kh?.tu_lay) === 1
+  const vc = ck1Override ? null : findCkVanChuyen(ctx?.ckVanChuyen, doiTuong, vung)
+
   if (isMelPhu) {
-    if (vc && khTuLay) {
-      const nguongCoSo = Number(vc.nguong_kien) || 0
-      const doDay = doDayTuMaHang(maHang)
-      const nguong = doDay && nguongCoSo > 0 ? Math.round(nguongCoSo * 17 / doDay) : 0
-      const soCtVC = String(row.so_ct || '').trim()
-      const totalSl = ctx ? (ctx.totalSl.get(soCtVC) || 0) : sl
-      const duDK = nguong === 0 || totalSl >= nguong
-      if (duDK) {
-        ck2 = vc.pct_mdf_mel ?? 0
-        chiTiet.ck2 = ck2
-        chiTiet.ck2_du_dieu_kien = true
-      } else {
-        chiTiet.ck2_du_dieu_kien = false
-        chiTiet.ck2_ghi_chu = `Chưa đủ ${nguong} tấm (1 kiện)`
-      }
-    } else if (!khTuLay) {
-      chiTiet.ck2 = 0
-      chiTiet.ck2_ghi_chu = 'Khách giao hàng (không tự lấy) — không CK vận chuyển'
+    // Melamine: Tỉnh=4%, SG/Ngoại thành=1% (không phụ thuộc tu_lay)
+    if (vung === 'Tinh') {
+      ck2 = 0.04  // 4% Đại lý Tỉnh
+    } else {
+      ck2 = 0.01  // 1% SG/Ngoại thành
     }
+    chiTiet.ck2 = ck2
+    chiTiet.ck2_du_dieu_kien = true
   } else {
-    // Hàng còn lại: CK vận chuyển 1% (tự lấy) — theo cờ tu_lay của từng khách
-    if (vc && doiTuong === 'PREMIER' && khTuLay && vc.pct_khac) {
-      ck2 = vc.pct_khac
+    // Hàng thường (chỉ nẹp, ván trơn, keo...): 1% nếu tự lấy, 0% nếu giao hàng
+    if (khTuLay && doiTuong === 'PREMIER') {
+      ck2 = 0.01
       chiTiet.ck2 = ck2
       chiTiet.nguon_ck2 = 'khach_tu_lay'
     }
