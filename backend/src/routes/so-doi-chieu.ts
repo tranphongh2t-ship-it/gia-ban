@@ -390,62 +390,88 @@ async function tinhHet(db: D1Database, ownerId?: number | null): Promise<number>
   return stmts.length
 }
 
-// Auto-map tu_lay cho khách hàng dựa trên so sánh CK gốc (ck) vs CK tính (ck_tinh).
+// Auto-map tu_lay + vung cho khách hàng dựa trên so sánh CK gốc vs CK tính.
 // Logic:
-//   ck > ck_tinh  → đơn có CKVC (khách tự lấy) → tu_lay = 1
-//   ck < ck_tinh  → đơn không CKVC (giao hàng)  → tu_lay = 0
-//   ck ≈ ck_tinh  → giữ nguyên
-// Chỉ áp dụng cho hàng thường (không phải Melamine), vì Melamine CK2 giờ không phụ thuộc tu_lay.
+//   (ck - ck_tinh) / doanh_so ≈ +4% → đại lý Tỉnh, tu_lay = 1
+//   (ck - ck_tinh) / doanh_so ≈ +1% → SG/Ngoại thành, tu_lay = 1
+//   (ck - ck_tinh) / doanh_so ≈ -1% → giao hàng, tu_lay = 0
+//   (ck - ck_tinh) / doanh_so ≈  0% → đã đúng, giữ nguyên
 async function autoMapTuLay(db: D1Database, ownerId?: number | null): Promise<{ updated: number; details: Record<string, string> }> {
   const ownerCond = ownerId != null ? ' AND owner_user_id = ?' : ''
   const params = ownerId != null ? [ownerId] : []
   const { results: rows } = await db.prepare(
-    `SELECT ma_kh, doanh_so, ck, ck_tinh, tong_pct
+    `SELECT ma_kh, doanh_so, ck, ck_tinh, tong_pct, ma_hang
      FROM ${TABLE}
      WHERE ma_kh IS NOT NULL AND ma_kh != '' AND doanh_so > 0
      ${ownerCond}`
   ).bind(...params).all()
 
-  // Aggregate theo ma_kh: đếm số đơn ck > ck_tinh vs ck < ck_tinh
-  const stats: Record<string, { coVC: number; khongVC: number; total: number; doanhSo: number }> = {}
+  // Aggregate theo ma_kh
+  const stats: Record<string, { tinh: number; sgNt: number; giaoHang: number; dung: number; total: number; hasMel: boolean }> = {}
   for (const r of rows as any[]) {
     const ma = String(r.ma_kh).trim()
     if (!ma) continue
-    if (!stats[ma]) stats[ma] = { coVC: 0, khongVC: 0, total: 0, doanhSo: 0 }
+    if (!stats[ma]) stats[ma] = { tinh: 0, sgNt: 0, giaoHang: 0, dung: 0, total: 0, hasMel: false }
     const s = stats[ma]
     s.total++
-    s.doanhSo += Number(r.doanh_so) || 0
+    const maHang = String(r.ma_hang || '').toUpperCase()
+    if (maHang.startsWith('ME')) s.hasMel = true
+
     const ckGoc = Number(r.ck) || 0
     const ckTinh = Number(r.ck_tinh) || 0
-    // Sai số 1% doanh_so (dung sai cho phép ~0.5%)
-    const dungSai = (Number(r.doanh_so) || 0) * 0.005
-    if (ckGoc > ckTinh + dungSai) {
-      s.coVC++  // CK gốc cao hơn → có CKVC
-    } else if (ckGoc < ckTinh - dungSai) {
-      s.khongVC++  // CK gốc thấp hơn → không CKVC
+    const ds = Number(r.doanh_so) || 0
+    if (ds <= 0) continue
+
+    // Tính sai số % giữa CK gốc và CK tính
+    const diffPct = (ckGoc - ckTinh) / ds  // ví dụ: 0.01 = 1%
+
+    // Dung sai 0.3% (cho làm tròn)
+    if (diffPct > 0.003) {
+      // CK gốc > CK tính → có CKVC
+      if (diffPct > 0.03) {
+        s.tinh++   // >3% → đại lý Tỉnh (CK2 = 4%)
+      } else {
+        s.sgNt++   // 0.3%~3% → SG/Ngoại thành (CK2 = 1%)
+      }
+    } else if (diffPct < -0.003) {
+      // CK gốc < CK tính → không CKVC
+      s.giaoHang++
+    } else {
+      s.dung++    // ≈ 0 → đã đúng
     }
   }
 
-  // Quyết định tu_lay cho từng khách:
-  //   >50% đơn coVC → tu_lay = 1
-  //   >50% đơn khongVC → tu_lay = 0
-  //   otherwise → giữ nguyên
+  // Quyết định tu_lay + vung cho từng khách
   const updates: D1PreparedStatement[] = []
   const details: Record<string, string> = {}
   for (const [ma, s] of Object.entries(stats)) {
     if (s.total < 1) continue
     let newTuLay: number | null = null
-    if (s.coVC > s.khongVC && s.coVC >= s.total * 0.5) {
+    let newVung: string | null = null
+
+    const coVcCount = s.tinh + s.sgNt
+    const khongVcCount = s.giaoHang
+
+    if (coVcCount > khongVcCount && coVcCount >= s.total * 0.5) {
       newTuLay = 1
-    } else if (s.khongVC > s.coVC && s.khongVC >= s.total * 0.5) {
+      // Suy ra vung: nếu majority là Tỉnh → Tinh, nếu majority là SG/NT → SaiGon
+      if (s.tinh > s.sgNt) {
+        newVung = 'Tinh'
+      } else {
+        newVung = 'SaiGon'
+      }
+    } else if (khongVcCount > coVcCount && khongVcCount >= s.total * 0.5) {
       newTuLay = 0
+      newVung = 'SaiGon'
     }
+
     if (newTuLay !== null) {
       updates.push(
-        db.prepare(`UPDATE danh_sach_khach SET tu_lay = ? WHERE ma_kh = ? AND (tu_lay IS NULL OR tu_lay != ?)`)
-          .bind(newTuLay, ma, newTuLay)
+        db.prepare(`UPDATE danh_sach_khach SET tu_lay = ?, vung = ? WHERE ma_kh = ?`)
+          .bind(newTuLay, newVung, ma)
       )
-      details[ma] = newTuLay === 1 ? `Có VC (${s.coVC}/${s.total} đơn)` : `Không VC (${s.khongVC}/${s.total} đơn)`
+      const vungLabel = newVung === 'Tinh' ? 'Tỉnh' : 'SG/NT'
+      details[ma] = `tu_lay=${newTuLay} (${newTuLay===1?'Có VC':'Không VC'}), vung=${vungLabel} [T:${s.tinh} SG:${s.sgNt} GH:${s.giaoHang} D:${s.dung}/${s.total}]`
     }
   }
 
