@@ -203,7 +203,7 @@ router.patch('/khach/:id', async (c) => {
         if (body[k] !== undefined) syncVals[k] = body[k]
       }
       if (Object.keys(syncVals).length > 0) {
-        const existing = await db.prepare('SELECT * FROM khach_theo_thang WHERE ma_kh = ? AND thang = ?').bind(maKh, thangNow).first() as any
+        const existing = await db.prepare('SELECT 1 FROM khach_theo_thang WHERE ma_kh = ? AND thang = ? LIMIT 1').bind(maKh, thangNow).first() as any
         if (existing) {
           const uSets: string[] = []
           const uVals: any[] = []
@@ -235,7 +235,7 @@ router.post('/khach/phan-loat', async (c) => {
     const db = c.env.DB
     const { ids, nhom } = await c.req.json() as any
     if (!Array.isArray(ids) || ids.length === 0 || !nhom) return c.json({ error: 'Thiếu ids hoặc nhom' }, 400)
-    const n = await db.prepare('SELECT * FROM khach_nhom WHERE key = ?').bind(nhom).first() as any
+    const n = await db.prepare('SELECT vung, doi_tuong FROM khach_nhom WHERE key = ?').bind(nhom).first() as any
     if (!n) return c.json({ error: 'Nhóm không tồn tại' }, 404)
 
     const stmts = ids.map((id: number) =>
@@ -245,22 +245,32 @@ router.post('/khach/phan-loat', async (c) => {
     await db.batch(stmts)
     invalidateCtxCache()
 
-    // Đồng bộ sang khach_theo_thang cho tháng hiện tại
+    // Đồng bộ sang khach_theo_thang cho tháng hiện tại (batch — avoids N+1)
     const thangNow = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` })()
-    for (const id of ids) {
-      const row = await db.prepare('SELECT ma_kh FROM danh_sach_khach WHERE id = ?').bind(id).first() as any
-      if (!row?.ma_kh) continue
-      const maKh = String(row.ma_kh)
-      const existing = await db.prepare('SELECT * FROM khach_theo_thang WHERE ma_kh = ? AND thang = ?').bind(maKh, thangNow).first() as any
-      if (existing) {
-        await db.prepare(
-          `UPDATE khach_theo_thang SET nhom = ?, vung = ?, doi_tuong = ?, hang = COALESCE(hang, 'OP1'), updated_at = datetime('now','+7 hours'), updated_by = 'sync-phan-loat' WHERE ma_kh = ? AND thang = ?`
-        ).bind(nhom, n.vung || null, n.doi_tuong, maKh, thangNow).run()
-      } else {
-        await db.prepare(
-          `INSERT INTO khach_theo_thang (ma_kh, thang, nhom, vung, doi_tuong, hang, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, COALESCE(?, 'OP1'), datetime('now','+7 hours'), 'sync-phan-loat')`
-        ).bind(maKh, thangNow, nhom, n.vung || null, n.doi_tuong, null).run()
+    // Pre-load ma_kh for all ids
+    const idStmts = ids.map((id: number) => db.prepare('SELECT id, ma_kh FROM danh_sach_khach WHERE id = ?').bind(id))
+    const idResults = await db.batch(idStmts)
+    const maKhList = idResults.map(r => String((r as any)?.results?.[0]?.ma_kh || '')).filter(Boolean)
+    if (maKhList.length > 0) {
+      // Pre-load existing khach_theo_thang for all ma_kh
+      const existStmts = maKhList.map(mk => db.prepare('SELECT ma_kh FROM khach_theo_thang WHERE ma_kh = ? AND thang = ?').bind(mk, thangNow))
+      const existResults = await db.batch(existStmts)
+      const existSet = new Set<string>()
+      existResults.forEach((r, i) => { if ((r as any)?.results?.[0]) existSet.add(maKhList[i]) })
+
+      const upsertStmts: D1PreparedStatement[] = []
+      for (const maKh of maKhList) {
+        if (existSet.has(maKh)) {
+          upsertStmts.push(db.prepare(
+            `UPDATE khach_theo_thang SET nhom = ?, vung = ?, doi_tuong = ?, hang = COALESCE(hang, 'OP1'), updated_at = datetime('now','+7 hours'), updated_by = 'sync-phan-loat' WHERE ma_kh = ? AND thang = ?`
+          ).bind(nhom, n.vung || null, n.doi_tuong, maKh, thangNow))
+        } else {
+          upsertStmts.push(db.prepare(
+            `INSERT INTO khach_theo_thang (ma_kh, thang, nhom, vung, doi_tuong, hang, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, COALESCE(?, 'OP1'), datetime('now','+7 hours'), 'sync-phan-loat')`
+          ).bind(maKh, thangNow, nhom, n.vung || null, n.doi_tuong, null))
+        }
       }
+      for (let i = 0; i < upsertStmts.length; i += 50) await db.batch(upsertStmts.slice(i, i + 50))
     }
 
     return c.json({ success: true, count: ids.length })
@@ -512,16 +522,21 @@ export type Lop2Ctx = {
   ckOp1: Map<string, any[]>
   ckOp2: Map<string, any[]>
   ckOp1Thangs: string[]
+  bang98Set: Set<string>
 }
 
 // Cache buildLop2Ctx for 5 minutes (reduces D1 reads from 112 calls/day to ~24 calls/day)
-let _ctxCache: { ctx: Lop2Ctx; at: number } | null = null
+const _ctxCacheMap = new Map<string, { ctx: Lop2Ctx; at: number }>()
 const CTX_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
-export function invalidateCtxCache() { _ctxCache = null }
+export function invalidateCtxCache() { _ctxCacheMap.clear() }
 
-export async function buildLop2Ctx(db: D1Database): Promise<Lop2Ctx> {
-  if (_ctxCache && (Date.now() - _ctxCache.at) < CTX_CACHE_TTL_MS) return _ctxCache.ctx
+export async function buildLop2Ctx(db: D1Database, salesTable = 'so_chi_tiet_ban_hang'): Promise<Lop2Ctx> {
+  const cached = _ctxCacheMap.get(salesTable)
+  if (cached && (Date.now() - cached.at) < CTX_CACHE_TTL_MS) return cached.ctx
+
+  // so_doi_chieu uses `so_chung_tu`, so_chi_tiet_ban_hang uses `so_ct`
+  const ctCol = salesTable === 'so_doi_chieu' ? 'so_chung_tu' : 'so_ct'
 
   const coVC = new Set<string>()
   const totalSl = new Map<string, number>()
@@ -529,33 +544,37 @@ export async function buildLop2Ctx(db: D1Database): Promise<Lop2Ctx> {
   const totalChiThung = new Map<string, number>()
   const bacThang = new Map<string, { pct98: number; pctKhac: number }>()
   const zvc = await db.prepare(
-    `SELECT DISTINCT so_ct FROM so_chi_tiet_ban_hang WHERE ma_hang = 'ZVC'`
+    `SELECT DISTINCT ${ctCol} AS so_ct FROM ${salesTable} WHERE ma_hang = 'ZVC'`
   ).all()
   for (const r of zvc.results as any[]) coVC.add(r.so_ct)
   const tot = await db.prepare(
-    `SELECT so_ct, SUM(sl_ban) AS t FROM so_chi_tiet_ban_hang
+    `SELECT ${ctCol} AS so_ct, SUM(sl_ban) AS t FROM ${salesTable}
      WHERE ma_hang LIKE 'ME%' AND ma_hang NOT LIKE 'MEVE%' AND ma_hang NOT LIKE 'MEOK%'
        AND ma_hang NOT LIKE 'MEGG%' AND ma_hang NOT LIKE 'MEVN%'
-     GROUP BY so_ct`
+     GROUP BY ${ctCol}`
   ).all()
   for (const r of tot.results as any[]) totalSl.set(r.so_ct, Number(r.t) || 0)
   // Tổng số lượng TẤT CẢ hàng (không phụ phí) theo đơn — dùng nhận diện "xe tới lấy hàng > 2 tấn" (≈ ≥ 65 tấm ván quy đổi 17mm)
   const totAll = await db.prepare(
-    `SELECT so_ct, SUM(sl_ban) AS t FROM so_chi_tiet_ban_hang
-     WHERE ma_hang NOT LIKE 'Z%' GROUP BY so_ct`
+    `SELECT ${ctCol} AS so_ct, SUM(sl_ban) AS t FROM ${salesTable}
+     WHERE ma_hang NOT LIKE 'Z%' GROUP BY ${ctCol}`
   ).all()
   for (const r of totAll.results as any[]) totalSlAll.set(r.so_ct, Number(r.t) || 0)
-  // Tổng thùng chỉ nẹp theo đơn: khổ 21 = 10 cuộn/thùng, khổ 43 = 5 cuộn/thùng (21/43 là khổ, xác nhận 08/2026)
+  // Tổng thùng CHỈ NẸP chẵn theo NGÀY + KHÁCH: chỉ cộng thùng chẵn (thungLine là số nguyên)
+  // Dòng lẻ (thungLine là số thập phân) không được cộng dồn, tính theo thungLine riêng → co_don
   const totChi = await db.prepare(
-    `SELECT so_ct, SUM(
-       CASE WHEN ma_hang LIKE '%43-1%' THEN sl_ban / 5.0
-            WHEN ma_hang LIKE '%21-1%' THEN sl_ban / 10.0
-            ELSE sl_ban / 10.0 END
-     ) AS t FROM so_chi_tiet_ban_hang
+    `SELECT ma_kh, ngay_chung_tu AS ngay, SUM(
+       CASE
+         WHEN ma_hang LIKE '%43-1%' AND (sl_ban / 5.0) % 1 = 0 THEN sl_ban / 5.0
+         WHEN ma_hang LIKE '%21-1%' AND (sl_ban / 10.0) % 1 = 0 THEN sl_ban / 10.0
+         WHEN ma_hang NOT LIKE '%43-1%' AND ma_hang NOT LIKE '%21-1%' AND (sl_ban / 10.0) % 1 = 0 THEN sl_ban / 10.0
+         ELSE 0
+       END
+     ) AS t FROM ${salesTable}
      WHERE ma_hang LIKE 'CHI%' AND ma_hang NOT LIKE 'CHIA%'
-     GROUP BY so_ct`
+     GROUP BY ma_kh, ngay_chung_tu`
   ).all()
-  for (const r of totChi.results as any[]) totalChiThung.set(r.so_ct, Number(r.t) || 0)
+  for (const r of totChi.results as any[]) totalChiThung.set(`${r.ma_kh}|${r.ngay}`, Number(r.t) || 0)
   const bac = await db.prepare(`SELECT ma_kh, thang, pct_98mau, pct_khac FROM op2_bac_thang`).all()
   for (const r of bac.results as any[]) {
     bacThang.set(`${r.ma_kh}|${r.thang}`, { pct98: normPct(r.pct_98mau) ?? 0, pctKhac: normPct(r.pct_khac) ?? 0 })
@@ -618,8 +637,20 @@ export async function buildLop2Ctx(db: D1Database): Promise<Lop2Ctx> {
   }
   for (const arr of ckOp2.values()) arr.sort((a, b) => String(b.thang).localeCompare(String(a.thang)))
 
-  const result = { coVC, totalSl, totalSlAll, totalChiThung, bacThang, khachMap, khachThangMap, policyRules, ckVanChuyen, nhomMauMap, revenueTiers, monthlyDs, ckOp1, ckOp2, ckOp1Thangs }
-  _ctxCache = { ctx: result, at: Date.now() }
+  // Preload bang_gia_chuan_98_mau codes — eliminates N+1 in xacDinhNhomMau()
+  const bang98Set = new Set<string>()
+  const bang98Rows = await db.prepare(
+    `SELECT color_code, wood_1, wood_2, wood_3, wood_4, wood_5, wood_6, wood_7, art FROM bang_gia_chuan_98_mau`
+  ).all()
+  for (const r of (bang98Rows.results as any[])) {
+    for (const col of ['color_code', 'wood_1', 'wood_2', 'wood_3', 'wood_4', 'wood_5', 'wood_6', 'wood_7', 'art']) {
+      const v = String(r?.[col] ?? '').trim()
+      if (v) bang98Set.add(v.toUpperCase())
+    }
+  }
+
+  const result = { coVC, totalSl, totalSlAll, totalChiThung, bacThang, khachMap, khachThangMap, policyRules, ckVanChuyen, nhomMauMap, revenueTiers, monthlyDs, ckOp1, ckOp2, ckOp1Thangs, bang98Set }
+  _ctxCacheMap.set(salesTable, { ctx: result, at: Date.now() })
   return result
 }
 
@@ -700,9 +731,10 @@ export async function tinhCKChoDong(db: D1Database, row: DongBan, ctx?: Lop2Ctx)
   } else {
     // Lớp 1: CK theo bảng ck_op1 (Bảng chiết khấu theo tháng)
     const soCt = String(row.so_ct || '').trim()
-    // Chỉ nẹp: bậc 1_thung theo thùng của DÒNG (khổ 21=10 cuộn, 43=5 cuộn), bậc 10/100_thung theo tổng thùng cả ĐƠN
+    // Chỉ nẹp: bậc 1_thung theo thùng của DÒNG (khổ 21=10 cuộn, 43=5 cuộn), bậc 10/100_thung theo tổng thùng cả NGÀY (cộng dồn tất cả đơn CHI cùng ngày)
     const thungLine = nhomSP === 'CHI_NEP' ? thungCuaDong(maHang, sl) : sl
-    const orderSl = nhomSP === 'CHI_NEP' ? (ctx?.totalChiThung.get(soCt) || thungLine) : sl
+    const dayKey = `${maKh}|${ngay}`
+    const orderSl = nhomSP === 'CHI_NEP' ? (ctx?.totalChiThung.get(dayKey) || thungLine) : sl
     const dieuKien = xacDinhDieuKien(nhomSP, sl, orderSl, thungLine)
     // Lớp 1 đọc theo tháng: ưu tiên rule đúng tháng, fallback tháng gần nhất <= tháng dòng
     const rule = ctx ? findCkOp1Rule(ctx, nhomSP, dieuKien, thang) : null
@@ -757,22 +789,25 @@ export async function tinhCKChoDong(db: D1Database, row: DongBan, ctx?: Lop2Ctx)
 
   // ---------- Lớp 2: CK vận chuyển ----------
   // Quy tắc mới:
-  //   0% = không có CK vận chuyển
+  //   0% = không có CK vận chuyển (giao hàng / Premium)
   //   1% = có CK vận chuyển (hàng thường, tự lấy)
-  //   4% = Đại lý Tỉnh mua MDF/Okal phủ Melamine
+  //   4% = Đại lý Tỉnh mua MDF/Okal phủ Melamine (tự lấy)
   let ck2 = 0
   const khTuLay = Number(kh?.tu_lay) === 1
   const vc = ck1Override ? null : findCkVanChuyen(ctx?.ckVanChuyen, doiTuong, vung)
 
   if (isMelPhu) {
-    // Melamine: Tỉnh=4%, SG/Ngoại thành=1% (không phụ thuộc tu_lay)
-    if (vung === 'Tinh') {
-      ck2 = 0.04  // 4% Đại lý Tỉnh
-    } else {
-      ck2 = 0.01  // 1% SG/Ngoại thành
+    // Melamine: chỉ có CK vận chuyển khi tự lấy (tu_lay=1)
+    // Giao hàng (tu_lay=0) → CK2 = 0%
+    if (khTuLay) {
+      if (vung === 'Tinh') {
+        ck2 = 0.04  // 4% Đại lý Tỉnh tự lấy
+      } else {
+        ck2 = 0.01  // 1% SG/Ngoại thành tự lấy
+      }
+      chiTiet.ck2 = ck2
+      chiTiet.ck2_du_dieu_kien = true
     }
-    chiTiet.ck2 = ck2
-    chiTiet.ck2_du_dieu_kien = true
   } else {
     // Hàng thường (chỉ nẹp, ván trơn, keo...): 1% nếu tự lấy, 0% nếu giao hàng
     if (khTuLay && doiTuong === 'PREMIER') {
@@ -894,10 +929,16 @@ function xacDinhDieuKien(nhomSP: string, sl: number, orderSl: number, thungLine 
       if (sl >= 50) return 'gt50'
       return 'co_don'
     case 'CHI_NEP':
-      // 10/100_thung theo tổng thùng cả đơn; 1_thung khi dòng tự đạt 1 thùng (khổ 21=10 cuộn, 43=5 cuộn)
-      if (orderSl >= 100) return '100_thung'
-      if (orderSl >= 10) return '10_thung'
-      if (thungLine >= 1) return '1_thung'
+      // Dòng chẵn (thungLine là số nguyên): dùng tổng thùng chẵn cả ngày (orderSl) để tra tier
+      // Dòng lẻ (thungLine là số thập phân): tính theo thungLine riêng → luôn < 1 thùng → co_don
+      if (thungLine % 1 === 0) {
+        // Dòng chẵn: dùng tổng thùng chẵn cả ngày
+        if (orderSl >= 100) return '100_thung'
+        if (orderSl >= 10) return '10_thung'
+        if (orderSl >= 1) return '1_thung'
+        return 'co_don'
+      }
+      // Dòng lẻ: thungLine < 1 thùng → co_don
       return 'co_don'
     case 'KEO_HAT':
       if (sl >= 10) return '10_bao'
@@ -920,23 +961,35 @@ export function layRateTheoKH(rule: any, doiTuong: string, vung: string, hang: s
 }
 
 // Xác định nhóm màu: 98 phổ thông hay khác
-// Ưu tiên tra bảng map mã hàng (từ reverse-engineering); không có mới parse + tra bang_gia_chuan_98_mau.
+// ME/MEOK trong 98 màu đặc biệt → 98_pho_thong; ME/MEOK ngoài 220 màu → khac
+// Ưu tiên tra bảng ma_hang_nhom_mau; không có mới parse + tra bang_gia_chuan_98_mau.
+// Logic: 98_pho_thong khi (1) tên chứa từ khóa đặc biệt HOẶC (2) mã màu trùng bang_gia_chuan_98_mau
+const MEL_98_KEYWORDS = ['CHI', 'DEN', 'HONG', 'XDUONG', 'XBANG', 'XCHUOI']
 async function xacDinhNhomMau(db: D1Database, ctx: Lop2Ctx | undefined, maHang: string): Promise<'98_pho_thong' | 'khac'> {
   const upper = maHang.toUpperCase()
   const mapped = ctx?.nhomMauMap.get(upper)
   if (mapped) return mapped as '98_pho_thong' | 'khac'
 
-  // Fallback: mã dạng ME + độ dày + [lõi] + mã màu số.
-  const mm = /^ME\d+(?:\.\d+)?[A-Z]*(\d{3,4})/.exec(upper)
+  if (!upper.startsWith('ME') || upper.startsWith('MEVE') || upper.startsWith('MEGG') || upper.startsWith('MEVN')) return 'khac'
+
+  for (const kw of MEL_98_KEYWORDS) {
+    if (upper.includes(kw)) return '98_pho_thong'
+  }
+
+  const mm = /^ME(?:OK)?\d{2}(?:\.\d+)?(?:F4S|CP\d|[A-Z]{2,3})?(\d{2,4})/.exec(upper)
   if (!mm) return 'khac'
   const code = mm[1]
+
+  // Use preloaded bang98Set from Lop2Ctx (eliminates N+1 DB query per ME row)
+  if (ctx?.bang98Set?.has(code)) return '98_pho_thong'
+
+  // Fallback: query DB only if ctx not available (edge case)
   const found = await db.prepare(
     `SELECT 1 FROM bang_gia_chuan_98_mau
      WHERE color_code = ? OR wood_1 = ? OR wood_2 = ? OR wood_3 = ? OR wood_4 = ?
         OR wood_5 = ? OR wood_6 = ? OR wood_7 = ? OR art = ?
-        OR color_name LIKE '%' || ? || '%'
      LIMIT 1`
-  ).bind(code, code, code, code, code, code, code, code, code, code).first()
+  ).bind(code, code, code, code, code, code, code, code, code).first()
   return found ? '98_pho_thong' : 'khac'
 }
 
@@ -1015,29 +1068,39 @@ router.post('/chot-thang', async (c) => {
        GROUP BY t.ma_kh`
     ).bind(nam, thangSo).all()
 
+    // Pre-load lũy kế năm 2026-03 → thang cho TẤT CẢ khách (1 query thay vì N)
+    const yyyymm = thang.replace('-', '')
+    const { results: lkRows } = await db.prepare(
+      `SELECT ma_kh, SUM(doanh_so - gt_tra - gt_giam) AS lk
+       FROM ${bang}
+       WHERE ma_hang LIKE 'ME%' AND ma_hang NOT LIKE 'MEVE%'
+         AND ma_hang NOT LIKE 'MEOK%' AND ma_hang NOT LIKE 'MEGG%'
+         AND COALESCE(la_khuyen_mai,0) = 0 AND COALESCE(la_thanh_ly,0) = 0
+         AND (SUBSTR(ngay,7,4) || SUBSTR(ngay,4,2)) >= '202603'
+         AND (SUBSTR(ngay,7,4) || SUBSTR(ngay,4,2)) <= ?
+       GROUP BY ma_kh`
+    ).bind(yyyymm).all()
+    const lkMap = new Map<string, number>()
+    for (const r of lkRows as any[]) lkMap.set(String(r.ma_kh), Number(r.lk) || 0)
+
+    // Pre-load annual tiers (small table, load all)
+    const { results: tierRows } = await db.prepare(
+      `SELECT bac_tu, pct FROM policy_annual_tiers ORDER BY bac_tu DESC`
+    ).all()
+    const getAnnualTier = (dsNam: number) => {
+      for (const t of tierRows as any[]) {
+        if (dsNam >= Number(t.bac_tu)) return Number(t.pct)
+      }
+      return 0
+    }
+
     const stmts: D1PreparedStatement[] = []
     for (const r of rows as any[]) {
       const ds = Number(r.ds_mel) || 0
       const ckThang = ds >= 400000000 ? 0.03 : 0
 
-      // Lũy kế năm từ 2026-03 đến thang hiện tại
-      // ngay lưu dạng dd/MM/yyyy → chuẩn hóa thành yyyyMM để so sánh đúng thứ tự thời gian
-      const yyyymm = thang.replace('-', '')
-      const { results: luyKe } = await db.prepare(
-        `SELECT SUM(doanh_so - gt_tra - gt_giam) AS lk
-         FROM ${bang}
-         WHERE ma_kh = ? AND ma_hang LIKE 'ME%' AND ma_hang NOT LIKE 'MEVE%'
-           AND ma_hang NOT LIKE 'MEOK%' AND ma_hang NOT LIKE 'MEGG%'
-           AND COALESCE(la_khuyen_mai,0) = 0 AND COALESCE(la_thanh_ly,0) = 0
-           AND (SUBSTR(ngay,7,4) || SUBSTR(ngay,4,2)) >= '202603'
-           AND (SUBSTR(ngay,7,4) || SUBSTR(ngay,4,2)) <= ?`
-      ).bind(r.ma_kh, yyyymm).all()
-      const dsNam = Number((luyKe as any)?.[0]?.lk) || 0
-
-      const an = await db.prepare(
-        `SELECT pct FROM policy_annual_tiers WHERE bac_tu <= ? ORDER BY bac_tu DESC LIMIT 1`
-      ).bind(dsNam).first() as any
-      const ckNam = an ? Number(an.pct) : 0
+      const dsNam = lkMap.get(String(r.ma_kh)) || 0
+      const ckNam = getAnnualTier(dsNam)
 
       stmts.push(db.prepare(
         `INSERT INTO monthly_summary (ma_kh, thang, ds_mel_thang, ds_mel_luy_ke_nam, ck_thang_pct, ck_nam_pct, updated_at)
@@ -1103,14 +1166,22 @@ router.post('/ap-dung-thang', async (c) => {
       : ['pct_98mau', 'pct_khac', 'pct_vc_mel', 'pct_vc_khac']
 
     let soLog = 0
+    // Pre-load existing rows for this month to avoid N+1 queries (include value columns for old-value logging)
+    const existingMap = new Map<string, any>()
+    {
+      const { results } = await db.prepare(
+        `SELECT id, ${keyCols.join(', ')}, ${valueCols.join(', ')} FROM ${bang} WHERE thang = ?`
+      ).bind(thang).all()
+      for (const r of results as any[]) {
+        const key = keyCols.map(k => String((r as any)[k] ?? '')).join('|')
+        existingMap.set(key, r)
+      }
+    }
+    const batch: D1PreparedStatement[] = []
+
     for (const r of rows) {
       const keyVals = keyCols.map(k => String(r[k] ?? '').trim())
       if (keyVals.some(v => !v)) continue
-
-      // dòng hiện hữu theo UNIQUE(thang, key...)
-      const { results: existing } = await db.prepare(
-        `SELECT id FROM ${bang} WHERE thang = ? AND ${keyCols.map(k => `${k} = ?`).join(' AND ')}`
-      ).bind(thang, ...keyVals).all()
 
       const updates: Record<string, any> = {}
       for (const col of valueCols) {
@@ -1118,33 +1189,34 @@ router.post('/ap-dung-thang', async (c) => {
       }
       if (Object.keys(updates).length === 0) continue
 
-      const prev = (existing as any)?.[0] || null
+      const key = keyVals.join('|')
+      const prev = existingMap.get(key) || null
       if (prev) {
-        await db.prepare(
-          `UPDATE ${bang} SET ${Object.keys(updates).map(col => `${col} = ?`).join(', ')} WHERE id = ?`
-        ).bind(...Object.values(updates), prev.id).run()
+        // UPDATE path — batch safe (no ref_id needed)
+        batch.push(
+          db.prepare(`UPDATE ${bang} SET ${Object.keys(updates).map(col => `${col} = ?`).join(', ')} WHERE id = ?`)
+            .bind(...Object.values(updates), prev.id)
+        )
         if (updatedBy && prev.id != null) {
-          const oldRow = await db.prepare(
-            `SELECT ${Object.keys(updates).join(', ')} FROM ${bang} WHERE id = ?`
-          ).bind(prev.id).first() as any
-          if (oldRow) {
-            for (const col of Object.keys(updates)) {
-              const oldVal = (oldRow as any)?.[col]
-              const newVal = updates[col]
-              if (String(oldVal ?? '') === String(newVal ?? '')) continue
-              await db.prepare(
+          for (const col of Object.keys(updates)) {
+            const oldVal = (prev as any)?.[col]
+            const newVal = updates[col]
+            if (String(oldVal ?? '') === String(newVal ?? '')) continue
+            batch.push(
+              db.prepare(
                 `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
                  VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
               ).bind(bang, prev.id, col,
                 oldVal === null || oldVal === undefined ? '' : String(oldVal),
                 newVal === null || newVal === undefined ? '' : String(newVal),
                 updatedBy, thang
-              ).run()
-              soLog++
-            }
+              )
+            )
+            soLog++
           }
         }
       } else {
+        // INSERT path — must run individually to get last_row_id for ref_id in log
         const cols = ['thang', ...keyCols, ...Object.keys(updates)]
         const vals = [thang, ...keyVals, ...Object.values(updates)]
         const r2 = await db.prepare(
@@ -1161,6 +1233,9 @@ router.post('/ap-dung-thang', async (c) => {
         }
       }
     }
+
+    // Flush batched UPDATEs
+    for (let i = 0; i < batch.length; i += 50) await db.batch(batch.slice(i, i + 50))
 
     return c.json({ success: true, thang, bang, so_dong: rows.length, so_log: soLog })
   } catch (e: any) {
@@ -1279,6 +1354,15 @@ router.post('/import-bang-thang', async (c) => {
     ]
 
     let op1Upsert = 0, op1Skip = 0, op1Log = 0
+    // Pre-load existing ck_op1 rows for this month to avoid N+1 queries
+    const { results: existingOp1Rows } = await db.prepare(
+      `SELECT id, thang, nhom_sp, dieu_kien, dl_tinh, dl_nt, dl_sg, xuong_thuong, xuong_premium, loai_don_vi, don_vi_tinh FROM ck_op1 WHERE thang=?`
+    ).bind(thang).all()
+    const existingOp1Map = new Map<string, any>()
+    for (const row of existingOp1Rows) {
+      existingOp1Map.set(`${(row as any).nhom_sp}|${(row as any).dieu_kien}`, row)
+    }
+    const op1Batch: D1PreparedStatement[] = []
     for (const row of op1Rows) {
       const nLoai = norm(row.nhom)
       const nTen = norm(row.ten)
@@ -1289,10 +1373,7 @@ router.post('/import-bang-thang', async (c) => {
         matched++
         const cols = ['dl_tinh', 'dl_nt', 'dl_sg', 'xuong_thuong', 'xuong_premium']
         const vals = cols.map(col => row[col])
-        const { results: ex } = await db.prepare(
-          `SELECT id FROM ck_op1 WHERE thang=? AND nhom_sp=? AND dieu_kien=?`
-        ).bind(thang, m.nhom_sp, m.dieu_kien).all()
-        const prev = (ex as any)?.[0] || null
+        const prev = existingOp1Map.get(`${m.nhom_sp}|${m.dieu_kien}`) || null
         const ins: Record<string, any> = { thang, nhom_sp: m.nhom_sp, dieu_kien: m.dieu_kien }
         cols.forEach((col, i) => { if (vals[i] !== null) ins[col] = vals[i] })
         ins.loai_don_vi = m.loai_don_vi || 'percent'
@@ -1300,43 +1381,51 @@ router.post('/import-bang-thang', async (c) => {
         const insCols = Object.keys(ins)
         const insVals = insCols.map(k => ins[k])
         if (prev) {
-          await db.prepare(
-            `UPDATE ck_op1 SET ${insCols.map(k => `${k} = ?`).join(', ')} WHERE id = ?`
-          ).bind(...insVals, prev.id).run()
-        } else {
-          await db.prepare(
-            `INSERT INTO ck_op1 (${insCols.join(', ')}) VALUES (${insCols.map(() => '?').join(', ')})`
-          ).bind(...insVals).run()
-        }
-        op1Upsert++
-        if (updatedBy && prev) {
-          const oldRow = await db.prepare(
-            `SELECT ${cols.join(', ')} FROM ck_op1 WHERE id = ?`
-          ).bind(prev.id).first() as any
-          if (oldRow) {
+          op1Batch.push(
+            db.prepare(`UPDATE ck_op1 SET ${insCols.map(k => `${k} = ?`).join(', ')} WHERE id = ?`).bind(...insVals, prev.id)
+          )
+          // Log changes
+          if (updatedBy) {
             for (const col of cols) {
-              const oldVal = (oldRow as any)?.[col]
+              const oldVal = (prev as any)?.[col]
               const newVal = ins[col]
               if (String(oldVal ?? '') === String(newVal ?? '')) continue
-              await db.prepare(
-                `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
-              ).bind('ck_op1', prev.id, col,
-                oldVal === null || oldVal === undefined ? '' : String(oldVal),
-                newVal === null || newVal === undefined ? '' : String(newVal),
-                updatedBy, thang
-              ).run()
+              op1Batch.push(
+                db.prepare(
+                  `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
+                ).bind('ck_op1', prev.id, col,
+                  oldVal === null || oldVal === undefined ? '' : String(oldVal),
+                  newVal === null || newVal === undefined ? '' : String(newVal),
+                  updatedBy, thang
+                )
+              )
               op1Log++
             }
           }
+        } else {
+          op1Batch.push(
+            db.prepare(
+              `INSERT INTO ck_op1 (${insCols.join(', ')}) VALUES (${insCols.map(() => '?').join(', ')})`
+            ).bind(...insVals)
+          )
         }
+        op1Upsert++
       }
       if (matched === 0) op1Skip++
     }
 
     // ---------- OP2: BẢNG TỔNG HỢP OP2 (theo đại lý -> op2_bac_thang) ----------
-    // Header: TÊN ĐẠI LÝ THEO VÙNG | Tên | MDF,OK PHỦ MEL | CÒN LẠI | VC MDF | VC KHÁC | MÃ KH | TÊN KH
     let op2Upsert = 0, op2Log = 0, op2Skip = 0
+    // Pre-load existing op2 rows for this month
+    const { results: existingOp2Rows } = await db.prepare(
+      `SELECT id, ma_kh, thang, pct_98mau, pct_khac FROM op2_bac_thang WHERE thang=?`
+    ).bind(thang).all()
+    const existingOp2Map = new Map<string, any>()
+    for (const row of existingOp2Rows) {
+      existingOp2Map.set((row as any).ma_kh, row)
+    }
+    const op2Batch: D1PreparedStatement[] = []
     let inOp2 = false
     for (const r of rows) {
       const c0 = String(r[0] || '').trim()
@@ -1347,41 +1436,37 @@ router.post('/import-bang-thang', async (c) => {
       const g = (v: any) => { const s = String(v ?? '').trim(); if (!s) return null; const n = parseFloat(s.replace(/\./g, '').replace(',', '.')); return isNaN(n) ? null : n }
       const p98 = g(r[2]), pk = g(r[3])
       if (p98 == null && pk == null) continue
-      const ins: Record<string, any> = { ma_kh: maKh, thang }
-      if (p98 != null) ins.pct_98mau = p98
-      if (pk != null) ins.pct_khac = pk
-      const { results: ex } = await db.prepare(
-        `SELECT * FROM op2_bac_thang WHERE ma_kh=? AND thang=?`
-      ).bind(maKh, thang).all()
-      const prev = (ex as any)?.[0] || null
+      const prev = existingOp2Map.get(maKh) || null
       if (prev) {
-        await db.prepare(
-          `UPDATE op2_bac_thang SET pct_98mau=?, pct_khac=? WHERE ma_kh=? AND thang=?`
-        ).bind(p98 ?? prev.pct_98mau, pk ?? prev.pct_khac, maKh, thang).run()
+        op2Batch.push(
+          db.prepare(`UPDATE op2_bac_thang SET pct_98mau=?, pct_khac=? WHERE ma_kh=? AND thang=?`)
+            .bind(p98 ?? prev.pct_98mau, pk ?? prev.pct_khac, maKh, thang)
+        )
+        if (updatedBy) {
+          for (const [col, nv] of [['pct_98mau', p98], ['pct_khac', pk]] as [string, number | null][]) {
+            const oldVal = (prev as any)?.[col]
+            if (nv == null || String(oldVal ?? '') === String(nv)) continue
+            op2Batch.push(
+              db.prepare(
+                `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
+              ).bind('op2_bac_thang', prev.id ?? 0, col,
+                oldVal === null || oldVal === undefined ? '' : String(oldVal), String(nv), updatedBy, thang
+              )
+            )
+            op2Log++
+          }
+        }
       } else {
-        await db.prepare(
-          `INSERT INTO op2_bac_thang (ma_kh, thang, pct_98mau, pct_khac) VALUES (?, ?, ?, ?)`
-        ).bind(maKh, thang, p98, pk).run()
+        op2Batch.push(
+          db.prepare(`INSERT INTO op2_bac_thang (ma_kh, thang, pct_98mau, pct_khac) VALUES (?, ?, ?, ?)`)
+            .bind(maKh, thang, p98, pk)
+        )
       }
       op2Upsert++
-      if (updatedBy && prev) {
-        for (const [col, nv] of [['pct_98mau', p98], ['pct_khac', pk]] as [string, number | null][]) {
-          const oldVal = (prev as any)?.[col]
-          if (nv == null || String(oldVal ?? '') === String(nv)) continue
-          await db.prepare(
-            `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
-          ).bind('op2_bac_thang', (prev as any).id ?? 0, col,
-            oldVal === null || oldVal === undefined ? '' : String(oldVal), String(nv), updatedBy, thang
-          ).run()
-          op2Log++
-        }
-      }
     }
 
     // ---------- FORMAT MỚI "OP tháng": OP2 theo TÊN đại lý (không mã KH) ----------
-    // OP1 block (cột A-E) là đại lý OP1 theo vùng → khớp bảng MDFOKAL_MEL hiện có, KHÔNG cần nhập.
-    // OP2 block (cột G-K): KHÁCH | CK VC | MỨC CK TRỢ GIÁ | MỨC CK CÒN LẠI | [vùng]
     if (isDealerFormat) {
       const DEALER_OP2_MAP: Record<string, string> = {
         'quoc tuan': 'QUOCTUANDL',
@@ -1414,36 +1499,43 @@ router.post('/import-bang-thang', async (c) => {
         if (!maKh) { op2Skip++; continue }
         const p98 = g2(r[8]), pk = g2(r[9])
         if (p98 == null && pk == null) { op2Skip++; continue }
-        const ins: Record<string, any> = { ma_kh: maKh, thang }
-        if (p98 != null) ins.pct_98mau = p98
-        if (pk != null) ins.pct_khac = pk
-        const { results: ex } = await db.prepare(
-          `SELECT * FROM op2_bac_thang WHERE ma_kh=? AND thang=?`
-        ).bind(maKh, thang).all()
-        const prev = (ex as any)?.[0] || null
+        const prev = existingOp2Map.get(maKh) || null
         if (prev) {
-          await db.prepare(
-            `UPDATE op2_bac_thang SET pct_98mau=?, pct_khac=? WHERE ma_kh=? AND thang=?`
-          ).bind(p98 ?? prev.pct_98mau, pk ?? prev.pct_khac, maKh, thang).run()
+          op2Batch.push(
+            db.prepare(`UPDATE op2_bac_thang SET pct_98mau=?, pct_khac=? WHERE ma_kh=? AND thang=?`)
+              .bind(p98 ?? prev.pct_98mau, pk ?? prev.pct_khac, maKh, thang)
+          )
+          if (updatedBy) {
+            for (const [col, nv] of [['pct_98mau', p98], ['pct_khac', pk]] as [string, number | null][]) {
+              const oldVal = (prev as any)?.[col]
+              if (nv == null || String(oldVal ?? '') === String(nv)) continue
+              op2Batch.push(
+                db.prepare(
+                  `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
+                ).bind('op2_bac_thang', prev.id ?? 0, col,
+                  oldVal === null || oldVal === undefined ? '' : String(oldVal), String(nv), updatedBy, thang
+                )
+              )
+              op2Log++
+            }
+          }
         } else {
-          await db.prepare(
-            `INSERT INTO op2_bac_thang (ma_kh, thang, pct_98mau, pct_khac) VALUES (?, ?, ?, ?)`
-          ).bind(maKh, thang, p98, pk).run()
+          op2Batch.push(
+            db.prepare(`INSERT INTO op2_bac_thang (ma_kh, thang, pct_98mau, pct_khac) VALUES (?, ?, ?, ?)`)
+              .bind(maKh, thang, p98, pk)
+          )
         }
         op2Upsert++
-        if (updatedBy && prev) {
-          for (const [col, nv] of [['pct_98mau', p98], ['pct_khac', pk]] as [string, number | null][]) {
-            const oldVal = (prev as any)?.[col]
-            if (nv == null || String(oldVal ?? '') === String(nv)) continue
-            await db.prepare(
-              `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
-            ).bind('op2_bac_thang', (prev as any).id ?? 0, col,
-              oldVal === null || oldVal === undefined ? '' : String(oldVal), String(nv), updatedBy, thang
-            ).run()
-            op2Log++
-          }
-        }
+      }
+    }
+
+    // Flush all batched writes (OP1 + OP2) in a single D1 batch
+    const allBatch = [...op1Batch, ...op2Batch]
+    if (allBatch.length > 0) {
+      // D1 batch limit is 50 statements per call — chunk if needed
+      for (let i = 0; i < allBatch.length; i += 50) {
+        await db.batch(allBatch.slice(i, i + 50))
       }
     }
 
@@ -1609,17 +1701,21 @@ router.post('/quan-ly-thang/tao-thang', async (c) => {
     if (copyOp1) {
       const src = nguon || await thangGanNhat(db, 'ck_op1', thangMoi)
       let soDong = 0
+      const batch: D1PreparedStatement[] = []
       if (src) {
         const { results } = await db.prepare('SELECT * FROM ck_op1 WHERE thang = ?').bind(src).all()
         for (const r of results as any[]) {
-          await db.prepare(
-            `INSERT OR REPLACE INTO ck_op1
-             (thang, nhom_sp, dieu_kien, dl_tinh, dl_nt, dl_sg, xuong_thuong, xuong_premium, loai_don_vi, don_vi_tinh, nguong, ghi_chu)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          ).bind(thangMoi, r.nhom_sp, r.dieu_kien, r.dl_tinh, r.dl_nt, r.dl_sg,
-            r.xuong_thuong, r.xuong_premium, r.loai_don_vi, r.don_vi_tinh, r.nguong, r.ghi_chu).run()
+          batch.push(
+            db.prepare(
+              `INSERT OR REPLACE INTO ck_op1
+               (thang, nhom_sp, dieu_kien, dl_tinh, dl_nt, dl_sg, xuong_thuong, xuong_premium, loai_don_vi, don_vi_tinh, nguong, ghi_chu)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            ).bind(thangMoi, r.nhom_sp, r.dieu_kien, r.dl_tinh, r.dl_nt, r.dl_sg,
+              r.xuong_thuong, r.xuong_premium, r.loai_don_vi, r.don_vi_tinh, r.nguong, r.ghi_chu)
+          )
           soDong++
         }
+        for (let i = 0; i < batch.length; i += 50) await db.batch(batch.slice(i, i + 50))
       }
       out.ck_op1 = { over: src, so_dong: soDong }
     }
@@ -1628,16 +1724,20 @@ router.post('/quan-ly-thang/tao-thang', async (c) => {
     if (copyOp2) {
       const src = nguon || await thangGanNhat(db, 'ck_op2', thangMoi)
       let soDong = 0
+      const batch: D1PreparedStatement[] = []
       if (src) {
         const { results } = await db.prepare('SELECT * FROM ck_op2 WHERE thang = ?').bind(src).all()
         for (const r of results as any[]) {
-          await db.prepare(
-            `INSERT OR REPLACE INTO ck_op2
-             (thang, vung, bac_tu, pct_98mau, pct_khac, pct_vc_mel, pct_vc_khac)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`
-          ).bind(thangMoi, r.vung, r.bac_tu, r.pct_98mau, r.pct_khac, r.pct_vc_mel, r.pct_vc_khac).run()
+          batch.push(
+            db.prepare(
+              `INSERT OR REPLACE INTO ck_op2
+               (thang, vung, bac_tu, pct_98mau, pct_khac, pct_vc_mel, pct_vc_khac)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`
+            ).bind(thangMoi, r.vung, r.bac_tu, r.pct_98mau, r.pct_khac, r.pct_vc_mel, r.pct_vc_khac)
+          )
           soDong++
         }
+        for (let i = 0; i < batch.length; i += 50) await db.batch(batch.slice(i, i + 50))
       }
       out.ck_op2 = { over: src, so_dong: soDong }
     }
@@ -1646,14 +1746,18 @@ router.post('/quan-ly-thang/tao-thang', async (c) => {
     if (copyBac) {
       const src = nguon || await thangGanNhat(db, 'op2_bac_thang', thangMoi)
       let soDong = 0
+      const batch: D1PreparedStatement[] = []
       if (src) {
-        const { results } = await db.prepare('SELECT * FROM op2_bac_thang WHERE thang = ?').bind(src).all()
+        const { results } = await db.prepare('SELECT ma_kh, pct_98mau, pct_khac FROM op2_bac_thang WHERE thang = ?').bind(src).all()
         for (const r of results as any[]) {
-          await db.prepare(
-            `INSERT OR REPLACE INTO op2_bac_thang (ma_kh, thang, pct_98mau, pct_khac) VALUES (?, ?, ?, ?)`
-          ).bind(r.ma_kh, thangMoi, r.pct_98mau, r.pct_khac).run()
+          batch.push(
+            db.prepare(
+              `INSERT OR REPLACE INTO op2_bac_thang (ma_kh, thang, pct_98mau, pct_khac) VALUES (?, ?, ?, ?)`
+            ).bind(r.ma_kh, thangMoi, r.pct_98mau, r.pct_khac)
+          )
           soDong++
         }
+        for (let i = 0; i < batch.length; i += 50) await db.batch(batch.slice(i, i + 50))
       }
       out.op2_bac_thang = { over: src, so_dong: soDong }
     }
@@ -1662,17 +1766,21 @@ router.post('/quan-ly-thang/tao-thang', async (c) => {
     if (copyKhach) {
       const src = nguon || await thangGanNhat(db, 'khach_theo_thang', thangMoi)
       let soDong = 0
+      const batch: D1PreparedStatement[] = []
       if (src) {
         const { results } = await db.prepare('SELECT * FROM khach_theo_thang WHERE thang = ?').bind(src).all()
         for (const r of results as any[]) {
-          await db.prepare(
-            `INSERT OR REPLACE INTO khach_theo_thang
-             (ma_kh, thang, loai_op, vung, doi_tuong, hang, nhom, tu_lay, ck_vc_pct, ck_ds_98mau_pct, ck_ds_khac_pct, ck_ct_pct, ghi_chu, updated_at, updated_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'), ?)`
-          ).bind(r.ma_kh, thangMoi, r.loai_op, r.vung, r.doi_tuong, r.hang, r.nhom,
-            r.tu_lay, r.ck_vc_pct, r.ck_ds_98mau_pct, r.ck_ds_khac_pct, r.ck_ct_pct, r.ghi_chu, updatedBy || null).run()
+          batch.push(
+            db.prepare(
+              `INSERT OR REPLACE INTO khach_theo_thang
+               (ma_kh, thang, loai_op, vung, doi_tuong, hang, nhom, tu_lay, ck_vc_pct, ck_ds_98mau_pct, ck_ds_khac_pct, ck_ct_pct, ghi_chu, updated_at, updated_by)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'), ?)`
+            ).bind(r.ma_kh, thangMoi, r.loai_op, r.vung, r.doi_tuong, r.hang, r.nhom,
+              r.tu_lay, r.ck_vc_pct, r.ck_ds_98mau_pct, r.ck_ds_khac_pct, r.ck_ct_pct, r.ghi_chu, updatedBy || null)
+          )
           soDong++
         }
+        for (let i = 0; i < batch.length; i += 50) await db.batch(batch.slice(i, i + 50))
       }
       out.khach_theo_thang = { over: src, so_dong: soDong }
     }
@@ -1707,7 +1815,7 @@ router.get('/quan-ly-thang/khach-thang', async (c) => {
        FROM danh_sach_khach`
     ).all()
     const { results: ovRows } = await db.prepare(
-      'SELECT * FROM khach_theo_thang ORDER BY thang DESC'
+      'SELECT ma_kh, thang, loai_op, vung, doi_tuong, hang, nhom, tu_lay, ck_ds_98mau_pct, ck_ds_khac_pct, ck_vc_pct, ck_ct_pct FROM khach_theo_thang ORDER BY thang DESC'
     ).all()
     const ovMap = new Map<string, any[]>()
     for (const r of ovRows as any[]) {
@@ -1864,21 +1972,29 @@ router.post('/quan-ly-thang/khach-thang', async (c) => {
 
     const cols = ['loai_op', 'vung', 'doi_tuong', 'hang', 'nhom', 'tu_lay', 'ck_vc_pct', 'ck_ds_98mau_pct', 'ck_ds_khac_pct', 'ck_ct_pct']
     let soUpsert = 0, soDelete = 0, soLog = 0
+    // Pre-load existing rows for this month to avoid N+1 queries (narrow to needed columns)
+    const existingMap = new Map<string, any>()
+    {
+      const { results } = await db.prepare(`SELECT ma_kh, ${cols.join(', ')} FROM khach_theo_thang WHERE thang = ?`).bind(thang).all()
+      for (const r of results as any[]) existingMap.set(String(r.ma_kh), r)
+    }
+    const batch: D1PreparedStatement[] = []
 
     for (const r of rows) {
       const maKh = String(r.ma_kh || '').trim()
       if (!maKh) continue
       if (r.delete === true || r.delete === 1 || String(r.delete).toLowerCase() === 'true') {
-        const { meta } = await db.prepare(`DELETE FROM khach_theo_thang WHERE ma_kh = ? AND thang = ?`).bind(maKh, thang).run()
-        if (Number((meta as any)?.changes) > 0) {
-          soDelete++
+        // Only log + count if row actually exists (batch can't check meta.changes)
+        if (existingMap.has(maKh)) {
+          batch.push(db.prepare(`DELETE FROM khach_theo_thang WHERE ma_kh = ? AND thang = ?`).bind(maKh, thang))
           if (updatedBy) {
-            await db.prepare(
+            batch.push(db.prepare(
               `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
                VALUES ('khach_theo_thang', ?, 'override', 'co', '', ?, ?, datetime('now','+7 hours'))`
-            ).bind(maKh, updatedBy, thang).run()
+            ).bind(maKh, updatedBy, thang))
             soLog++
           }
+          soDelete++
         }
         continue
       }
@@ -1889,44 +2005,47 @@ router.post('/quan-ly-thang/khach-thang', async (c) => {
       }
       if (Object.keys(updates).length === 1) continue
 
-      const existing = await db.prepare(
-        `SELECT * FROM khach_theo_thang WHERE ma_kh = ? AND thang = ?`
-      ).bind(maKh, thang).first() as any
+      const existing = existingMap.get(maKh) || null
 
       if (existing) {
         const sets = Object.keys(updates).map(col => `${col} = ?`)
-        await db.prepare(
-          `UPDATE khach_theo_thang SET ${sets.join(', ')}, updated_at = datetime('now','+7 hours'), updated_by = ? WHERE ma_kh = ? AND thang = ?`
-        ).bind(...Object.values(updates), updatedBy || null, maKh, thang).run()
+        batch.push(
+          db.prepare(`UPDATE khach_theo_thang SET ${sets.join(', ')}, updated_at = datetime('now','+7 hours'), updated_by = ? WHERE ma_kh = ? AND thang = ?`)
+            .bind(...Object.values(updates), updatedBy || null, maKh, thang)
+        )
         soUpsert++
         if (updatedBy) {
           for (const col of Object.keys(updates)) {
             const oldVal = (existing as any)?.[col]
             const newVal = updates[col]
             if (String(oldVal ?? '') === String(newVal ?? '')) continue
-            await db.prepare(
-              `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
-               VALUES ('khach_theo_thang', ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
-            ).bind(maKh, col,
-              oldVal === null || oldVal === undefined ? '' : String(oldVal),
-              newVal === null || newVal === undefined ? '' : String(newVal),
-              updatedBy, thang).run()
+            batch.push(
+              db.prepare(
+                `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
+                 VALUES ('khach_theo_thang', ?, ?, ?, ?, ?, ?, datetime('now','+7 hours'))`
+              ).bind(maKh, col,
+                oldVal === null || oldVal === undefined ? '' : String(oldVal),
+                newVal === null || newVal === undefined ? '' : String(newVal),
+                updatedBy, thang)
+            )
             soLog++
           }
         }
       } else {
         const insCols = ['ma_kh', ...Object.keys(updates)]
-        await db.prepare(
-          `INSERT INTO khach_theo_thang (${insCols.join(', ')}, updated_at, updated_by)
-           VALUES (${insCols.map(() => '?').join(', ')}, datetime('now','+7 hours'), ?)`
-        ).bind(maKh, ...Object.values(updates), updatedBy || null).run()
+        batch.push(
+          db.prepare(`INSERT INTO khach_theo_thang (${insCols.join(', ')}, updated_at, updated_by) VALUES (${insCols.map(() => '?').join(', ')}, datetime('now','+7 hours'), ?)`)
+            .bind(maKh, ...Object.values(updates), updatedBy || null)
+        )
         soUpsert++
         if (updatedBy) {
           for (const col of Object.keys(updates)) {
-            await db.prepare(
-              `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
-               VALUES ('khach_theo_thang', ?, ?, '', ?, ?, ?, datetime('now','+7 hours'))`
-            ).bind(maKh, col, String(updates[col]), updatedBy, thang).run()
+            batch.push(
+              db.prepare(
+                `INSERT INTO thay_doi_log (bang, ref_id, cot, gia_tri_cu, gia_tri_moi, updated_by, thang, created_at)
+                 VALUES ('khach_theo_thang', ?, ?, '', ?, ?, ?, datetime('now','+7 hours'))`
+              ).bind(maKh, col, String(updates[col]), updatedBy, thang)
+            )
             soLog++
           }
         }
@@ -1945,10 +2064,13 @@ router.post('/quan-ly-thang/khach-thang', async (c) => {
         }
         if (masterSets.length > 0) {
           masterVals.push(maKh)
-          await db.prepare(`UPDATE danh_sach_khach SET ${masterSets.join(', ')} WHERE ma_kh = ?`).bind(...masterVals).run()
+          batch.push(db.prepare(`UPDATE danh_sach_khach SET ${masterSets.join(', ')} WHERE ma_kh = ?`).bind(...masterVals))
         }
       }
     }
+
+    // Flush all batched writes
+    for (let i = 0; i < batch.length; i += 50) await db.batch(batch.slice(i, i + 50))
 
     invalidateCtxCache()
     return c.json({ success: true, thang, so_dong: rows.length, so_upsert: soUpsert, so_delete: soDelete, so_log: soLog })
@@ -1957,7 +2079,18 @@ router.post('/quan-ly-thang/khach-thang', async (c) => {
   }
 })
 
-// POST /api/chiet-khau/quan-ly-thang/fill-mau — đóng băng map màu cho mã ME* mới chưa có trong ma_hang_nhom_mau
+const FILL_MAU_KEYWORDS = ['CHI', 'DEN', 'HONG', 'XDUONG', 'XBANG', 'XCHUOI']
+function classifyMEProduct(maHang: string, bang98Codes: Set<string>): '98_pho_thong' | 'khac' {
+  const upper = maHang.toUpperCase()
+  if (!upper.startsWith('ME') || upper.startsWith('MEVE') || upper.startsWith('MEGG') || upper.startsWith('MEVN')) return 'khac'
+  for (const kw of FILL_MAU_KEYWORDS) {
+    if (upper.includes(kw)) return '98_pho_thong'
+  }
+  const mm = /^ME(?:OK)?\d{2}(?:\.\d+)?(?:F4S|CP\d|[A-Z]{2,3})?(\d{2,4})/.exec(upper)
+  if (!mm) return 'khac'
+  return bang98Codes.has(mm[1]) ? '98_pho_thong' : 'khac'
+}
+
 router.post('/quan-ly-thang/fill-mau', async (c) => {
   try {
     const db = c.env.DB
@@ -1972,28 +2105,41 @@ router.post('/quan-ly-thang/fill-mau', async (c) => {
       }
     }
 
-    const { results: missingRows } = await db.prepare(
-      `SELECT DISTINCT ma_hang FROM so_chi_tiet_ban_hang
-       WHERE ma_hang LIKE 'ME%'
-         AND ma_hang NOT IN (SELECT ma_hang FROM ma_hang_nhom_mau)`
-    ).all()
+    const { reclassify } = await c.req.json<{ reclassify?: boolean }>().catch(() => ({ reclassify: false }))
 
-    const re = /^ME\d+(?:\.\d+)?[A-Z]*(\d{3,4})/
-    let filled = 0, p98 = 0, khac = 0
-    const ins = db.prepare(
-      `INSERT OR REPLACE INTO ma_hang_nhom_mau (ma_hang, nhom_mau) VALUES (?, ?)`
-    )
-    for (const r of (missingRows as any[])) {
+    let query: string
+    if (reclassify) {
+      query = `SELECT DISTINCT ma_hang FROM so_chi_tiet_ban_hang WHERE ma_hang LIKE 'ME%'`
+    } else {
+      query = `SELECT DISTINCT ma_hang FROM so_chi_tiet_ban_hang WHERE ma_hang LIKE 'ME%' AND ma_hang NOT IN (SELECT ma_hang FROM ma_hang_nhom_mau)`
+    }
+    const { results: rows } = await db.prepare(query).all()
+
+    let filled = 0, p98 = 0, khac = 0, changed = 0
+    const ins = db.prepare(`INSERT OR REPLACE INTO ma_hang_nhom_mau (ma_hang, nhom_mau) VALUES (?, ?)`)
+    const existingRows = reclassify ? (await db.prepare('SELECT ma_hang, nhom_mau FROM ma_hang_nhom_mau').all()).results as any[] : []
+    const existingMap = new Map<string, string>()
+    for (const er of existingRows) existingMap.set(String(er.ma_hang).toUpperCase(), String(er.nhom_mau))
+
+    const BATCH_SIZE = 50
+    let batch: D1PreparedStatement[] = []
+    for (const r of (rows as any[])) {
       const maHang = String(r.ma_hang || '').trim().toUpperCase()
       if (!maHang) continue
-      let cls = 'khac'
-      const mm = re.exec(maHang)
-      if (mm && codes.has(mm[1])) { cls = '98_pho_thong'; p98++ } else { khac++ }
-      await ins.bind(maHang, cls).run()
+      const cls = classifyMEProduct(maHang, codes)
+      const prev = existingMap.get(maHang)
+      if (prev !== cls) changed++
+      batch.push(ins.bind(maHang, cls))
       filled++
+      if (cls === '98_pho_thong') p98++; else khac++
+      if (batch.length >= BATCH_SIZE) {
+        await db.batch(batch)
+        batch = []
+      }
     }
+    if (batch.length > 0) await db.batch(batch)
 
-    return c.json({ success: true, filled, p98_pho_thong: p98, khac })
+    return c.json({ success: true, filled, p98_pho_thong: p98, khac, reclassify: !!reclassify, changed })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
   }

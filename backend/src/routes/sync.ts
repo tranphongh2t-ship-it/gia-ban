@@ -106,21 +106,22 @@ router.get('/pull', async (c) => {
     const perTable = Math.max(50, Math.min(Math.floor(limit / SYNC_TABLES.length), 2000))
 
     const allChanges: any[] = []
-    for (const table of SYNC_TABLES) {
-      try {
-        const rows = await c.env.DB.prepare(
-          `SELECT *, 'update' as sync_action FROM ${table}
-           WHERE updated_at IS NOT NULL AND updated_at > ?
-           AND (updated_by IS NULL OR updated_by != ?)
-           ORDER BY updated_at ASC LIMIT ?`
-        ).bind(since, String(userId), perTable).all() as any
-        if (rows.results?.length > 0) {
-          for (const row of rows.results) {
-            allChanges.push({ table, action: 'update', row })
-          }
+    // Batch all 25 table SELECTs (independent — avoids 25 sequential round-trips)
+    const pullStmts = SYNC_TABLES.map(table =>
+      c.env.DB.prepare(
+        `SELECT *, 'update' as sync_action FROM ${table}
+         WHERE updated_at IS NOT NULL AND updated_at > ?
+         AND (updated_by IS NULL OR updated_by != ?)
+         ORDER BY updated_at ASC LIMIT ?`
+      ).bind(since, String(userId), perTable)
+    )
+    const pullResults = await c.env.DB.batch(pullStmts)
+    for (let i = 0; i < SYNC_TABLES.length; i++) {
+      const rows = (pullResults[i] as any)
+      if (rows?.results?.length > 0) {
+        for (const row of rows.results) {
+          allChanges.push({ table: SYNC_TABLES[i], action: 'update', row })
         }
-      } catch (e) {
-        // Table might not have updated_at column yet
       }
     }
 
@@ -139,11 +140,13 @@ router.get('/pull', async (c) => {
 router.get('/status', async (c) => {
   try {
     const info: Record<string, number> = {}
-    for (const table of SYNC_TABLES) {
-      try {
-        const r = await c.env.DB.prepare(`SELECT COUNT(*) as cnt FROM ${table}`).first() as any
-        info[table] = r?.cnt || 0
-      } catch { info[table] = -1 }
+    // Batch all 25 COUNT queries (independent — avoids 25 sequential round-trips)
+    const countStmts = SYNC_TABLES.map(table =>
+      c.env.DB.prepare(`SELECT COUNT(*) as cnt FROM ${table}`)
+    )
+    const countResults = await c.env.DB.batch(countStmts)
+    for (let i = 0; i < SYNC_TABLES.length; i++) {
+      info[SYNC_TABLES[i]] = (countResults[i] as any)?.results?.[0]?.cnt || 0
     }
     return c.json({ tables: info, server_time: new Date().toISOString() })
   } catch (e: any) {

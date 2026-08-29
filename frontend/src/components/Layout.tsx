@@ -21,7 +21,7 @@ const sectionColors: Record<string, string> = {
 }
 
 const PATH_ICONS: Record<string, string> = {
-  '/check-gia-goc': '⌕', '/dashboard': '⌂',
+  '/check-gia-goc': '⌕',
   '/ma-misa': '☰', '/gia-ban-misa': '₫',
   '/gia-van-tron': '▤', '/bang-gia-cot-go': '▦',
   '/bang-gia-nhom-mau': '◐', '/bang-gia-ma-mau': '●',
@@ -211,7 +211,6 @@ export default function Layout() {
 
   const navGroups: NavGroup[] = [
     { section: 'Tổng quan', items: [
-      { label: 'Dashboard', path: '/dashboard', perm: 'menu:/dashboard' },
       { label: 'Sổ đối chiếu Giá Gốc - CK - VAT', path: '/so-doi-chieu', perm: 'menu:/so-doi-chieu' },
     ]},
     { section: 'Danh mục', items: [

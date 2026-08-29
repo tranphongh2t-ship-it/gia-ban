@@ -23,7 +23,7 @@ const nextMonth = (m: string): string => {
 
 const STEPS: { key: Tab; num: string; title: string; desc: string }[] = [
   { key: 'tao', num: '1', title: 'Tạo tháng mới', desc: 'Copy từ tháng trước, không nhập lại' },
-  { key: 'bang', num: '2', title: 'Bảng chiết khấu', desc: 'Xem & sửa mức chung OP1/OP2' },
+  { key: 'bang', num: '2', title: 'Bảng chiết khấu', desc: 'Xem & sửa bảng cố định / lũy tiến' },
   { key: 'tinh', num: '3', title: 'Tính toán & chốt', desc: 'Phân loại màu, chốt số, kiểm tra' },
 ]
 
@@ -106,10 +106,10 @@ export default function QuanLyThangPage() {
 
 // ============ BƯỚC 1: Tạo tháng mới (copy) ============
 const COPY_ITEMS: { key: 'op1' | 'op2' | 'bac' | 'khach'; title: string; desc: string }[] = [
-  { key: 'op1', title: 'Bảng chiết khấu chung (OP1)', desc: 'Mức % theo nhóm sản phẩm × vùng (minmap mục 2)' },
-  { key: 'op2', title: 'Bậc OP2 theo vùng', desc: 'Mức 26→29% theo mốc doanh số từng vùng' },
-  { key: 'bac', title: 'Mức riêng từng đại lý OP2', desc: 'Mức % ghi theo từng mã khách (minmap mục 3)' },
-  { key: 'khach', title: 'Khách theo tháng', desc: 'Khách Premium & khách được chỉnh tay của tháng' },
+  { key: 'op1', title: 'Bảng cố định (ck_op1)', desc: 'Mức % theo nhóm sản phẩm × vùng' },
+  { key: 'op2', title: 'Bảng lũy tiến (ck_op2)', desc: 'Mức % theo vùng × bậc doanh số' },
+  { key: 'bac', title: 'Bậc riêng từng đại lý', desc: 'Mức % ghi theo từng mã khách' },
+  { key: 'khach', title: 'Khách theo tháng', desc: 'Khách Premium & khách được chỉnh tay' },
 ]
 
 function TaoThangTab({ thangs, baseThang, onMsg }: { thangs: string[]; baseThang: string; onMsg: (m: { type: 'ok' | 'err'; text: string } | null) => void }) {
@@ -196,7 +196,7 @@ function TaoThangTab({ thangs, baseThang, onMsg }: { thangs: string[]; baseThang
       {result && (
         <div style={{ marginTop: 16, background: colors.surfaceSecondary, border: `1px solid ${colors.border}`, borderRadius: radius.md, padding: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Kết quả — tháng {result.thang_moi} (nguồn: {result.nguon || 'tự tìm'})</div>
-          {([['ck_op1', 'Bảng chiết khấu chung (OP1)'], ['ck_op2', 'Bậc OP2 theo vùng'], ['op2_bac_thang', 'Mức riêng từng đại lý OP2'], ['khach_theo_thang', 'Khách theo tháng']] as const).map(([k, label]) => {
+          {([['ck_op1', 'Bảng cố định (ck_op1)'], ['ck_op2', 'Bảng lũy tiến (ck_op2)'], ['op2_bac_thang', 'Bậc riêng từng đại lý'], ['khach_theo_thang', 'Khách theo tháng']] as const).map(([k, label]) => {
             const r = lbl(k)
             if (!r) return null
             return (

@@ -26,12 +26,12 @@ const NHOM_SP_MAP: [string, string][] = [
   ['NA',   'VANEP_PHUMEL'],
   ['V1',   'VANTRON_LE'],
   ['V2',   'VANTRON_LE'],
-  ['ML',   'MDFOKAL_MEL_REG'],
-  ['MP',   'MDFOKAL_MEL_REG'],
-  ['ME',   'MDFOKAL_MEL_REG'],
+  ['ML',   'MDFOKAL_MEL'],
+  ['MP',   'MDFOKAL_MEL'],
+  ['ME',   'MDFOKAL_MEL'],
 ]
 
-const DEFAULT_NHOM = 'MDFOKAL_MEL_REG'
+const DEFAULT_NHOM = 'MDFOKAL_MEL'
 
 export function getNhomSP(maSP: string): string {
   if (!maSP) return DEFAULT_NHOM
@@ -88,7 +88,7 @@ const NHOM_SP_POLICY: [string, string][] = [
   ['M0', 'MAT_PHU_MELAMINE'],
   ['M1', 'MAT_PHU_MELAMINE'],
   // ME chung = MDF/Okal phủ Melamine (danh mục chính) — cần trước 'T' nhưng sau các biến thể MEVE/MEGG/MEVN
-  ['ME', 'MDFOKAL_MEL_REG'],
+  ['ME', 'MDFOKAL_MEL'],
   ['T', 'MDF_HDF'],                    // Ván trơn MDF/HDF (T17HDF, T17MDF, T08HDF, T08LDF...)
 ]
 

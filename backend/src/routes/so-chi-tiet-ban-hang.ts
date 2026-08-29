@@ -118,13 +118,17 @@ async function themKhachMoiVaoBangCK(db: D1Database): Promise<number> {
      GROUP BY t.ma_kh`
   ).all()
   let so = 0
+  const batch: D1PreparedStatement[] = []
   for (const r of results as any[]) {
-    await db.prepare(
-      `INSERT INTO danh_sach_khach (ma_kh, ten_kh, doi_tuong, hang, nhom, ck_ds_98mau_pct, ck_ds_khac_pct)
-       VALUES (?, ?, 'PREMIUM', 'Thuong', 'XUONG_THUONG', 0.20, 0.07)`
-    ).bind(String(r.ma_kh), String(r.ten_kh || '')).run()
+    batch.push(
+      db.prepare(
+        `INSERT INTO danh_sach_khach (ma_kh, ten_kh, doi_tuong, hang, nhom, ck_ds_98mau_pct, ck_ds_khac_pct)
+         VALUES (?, ?, 'PREMIUM', 'Thuong', 'XUONG_THUONG', 0.20, 0.07)`
+      ).bind(String(r.ma_kh), String(r.ten_kh || ''))
+    )
     so++
   }
+  for (let i = 0; i < batch.length; i += 50) await db.batch(batch.slice(i, i + 50))
   return so
 }
 

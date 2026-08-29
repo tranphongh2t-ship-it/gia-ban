@@ -2,6 +2,11 @@ import { calculateBasePrice, BasePriceInput, BasePriceResult } from './basePrici
 
 type DB = D1Database
 
+export interface PricingPreload {
+  nhuaPvc: any[]       // bang_gia_nhua_pvc rows
+  laminateOne: any[]   // bang_gia_laminate_one rows
+}
+
 export interface ExtendedPriceResult {
   gia_goc_tinh: number | null
   gia_chi_tiet?: string
@@ -11,6 +16,18 @@ export interface ExtendedPriceResult {
   cot_go_match?: string | null
   be_mat_match?: string | null
   loai_sp?: string
+}
+
+// Preload small lookup tables once per request to avoid N+1 queries per product
+export async function preloadPricingData(db: DB): Promise<PricingPreload> {
+  const [pvc, lam] = await db.batch([
+    db.prepare('SELECT loai, do_day, tier, gia FROM bang_gia_nhua_pvc'),
+    db.prepare('SELECT ma_mau, tier, gia_foil FROM bang_gia_laminate_one WHERE gia_foil IS NOT NULL'),
+  ])
+  return {
+    nhuaPvc: (pvc as any)?.results || [],
+    laminateOne: (lam as any)?.results || [],
+  }
 }
 
 // Look up Chỉ nẹp price from bang_gia_chi
@@ -192,7 +209,7 @@ async function lookupLaminate(_db: DB, maHang: string, tenHang: string): Promise
 }
 
 // Look up Nhựa Laminate from bang_gia_nhua_laminate
-async function lookupNhuaLaminate(db: DB, maHang: string, tenHang: string): Promise<ExtendedPriceResult> {
+async function lookupNhuaLaminate(db: DB, maHang: string, tenHang: string, preload?: PricingPreload): Promise<ExtendedPriceResult> {
   // ma_hang: "NL17055101SH2"
   // Extract độ dày from ma_hang: chars 2-3 = "17"
   const doDayMatch = maHang.match(/^NL(\d{2})/)
@@ -203,7 +220,7 @@ async function lookupNhuaLaminate(db: DB, maHang: string, tenHang: string): Prom
   // (Only 9mm has large gap; other thicknesses use standard laminate pricing)
   const isOneLaminate = /\bOne\s+Laminate\b/i.test(tenHang) || /\bFoil\s+One\b/i.test(tenHang)
   if (isOneLaminate && doDay === '9mm') {
-    return await lookupOneLaminate(db, maHang, tenHang, doDay)
+    return await lookupOneLaminate(db, maHang, tenHang, doDay, preload)
   }
 
   // Map to exact loai_cot in DB
@@ -240,32 +257,41 @@ async function lookupNhuaLaminate(db: DB, maHang: string, tenHang: string): Prom
 }
 
 // "One Laminate" / "Foil One" products: PVC core + Laminate One foil + margin
-async function lookupOneLaminate(db: DB, maHang: string, tenHang: string, doDay: string): Promise<ExtendedPriceResult> {
+async function lookupOneLaminate(db: DB, maHang: string, tenHang: string, doDay: string, preload?: PricingPreload): Promise<ExtendedPriceResult> {
   // Determine PVC core type from product name
   let pvcLoai = 'Durabo 0.55D'
   if (tenHang.includes('0.5g') || tenHang.includes('0.5 ly')) pvcLoai = 'Durabo 0.5D'
   if (tenHang.includes('0.6g') || tenHang.includes('0.6')) pvcLoai = 'Durabo 0.6D'
   if (tenHang.includes('3 lớp') || tenHang.includes('0.65')) pvcLoai = 'Ván nhựa than tre 0.65'
 
-  // Get PVC core price
-  let pvcRow = await db.prepare(
-    'SELECT gia FROM bang_gia_nhua_pvc WHERE loai = ? AND do_day = ? AND tier = ? LIMIT 1'
-  ).bind(pvcLoai, doDay, 'BBG PREMIER').first()
-  if (!pvcRow) {
-    pvcRow = await db.prepare(
+  // Get PVC core price — use preload cache or DB
+  let giaPVC: number | null = null
+  if (preload) {
+    // In-memory lookup: match loai + do_day + tier (BBG PREMIER first, then PREMIUM, then fallback)
+    const pvcRows = preload.nhuaPvc
+    const match = pvcRows.find((r: any) => r.loai === pvcLoai && r.do_day === doDay && r.tier === 'BBG PREMIER')
+      || pvcRows.find((r: any) => r.loai === pvcLoai && r.do_day === doDay && r.tier === 'PREMIUM')
+      || pvcRows.find((r: any) => ['Durabo 0.55D','Durabo 0.5D','Durabo 0.6D'].includes(r.loai) && r.do_day === doDay)
+    if (match) giaPVC = match.gia
+  } else {
+    let pvcRow = await db.prepare(
       'SELECT gia FROM bang_gia_nhua_pvc WHERE loai = ? AND do_day = ? AND tier = ? LIMIT 1'
-    ).bind(pvcLoai, doDay, 'PREMIUM').first()
+    ).bind(pvcLoai, doDay, 'BBG PREMIER').first()
+    if (!pvcRow) {
+      pvcRow = await db.prepare(
+        'SELECT gia FROM bang_gia_nhua_pvc WHERE loai = ? AND do_day = ? AND tier = ? LIMIT 1'
+      ).bind(pvcLoai, doDay, 'PREMIUM').first()
+    }
+    if (!pvcRow) {
+      pvcRow = await db.prepare(
+        "SELECT gia FROM bang_gia_nhua_pvc WHERE loai IN ('Durabo 0.55D','Durabo 0.5D','Durabo 0.6D') AND do_day = ? LIMIT 1"
+      ).bind(doDay).first()
+    }
+    if (pvcRow) giaPVC = (pvcRow as any).gia
   }
-  // Fallback: try any Durabo variant for this do_day
-  if (!pvcRow) {
-    pvcRow = await db.prepare(
-      "SELECT gia FROM bang_gia_nhua_pvc WHERE loai IN ('Durabo 0.55D','Durabo 0.5D','Durabo 0.6D') AND do_day = ? LIMIT 1"
-    ).bind(doDay).first()
-  }
-  if (!pvcRow) {
+  if (giaPVC === null) {
     return { gia_goc_tinh: null, loi_tinh: `Không tìm thấy PVC core: ${pvcLoai}/${doDay}` }
   }
-  const giaPVC = (pvcRow as any).gia as number
 
   // Extract LE/LP type and color code
   const isLE = /\bLE\s/.test(tenHang) || /\bLE$/.test(tenHang)
@@ -278,27 +304,40 @@ async function lookupOneLaminate(db: DB, maHang: string, tenHang: string, doDay:
   // Look up foil price from bang_gia_laminate_one by ma_mau
   let giaFoil: number | null = null
   if (colorCode) {
-    for (const tier of ['PREMIUM', 'BBG PREMIER']) {
-      const foilRow = await db.prepare(
-        'SELECT nhom, gia_foil FROM bang_gia_laminate_one WHERE ma_mau = ? AND tier = ? AND gia_foil IS NOT NULL LIMIT 1'
-      ).bind(colorCode, tier).first() as any
-      if (foilRow) {
-        giaFoil = foilRow.gia_foil as number
-        break
+    if (preload) {
+      // In-memory lookup: exact match first, then partial match
+      const lamRows = preload.laminateOne
+      const exact = lamRows.find((r: any) => r.ma_mau === colorCode && (r.tier === 'PREMIUM' || r.tier === 'BBG PREMIER'))
+      if (exact) {
+        giaFoil = exact.gia_foil
+      } else {
+        const colorBase = colorCode.replace(/[A-Z].*$/, '')
+        if (colorBase && colorBase !== colorCode) {
+          const partial = lamRows.find((r: any) => r.ma_mau?.startsWith(colorBase) && (r.tier === 'PREMIUM' || r.tier === 'BBG PREMIER'))
+          if (partial) giaFoil = partial.gia_foil
+        }
       }
-    }
-    // Fallback: try partial match (e.g., "101SH" in ma_mau "101SH" but product says "101 SH")
-    if (!giaFoil) {
-      // Try sliding match: remove suffix letters
-      const colorBase = colorCode.replace(/[A-Z].*$/, '')
-      if (colorBase && colorBase !== colorCode) {
-        for (const tier of ['PREMIUM', 'BBG PREMIER']) {
-          const foilRow = await db.prepare(
-            "SELECT nhom, gia_foil FROM bang_gia_laminate_one WHERE ma_mau LIKE ? AND tier = ? AND gia_foil IS NOT NULL LIMIT 1"
-          ).bind(colorBase + '%', tier).first() as any
-          if (foilRow) {
-            giaFoil = foilRow.gia_foil as number
-            break
+    } else {
+      for (const tier of ['PREMIUM', 'BBG PREMIER']) {
+        const foilRow = await db.prepare(
+          'SELECT nhom, gia_foil FROM bang_gia_laminate_one WHERE ma_mau = ? AND tier = ? AND gia_foil IS NOT NULL LIMIT 1'
+        ).bind(colorCode, tier).first() as any
+        if (foilRow) {
+          giaFoil = foilRow.gia_foil as number
+          break
+        }
+      }
+      if (!giaFoil) {
+        const colorBase = colorCode.replace(/[A-Z].*$/, '')
+        if (colorBase && colorBase !== colorCode) {
+          for (const tier of ['PREMIUM', 'BBG PREMIER']) {
+            const foilRow = await db.prepare(
+              "SELECT nhom, gia_foil FROM bang_gia_laminate_one WHERE ma_mau LIKE ? AND tier = ? AND gia_foil IS NOT NULL LIMIT 1"
+            ).bind(colorBase + '%', tier).first() as any
+            if (foilRow) {
+              giaFoil = foilRow.gia_foil as number
+              break
+            }
           }
         }
       }
@@ -384,7 +423,8 @@ export async function calculateAnyBasePrice(
   db: DB,
   maHang: string,
   tenHang: string,
-  donGia: number | null
+  donGia: number | null,
+  preload?: PricingPreload
 ): Promise<ExtendedPriceResult> {
   if (!maHang || !tenHang) {
     return { gia_goc_tinh: null, loi_tinh: 'Thiếu thông tin sản phẩm' }
@@ -588,7 +628,7 @@ export async function calculateAnyBasePrice(
       result.chech_lech = donGia - result.gia_goc_tinh
     }
   } else if (maHang.startsWith('NL')) {
-    result = await lookupNhuaLaminate(db, maHang, tenHang)
+    result = await lookupNhuaLaminate(db, maHang, tenHang, preload)
     if (result.gia_goc_tinh !== null && donGia !== null) {
       result.chech_lech = donGia - result.gia_goc_tinh
     }

@@ -210,13 +210,14 @@ const DB_TABLES: TableMeta[] = [
   { table: 'so_doi_chieu', label: 'Sổ đối chiếu', group: 'Dữ liệu',
     columns: ['ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'ghi_chu'],
     allColumns: ['id', 'ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'ghi_chu', 'updated_by', 'created_at', 'updated_at', 'owner_user_id'],
-    exportColumns: ['ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'chech_lech', 'ck_pct_thuc_te', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'ck_kq', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'ghi_chu', 'updated_by', 'thue_pct', 'thue_dung', 'id', 'created_at', 'updated_at', 'owner_user_id'],
-    exportAllColumns: ['id', 'ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'chech_lech', 'ck_pct_thuc_te', 'ck1_pct', 'ck2_pct', 'ck3_pct', 'tong_pct', 'ck_tinh', 'ck_kq', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'ghi_chu', 'updated_by', 'thue_pct', 'thue_dung', 'created_at', 'updated_at', 'owner_user_id'],
+    exportColumns: ['ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'chech_lech', 'ck_pct_thuc_te', 'ck1_pct', 'ck2_pct', 'ck2_fit', 'ck3_pct', 'tong_pct', 'ck_tinh', 'ck_kq', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'ghi_chu', 'updated_by', 'thue_pct', 'thue_dung', 'id', 'created_at', 'updated_at', 'owner_user_id'],
+    exportAllColumns: ['id', 'ngay_hach_toan', 'ngay_chung_tu', 'so_chung_tu', 'ngay_hoa_don', 'so_hoa_don', 'dien_giai_chung', 'dien_giai', 'ma_kh', 'ten_kh', 'ma_nhom_kh', 'ten_nhom_kh', 'ma_hang', 'ten_hang', 'dvt', 'sl_ban', 'don_gia', 'doanh_so', 'ck', 'sl_tra', 'gt_tra', 'gt_giam', 'thue', 'nv_ban', 'gia_goc', 'chech_lech', 'ck_pct_thuc_te', 'ck1_pct', 'ck2_pct', 'ck2_fit', 'ck3_pct', 'tong_pct', 'ck_tinh', 'ck_kq', 'nhom_mau', 'dieu_kien', 'giai_thich', 'sua_ck1_pct', 'sua_ck2_pct', 'sua_ck3_pct', 'sua_tong_pct', 'sua_ck_tinh', 'sua_ghichu', 'ghi_chu', 'updated_by', 'thue_pct', 'thue_dung', 'created_at', 'updated_at', 'owner_user_id'],
     exportQuery: `SELECT t.*,
         m.gia_goc AS gia_goc,
         (CASE WHEN t.don_gia > 0 AND t.ma_hang NOT LIKE 'Z%' THEN (m.gia_goc - t.don_gia) ELSE NULL END) AS chech_lech,
         (CASE WHEN t.doanh_so > 0 THEN (t.ck / t.doanh_so * 100) ELSE NULL END) AS ck_pct_thuc_te,
         (CASE WHEN t.ma_hang NOT LIKE 'Z%' AND t.don_gia > 0 AND ABS(COALESCE(t.ck, 0) - COALESCE(t.ck_tinh, 0)) < 1 THEN 'dung' WHEN t.ma_hang NOT LIKE 'Z%' AND t.don_gia > 0 THEN 'sai' ELSE NULL END) AS ck_kq,
+        (CASE WHEN COALESCE(t.ck2_pct, 0) > 0 THEN 'co' ELSE 'khong' END) AS ck2_fit,
         (CASE WHEN t.doanh_so > t.ck THEN (t.thue / (t.doanh_so - t.ck) * 100) ELSE NULL END) AS thue_pct,
         (CASE WHEN t.doanh_so > t.ck AND ABS(t.thue / (t.doanh_so - t.ck) * 100 - 8) < 0.05 THEN 'dung' WHEN t.doanh_so > t.ck THEN 'sai' ELSE NULL END) AS thue_dung,
         g.gia_goc AS gia_goc_by_ma
@@ -232,7 +233,7 @@ const DB_TABLES: TableMeta[] = [
       sl_tra: 'Tổng SL trả lại', gt_tra: 'Giá trị trả lại', gt_giam: 'Giá trị giảm giá',
       thue: 'Thuế GTGT', nv_ban: 'NV bán hàng', gia_goc: 'Giá gốc (MISA)', chech_lech: 'Chênh lệch',
       ck_pct_thuc_te: 'CK % (gốc)', ck1_pct: 'CK1 (ván trơn/chỉ nẹp)', ck2_pct: 'CK2 (vận chuyển)',
-      ck3_pct: 'CK3 (Melamine)', tong_pct: 'Tổng % (engine)', ck_tinh: 'CK tính (engine)',
+      ck2_fit: 'Vận Chuyển', ck3_pct: 'CK3 (Melamine)', tong_pct: 'Tổng % (engine)', ck_tinh: 'CK tính (engine)',
       ck_kq: 'Đúng/Sai', nhom_mau: 'Nhóm màu', dieu_kien: 'Điều kiện CK', giai_thich: 'Giải thích',
       sua_ck1_pct: 'Sửa CK1', sua_ck2_pct: 'Sửa CK2', sua_ck3_pct: 'Sửa CK3',
       sua_tong_pct: 'Sửa Tổng %', sua_ck_tinh: 'Sửa CK tính', sua_ghichu: 'Ghi chú sửa',
@@ -281,7 +282,8 @@ async function ownerScope(c: any, meta: any): Promise<{ where: string; params: a
   if (Number.isFinite(userId) && userId > 0) {
     return { where: 'WHERE owner_user_id IS NULL OR owner_user_id = ?', params: [userId] }
   }
-  return { where: 'WHERE owner_user_id IS NULL', params: [] }
+  // Không có auth → xuất toàn bộ (local dev không login vẫn export được)
+  return { where: '', params: [] }
 }
 
 // Resolve sales name → sales_id
@@ -514,7 +516,7 @@ router.post('/preview', async (c) => {
       }
 
       const existing = await c.env.DB.prepare(
-        `SELECT * FROM ${meta.table} WHERE ${keyConds} LIMIT 1`
+        `SELECT ${meta.columns.join(', ')} FROM ${meta.table} WHERE ${keyConds} LIMIT 1`
       ).bind(...keyVals).first() as Record<string, any> | null
 
       if (!existing) {

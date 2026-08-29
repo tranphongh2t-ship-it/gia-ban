@@ -4,7 +4,6 @@ const router = new Hono<{ Bindings: { DB: D1Database } }>()
 
 const ALL_MENU_ITEMS = [
   { key: 'menu:/', label: 'Dashboard', group: 'Tổng quan' },
-  { key: 'menu:/dashboard', label: 'Dashboard (route)', group: 'Tổng quan' },
   { key: 'menu:/so-doi-chieu', label: 'Sổ đối chiếu Giá Gốc - CK - VAT', group: 'Tổng quan' },
   { key: 'menu:/check-gia-goc', label: 'Check Giá Gốc', group: 'Check Giá Gốc' },
   { key: 'menu:/tinh-gia-goc', label: 'Tính giá gốc', group: 'Check Giá Gốc' },

@@ -136,6 +136,18 @@ const columns: Column[] = [
     },
   },
   {
+    key: 'ck2_fit', label: 'Vận Chuyển', type: 'select', computed: true, width: '100', group: 'ck', tint: '#fbbf24',
+    options: [
+      { value: 'co', label: 'Có' },
+      { value: 'khong', label: 'Không' },
+    ],
+    render: (v, row) => {
+      const ck2 = Number(row.ck2_pct) || 0
+      const has = ck2 > 0
+      return <span style={{ fontWeight: 700, color: has ? '#16a34a' : colors.textMuted }}>{has ? 'Có' : 'Không'}</span>
+    },
+  },
+  {
     key: 'ck3_pct', label: 'CK3 (Melamine)', type: 'number', width: '120', computed: true, group: 'ck', tint: '#fbbf24',
     render: (v, row) => {
       const n = Number(v)
@@ -446,8 +458,9 @@ export default function SoDoiChieuPage() {
       // Tính lại giá gốc tham chiếu + engine chiết khấu cho toàn bộ dữ liệu
       const tinh = usedOffline ? await recomputeOffline() : await recompute()
 
+      const fixMsg = tinh?.ck2_fixed ? ` Tự sửa CK2: ${tinh.ck2_fixed} dòng.` : ''
       setResult(
-        `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Đã tính lại CK cho ${tinh?.so_dong || 0} dòng.`
+        `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Đã tính lại CK cho ${tinh?.so_dong || 0} dòng.${fixMsg}`
       )
       setGridKey(k => k + 1)
       if (fileRef.current) fileRef.current.value = ''

@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { calculateBasePrice, BasePriceInput } from '../logic/basePricingEngine'
-import { calculateAnyBasePrice } from '../logic/extendedPricingEngine'
+import { calculateAnyBasePrice, preloadPricingData } from '../logic/extendedPricingEngine'
 import { syncMisaToBangsBulk } from '../helpers/giaGocSync'
 
 const router = new Hono<{ Bindings: { DB: D1Database } }>()
@@ -148,6 +148,8 @@ router.get('/so-sanh', async (c) => {
     ).bind(...params, limit, offset).all()
 
     const results = []
+    // Preload small pricing lookup tables once (avoids N+1 per product)
+    const pricingPreload = await preloadPricingData(c.env.DB)
     for (const row of rows.results as any[]) {
       const item: any = {
         id: row.id,
@@ -164,7 +166,7 @@ router.get('/so-sanh', async (c) => {
         item.chech_lech = row.don_gia ? row.gia_goc_stored - row.don_gia : null
         item.source = 'stored'
       } else if (row.ma_hang && row.ten_hang) {
-        const bp = await calculateAnyBasePrice(c.env.DB, row.ma_hang, row.ten_hang, row.don_gia)
+        const bp = await calculateAnyBasePrice(c.env.DB, row.ma_hang, row.ten_hang, row.don_gia, pricingPreload)
         Object.assign(item, bp)
         item.source = 'computed'
       } else {
@@ -921,76 +923,6 @@ router.post('/seed-van-phu-missing', async (c) => {
       success: true,
       inserted: executed,
       message: `Đã bổ sung ${executed} bản ghi (nhóm màu: ${MISSING_SQL.length}, mã màu 220 PREMIUM: ${PREMIUM_MA_MAU_220.length - 1}, mã màu MÀU TỐI: ${TOI_MA_MAU.length - 1})`,
-    })
-  } catch (e: any) {
-    return c.json({ error: e.message }, 500)
-  }
-})
-
-// GET /api/pricing/dashboard — Dashboard tổng quan
-router.get('/dashboard', async (c) => {
-  try {
-    const ngayFrom = c.req.query('ngay_from') || ''
-    const ngayTo = c.req.query('ngay_to') || ''
-
-    let where = "WHERE s.ma_hang IS NOT NULL AND s.ma_hang != ''"
-    const params: any[] = []
-    if (ngayFrom) {
-      where += ' AND (substr(s.ngay, 7, 4) || substr(s.ngay, 4, 2) || substr(s.ngay, 1, 2)) >= ?'
-      params.push(ngayFrom.split('/').reverse().join(''))
-    }
-    if (ngayTo) {
-      where += ' AND (substr(s.ngay, 7, 4) || substr(s.ngay, 4, 2) || substr(s.ngay, 1, 2)) <= ?'
-      params.push(ngayTo.split('/').reverse().join(''))
-    }
-
-    const subG = `(SELECT DISTINCT ma_sp, gia_goc FROM gia_ban WHERE gia_goc IS NOT NULL AND gia_goc > 0)`
-
-    const totalRow = await c.env.DB.prepare(
-      `SELECT
-         COUNT(*) as tong_so_dong,
-         COUNT(DISTINCT s.so_ct) as tong_don_hang,
-         SUM(COALESCE(s.doanh_so, 0)) as tong_doanh_so,
-         SUM(CASE WHEN g.gia_goc IS NOT NULL AND g.gia_goc > 0 THEN 1 ELSE 0 END) as co_gia_goc,
-         SUM(CASE WHEN g.gia_goc IS NOT NULL AND g.gia_goc > 0 AND s.don_gia = g.gia_goc THEN 1 ELSE 0 END) as bang,
-         SUM(CASE WHEN g.gia_goc IS NOT NULL AND g.gia_goc > 0 AND s.don_gia > g.gia_goc THEN 1 ELSE 0 END) as thap,
-         SUM(CASE WHEN g.gia_goc IS NOT NULL AND g.gia_goc > 0 AND s.don_gia < g.gia_goc THEN 1 ELSE 0 END) as cao,
-         SUM(CASE WHEN g.gia_goc IS NULL OR g.gia_goc = 0 THEN 1 ELSE 0 END) as khong
-       FROM so_chi_tiet_ban_hang s
-       LEFT JOIN ${subG} g ON s.ma_hang = g.ma_sp ${where}`
-    ).bind(...params).first() as any
-
-    const dailyRows = await c.env.DB.prepare(
-      `SELECT s.ngay,
-              COUNT(*) as tong,
-              SUM(CASE WHEN g.gia_goc IS NOT NULL AND g.gia_goc > 0 AND s.don_gia = g.gia_goc THEN 1 ELSE 0 END) as bang,
-              SUM(CASE WHEN g.gia_goc IS NOT NULL AND g.gia_goc > 0 AND s.don_gia > g.gia_goc THEN 1 ELSE 0 END) as thap,
-              SUM(CASE WHEN g.gia_goc IS NOT NULL AND g.gia_goc > 0 AND s.don_gia < g.gia_goc THEN 1 ELSE 0 END) as cao,
-              SUM(CASE WHEN g.gia_goc IS NULL OR g.gia_goc = 0 THEN 1 ELSE 0 END) as khong,
-              SUM(COALESCE(s.doanh_so, 0)) as doanh_so
-       FROM so_chi_tiet_ban_hang s
-       LEFT JOIN ${subG} g ON s.ma_hang = g.ma_sp
-       ${where}
-       GROUP BY s.ngay
-       ORDER BY s.ngay DESC`
-    ).bind(...params).all()
-
-    const r = totalRow || { tong_so_dong: 0, tong_don_hang: 0, tong_doanh_so: 0, co_gia_goc: 0, bang: 0, thap: 0, cao: 0, khong: 0 }
-    const total = r.tong_so_dong || 0
-
-    return c.json({
-      tong_don_hang: r.tong_don_hang || 0,
-      tong_so_dong: total,
-      tong_doanh_so: r.tong_doanh_so || 0,
-      stats: {
-        co_gia_goc: r.co_gia_goc || 0,
-        bang: { count: r.bang || 0, pct: total ? Math.round((r.bang / total) * 10000) / 100 : 0 },
-        thap: { count: r.thap || 0, pct: total ? Math.round((r.thap / total) * 10000) / 100 : 0 },
-        cao: { count: r.cao || 0, pct: total ? Math.round((r.cao / total) * 10000) / 100 : 0 },
-        khong: { count: r.khong || 0, pct: total ? Math.round((r.khong / total) * 10000) / 100 : 0 },
-      },
-      daily: (dailyRows.results || [])
-        .sort((a: any, b: any) => a.ngay.localeCompare(b.ngay)),
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)

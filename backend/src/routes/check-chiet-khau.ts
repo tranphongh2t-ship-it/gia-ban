@@ -33,13 +33,19 @@ async function checkOwnerRow(db: D1Database, c: any, id: string, modify: boolean
   return { ok: false, status: 403, error: 'Không có quyền truy cập dữ liệu của người khác' }
 }
 
-// Xóa dữ liệu quá TTL_HOURS trước mọi request
+// Xóa dữ liệu quá TTL_HOURS trước mọi request (chạy tối đa 1 lần/10 phút)
+let lastTtlCleanup = 0
+const TTL_CLEANUP_INTERVAL_MS = 10 * 60 * 1000
 router.use('*', async (c, next) => {
-  try {
-    await c.env.DB.prepare(
-      `DELETE FROM ${TABLE} WHERE created_at < datetime('now', ?)`
-    ).bind(`-${TTL_HOURS} hours`).run()
-  } catch {}
+  const now = Date.now()
+  if (now - lastTtlCleanup >= TTL_CLEANUP_INTERVAL_MS) {
+    lastTtlCleanup = now
+    try {
+      await c.env.DB.prepare(
+        `DELETE FROM ${TABLE} WHERE created_at < datetime('now', ?)`
+      ).bind(`-${TTL_HOURS} hours`).run()
+    } catch {}
+  }
   await next()
 })
 
@@ -268,13 +274,17 @@ async function themKhachMoiVaoBangCK(db: D1Database, ownerId?: number | null): P
      GROUP BY t.ma_kh`
   ).bind(...params).all()
   let so = 0
+  const batch: D1PreparedStatement[] = []
   for (const r of results as any[]) {
-    await db.prepare(
-      `INSERT INTO danh_sach_khach (ma_kh, ten_kh, doi_tuong, hang, nhom, ck_ds_98mau_pct, ck_ds_khac_pct)
-       VALUES (?, ?, 'PREMIUM', 'Thuong', 'XUONG_THUONG', 0.20, 0.07)`
-    ).bind(String(r.ma_kh), String(r.ten_kh || '')).run()
+    batch.push(
+      db.prepare(
+        `INSERT INTO danh_sach_khach (ma_kh, ten_kh, doi_tuong, hang, nhom, ck_ds_98mau_pct, ck_ds_khac_pct)
+         VALUES (?, ?, 'PREMIUM', 'Thuong', 'XUONG_THUONG', 0.20, 0.07)`
+      ).bind(String(r.ma_kh), String(r.ten_kh || ''))
+    )
     so++
   }
+  for (let i = 0; i < batch.length; i += 50) await db.batch(batch.slice(i, i + 50))
   return so
 }
 

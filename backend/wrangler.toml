@@ -6,9 +6,9 @@ compatibility_date = "2026-07-01"
 # Khi có bản mới: nâng APP_VERSION, đổi APP_INSTALLER_URL thành link download setup mới,
 # rồi `wrangler deploy`. 30 máy sẽ tự bật POPUP cập nhật.
 [vars]
-APP_VERSION = "0.5.6"
-APP_INSTALLER_URL = "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/download/v0.5.6/THANH.THUY.PRICE_0.5.6_x64-setup.exe"
-APP_UPDATE_NOTES = "Tách Xưởng thường OP1/OP2 + Tự lấy hàng + D1 performance fix."
+APP_VERSION = "0.5.7"
+APP_INSTALLER_URL = "https://github.com/tranphongh2t-ship-it/gia-ban-releases/releases/download/v0.5.7/THANH.THUY.PRICE_0.5.7_x64-setup.exe"
+APP_UPDATE_NOTES = "D1 performance optimization: batch queries, preload cache, reduced rows read."
 
 [[d1_databases]]
 binding = "DB"

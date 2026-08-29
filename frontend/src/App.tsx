@@ -1,6 +1,6 @@
 import { HashRouter, BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
-import Dashboard from './modules/Dashboard'
+
 import Welcome from './modules/Welcome'
 import DanhMucKhachPage from './modules/DanhMucKhach'
 import MaMisaPage from './modules/MaMisa'
@@ -71,7 +71,6 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<Welcome />} />
               <Route path="/check-gia-goc" element={<CheckGiaGocPage />} />
-              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/khach-hang" element={<DanhMucKhachPage />} />
               <Route path="/ma-misa" element={<MaMisaPage />} />
               <Route path="/gia-ban-misa" element={<GiaBanMisaPage />} />

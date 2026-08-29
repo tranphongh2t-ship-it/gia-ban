@@ -601,7 +601,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       const res = await fetch(`${API_BASE}/export/${exportFormat}${apiPath}?${getExportParams(apiPath, search, filters, extraFilters)}`, { headers: authHeaders() })
       if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Export failed') }
       const blob = await res.blob()
-      if (isTauriApp) {
+      if (isTauriApp()) {
         const buf = await blob.arrayBuffer()
         const ext = format === 'excel' ? 'xlsx' : 'json'
         const prefix = exportName || apiPath.replace(/\//g, '_')
@@ -640,7 +640,7 @@ export default function DataGrid({ title, columns, apiPath, searchable = true, d
       }
       const csv = [headers.join(','), ...rows.map(r => headers.map(h => escape(r[h])).join(','))].join('\n')
       const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
-      if (isTauriApp) {
+      if (isTauriApp()) {
         const buf = await blob.arrayBuffer()
         const prefix = exportName || apiPath.replace(/\//g, '_')
         await tauriSaveFile(`${prefix}_${new Date().toISOString().split('T')[0]}.csv`, new Uint8Array(buf))

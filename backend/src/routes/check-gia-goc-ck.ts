@@ -11,13 +11,19 @@ const TTL_HOURS = 6
 
 const router = new Hono<Env>()
 
-// Xóa dữ liệu quá TTL_HOURS trước mọi request
+// Xóa dữ liệu quá TTL_HOURS trước mọi request (chạy tối đa 1 lần/10 phút)
+let lastTtlCleanup = 0
+const TTL_CLEANUP_INTERVAL_MS = 10 * 60 * 1000
 router.use('*', async (c, next) => {
-  try {
-    await c.env.DB.prepare(
-      `DELETE FROM ${TABLE} WHERE created_at < datetime('now', ?)`
-    ).bind(`-${TTL_HOURS} hours`).run()
-  } catch {}
+  const now = Date.now()
+  if (now - lastTtlCleanup >= TTL_CLEANUP_INTERVAL_MS) {
+    lastTtlCleanup = now
+    try {
+      await c.env.DB.prepare(
+        `DELETE FROM ${TABLE} WHERE created_at < datetime('now', ?)`
+      ).bind(`-${TTL_HOURS} hours`).run()
+    } catch {}
+  }
   await next()
 })
 

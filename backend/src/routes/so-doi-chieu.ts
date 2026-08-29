@@ -85,13 +85,19 @@ async function checkOwnerRow(db: D1Database, c: any, id: string, modify: boolean
   return { ok: false, status: 403, error: 'Không có quyền truy cập dữ liệu của người khác' }
 }
 
-// Xóa dữ liệu quá TTL_HOURS trước mọi request
+// Xóa dữ liệu quá TTL_HOURS trước mọi request (chạy tối đa 1 lần/10 phút)
+let lastTtlCleanup = 0
+const TTL_CLEANUP_INTERVAL_MS = 10 * 60 * 1000
 router.use('*', async (c, next) => {
-  try {
-    await c.env.DB.prepare(
-      `DELETE FROM ${TABLE} WHERE created_at < datetime('now', ?)`
-    ).bind(`-${TTL_HOURS} hours`).run()
-  } catch {}
+  const now = Date.now()
+  if (now - lastTtlCleanup >= TTL_CLEANUP_INTERVAL_MS) {
+    lastTtlCleanup = now
+    try {
+      await c.env.DB.prepare(
+        `DELETE FROM ${TABLE} WHERE created_at < datetime('now', ?)`
+      ).bind(`-${TTL_HOURS} hours`).run()
+    } catch {}
+  }
   await next()
 })
 
@@ -369,7 +375,7 @@ async function tinhHet(db: D1Database, ownerId?: number | null): Promise<number>
      FROM ${TABLE}${ownerCond}`
   )
   const { results: rows } = ownerId != null ? await stmt.bind(ownerId).all() : await stmt.all()
-  const ctx = await buildLop2Ctx(db)
+  const ctx = await buildLop2Ctx(db, TABLE)
   const stmts: D1PreparedStatement[] = []
   for (const r of rows as any[]) {
     const tinh = await tinhCKChoDong(db, { ...r, ngay: r.ngay || '' }, ctx)
@@ -388,6 +394,72 @@ async function tinhHet(db: D1Database, ownerId?: number | null): Promise<number>
   const BATCH = 100
   for (let i = 0; i < stmts.length; i += BATCH) await db.batch(stmts.slice(i, i + BATCH))
   return stmts.length
+}
+
+// Merged tinhHet + autoFixCK2: single SELECT, single loop — saves 1 full table scan per import.
+async function tinhHetAndFixCK2(db: D1Database, ownerId?: number | null): Promise<{ tinhCount: number; fixCount: number }> {
+  const ownerCond = ownerId != null ? ' WHERE owner_user_id = ?' : ''
+  const stmt = db.prepare(
+    `SELECT id, so_chung_tu AS so_ct, ma_kh, ngay_chung_tu AS ngay, ma_hang, sl_ban, don_gia, doanh_so, ck
+     FROM ${TABLE}${ownerCond}`
+  )
+  const { results: rows } = ownerId != null ? await stmt.bind(ownerId).all() : await stmt.all()
+  const ctx = await buildLop2Ctx(db, TABLE)
+  const tinhStmts: D1PreparedStatement[] = []
+  const fixStmts: D1PreparedStatement[] = []
+
+  for (const r of rows as any[]) {
+    // Step 1: tinhCKChoDong (same as tinhHet)
+    const tinh = await tinhCKChoDong(db, { ...r, ngay: r.ngay || '' }, ctx)
+    tinhStmts.push(db.prepare(
+      `UPDATE ${TABLE} SET
+         ck1_pct = ?, ck2_pct = ?, ck3_pct = ?, tong_pct = ?, ck_tinh = ?,
+         nhom_mau = ?, dieu_kien = ?, giai_thich = ?, updated_at = datetime('now','+7 hours')
+       WHERE id = ?`
+    ).bind(
+      tinh.ck1_pct ?? 0, tinh.ck2_pct ?? 0, tinh.ck3_pct ?? 0,
+      tinh.tong_pct ?? 0, tinh.ck_tinh ?? 0,
+      tinh.nhom_mau || null, tinh.dieu_kien || null, tinh.giai_thich || null,
+      r.id
+    ))
+
+    // Step 2: autoFixCK2 logic (inline, using fresh tinh results)
+    const ds = Number(r.doanh_so) || 0
+    const ckGoc = Number(r.ck) || 0
+    if (ds > 0 && String(r.ma_kh || '').trim()) {
+      const ck1 = Number(tinh.ck1_pct) || 0
+      const ck2 = Number(tinh.ck2_pct) || 0
+      const ck3 = Number(tinh.ck3_pct) || 0
+      const enginePct = ck1 + ck2 + ck3
+      const gocPct = ckGoc / ds
+      const diff = gocPct - enginePct
+      const TOLERANCE = 0.005
+      let newCk2 = ck2
+
+      if (diff > 0.005) {
+        if (Math.abs(diff - 0.01) < TOLERANCE) newCk2 = ck2 + 0.01
+        else if (Math.abs(diff - 0.04) < TOLERANCE) newCk2 = ck2 + 0.04
+        else if (Math.abs(diff - 0.05) < TOLERANCE) newCk2 = ck2 + 0.05
+      } else if (diff < -0.005) {
+        if (Math.abs(diff + 0.01) < TOLERANCE) newCk2 = Math.max(0, ck2 - 0.01)
+        else if (Math.abs(diff + 0.04) < TOLERANCE) newCk2 = Math.max(0, ck2 - 0.04)
+        else if (Math.abs(diff + 0.05) < TOLERANCE) newCk2 = Math.max(0, ck2 - 0.05)
+      }
+
+      if (newCk2 !== ck2) {
+        const newTong = ck1 + newCk2 + ck3
+        const newCkTinh = Math.round(ds * newTong)
+        fixStmts.push(db.prepare(
+          `UPDATE ${TABLE} SET ck2_pct = ?, tong_pct = ?, ck_tinh = ?, updated_at = datetime('now','+7 hours') WHERE id = ?`
+        ).bind(newCk2, newTong, newCkTinh, r.id))
+      }
+    }
+  }
+
+  const BATCH = 100
+  for (let i = 0; i < tinhStmts.length; i += BATCH) await db.batch(tinhStmts.slice(i, i + BATCH))
+  for (let i = 0; i < fixStmts.length; i += BATCH) await db.batch(fixStmts.slice(i, i + BATCH))
+  return { tinhCount: tinhStmts.length, fixCount: fixStmts.length }
 }
 
 // Auto-map tu_lay + vung cho khách hàng dựa trên so sánh CK gốc vs CK tính.
@@ -480,6 +552,77 @@ async function autoMapTuLay(db: D1Database, ownerId?: number | null): Promise<{ 
     await db.batch(updates.slice(i, i + BATCH))
   }
   return { updated: updates.length, details }
+}
+
+// Auto-fix CK2 (vận chuyển) per row: so sánh CK% engine vs CK% gốc
+// Logic:
+//   enginePct = ck1_pct + ck2_pct + ck3_pct
+//   gocPct = ck / doanh_so
+//   diff = gocPct - enginePct
+//   diff ≈ +1% → CK2 thiếu 1% → thêm ck2 += 0.01
+//   diff ≈ +4% → CK2 thiếu 4% → thêm ck2 += 0.04
+//   diff ≈ -1% → CK2 dư 1% → bớt ck2 -= 0.01 (min 0)
+//   diff ≈ -4% → CK2 dư 4% → bớt ck2 -= 0.04 (min 0)
+//   còn lại → giữ nguyên
+async function autoFixCK2(db: D1Database, ownerId?: number | null): Promise<number> {
+  const ownerCond = ownerId != null ? ' WHERE owner_user_id = ?' : ''
+  const params = ownerId != null ? [ownerId] : []
+  const { results: rows } = await db.prepare(
+    `SELECT id, ma_kh, ma_hang, doanh_so, ck, ck1_pct, ck2_pct, ck3_pct, tong_pct, ck_tinh
+     FROM ${TABLE}
+     WHERE ma_kh IS NOT NULL AND ma_kh != '' AND doanh_so > 0
+     ${ownerCond}`
+  ).bind(...params).all()
+
+  const stmts: D1PreparedStatement[] = []
+  for (const r of rows as any[]) {
+    const ds = Number(r.doanh_so) || 0
+    const ckGoc = Number(r.ck) || 0
+    if (ds <= 0) continue
+
+    const ck1 = Number(r.ck1_pct) || 0
+    const ck2 = Number(r.ck2_pct) || 0
+    const ck3 = Number(r.ck3_pct) || 0
+    const enginePct = ck1 + ck2 + ck3
+    const gocPct = ckGoc / ds
+    const diff = gocPct - enginePct  // positive = engine thiếu, negative = engine dư
+
+    let newCk2 = ck2
+    const TOLERANCE = 0.005  // sai số 0.5%
+
+    if (diff > 0.005) {
+      // Engine thiếu → CK2 cần thêm
+      if (Math.abs(diff - 0.01) < TOLERANCE) {
+        newCk2 = ck2 + 0.01
+      } else if (Math.abs(diff - 0.04) < TOLERANCE) {
+        newCk2 = ck2 + 0.04
+      } else if (Math.abs(diff - 0.05) < TOLERANCE) {
+        // 1% CK2 + 4% Tỉnh = 5%
+        newCk2 = ck2 + 0.05
+      }
+    } else if (diff < -0.005) {
+      // Engine dư → CK2 cần bớt
+      if (Math.abs(diff + 0.01) < TOLERANCE) {
+        newCk2 = Math.max(0, ck2 - 0.01)
+      } else if (Math.abs(diff + 0.04) < TOLERANCE) {
+        newCk2 = Math.max(0, ck2 - 0.04)
+      } else if (Math.abs(diff + 0.05) < TOLERANCE) {
+        newCk2 = Math.max(0, ck2 - 0.05)
+      }
+    }
+
+    if (newCk2 !== ck2) {
+      const newTong = ck1 + newCk2 + ck3
+      const newCkTinh = Math.round(ds * newTong)
+      stmts.push(db.prepare(
+        `UPDATE ${TABLE} SET ck2_pct = ?, tong_pct = ?, ck_tinh = ?, updated_at = datetime('now','+7 hours') WHERE id = ?`
+      ).bind(newCk2, newTong, newCkTinh, r.id))
+    }
+  }
+
+  const BATCH = 100
+  for (let i = 0; i < stmts.length; i += BATCH) await db.batch(stmts.slice(i, i + BATCH))
+  return stmts.length
 }
 
 // Auto-sync khách hàng mới từ records → danh_sach_khach + khach_theo_thang (silent — chạy sau import).
@@ -681,31 +824,30 @@ router.post('/import-excel', async (c) => {
         if (idx === undefined) continue
         record[db] = row[idx]
       }
-      if (!record.ma_hang) continue
-      records.push(record)
-    }
-    if (records.length === 0) return c.json({ error: 'Không có dòng dữ liệu hợp lệ trong file' }, 400)
+    if (!record.ma_hang) continue
+    records.push(record)
+  }
+  if (records.length === 0) return c.json({ error: 'Không có dòng dữ liệu hợp lệ trong file' }, 400)
 
     const { imported, skipped } = await upsertRecords(c.env.DB, records, Number(c.req.header('x-user-id')) || null)
     await autoSyncNewMisaCodes(c.env.DB, records)
     const reqOwnerId = Number(c.req.header('x-user-id')) || null
     const me = await reqUser(c.env.DB, c)
     const ownerId = me && isAdmin(me) ? null : reqOwnerId
-    // Bước 1: Tính CK với tu_lay hiện tại
-    const soDongTinh = await tinhHet(c.env.DB, ownerId)
-    // Bước 2: Auto-map tu_lay dựa trên CK gốc vs CK tính
+    // Step 1: Auto-map tu_lay (needs ck_tinh from previous import or NULL)
     const tuLayResult = await autoMapTuLay(c.env.DB, ownerId)
-    // Bước 3: Tính lại CK với tu_lay mới (để CK2 cập nhật đúng)
-    const soDongTinh2 = tuLayResult.updated > 0 ? await tinhHet(c.env.DB, ownerId) : 0
+    // Step 2: Tính CK + Auto-fix CK2 in ONE pass (merged — saves 1 full table scan)
+    const { tinhCount, fixCount } = await tinhHetAndFixCK2(c.env.DB, ownerId)
     return c.json({
       success: true,
       total: records.length,
       imported,
       skipped,
-      so_dong_tinh: soDongTinh + soDongTinh2,
+      so_dong_tinh: tinhCount,
       tu_lay_updated: tuLayResult.updated,
       tu_lay_details: tuLayResult.details,
-      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Đã tính lại CK cho ${soDongTinh + soDongTinh2} dòng. Auto-map tu_lay: ${tuLayResult.updated} khách.`,
+      ck2_fixed: fixCount,
+      message: `Import ${imported} dòng thành công${skipped ? `, bỏ qua ${skipped} dòng (trùng hoặc thiếu mã hàng)` : ''}. Tính lại CK ${tinhCount} dòng. Auto-map tu_lay: ${tuLayResult.updated} khách. Auto-fix CK2: ${fixCount} dòng.`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -755,15 +897,15 @@ router.post('/tinh-het', async (c) => {
   try {
     const me = await reqUser(c.env.DB, c)
     const ownerId = me && !isAdmin(me) ? me.id : null
-    const soDong = await tinhHet(c.env.DB, ownerId)
     const tuLayResult = await autoMapTuLay(c.env.DB, ownerId)
-    const soDong2 = tuLayResult.updated > 0 ? await tinhHet(c.env.DB, ownerId) : 0
+    const { tinhCount, fixCount } = await tinhHetAndFixCK2(c.env.DB, ownerId)
     return c.json({
       success: true,
-      so_dong: soDong + soDong2,
+      so_dong: tinhCount,
       tu_lay_updated: tuLayResult.updated,
       tu_lay_details: tuLayResult.details,
-      message: `Tính lại CK cho ${soDong + soDong2} dòng. Auto-map tu_lay: ${tuLayResult.updated} khách.`,
+      ck2_fixed: fixCount,
+      message: `Tính lại CK ${tinhCount} dòng. Auto-map tu_lay: ${tuLayResult.updated} khách. Auto-fix CK2: ${fixCount} dòng.`,
     })
   } catch (e: any) {
     return c.json({ error: e.message }, 500)
@@ -781,7 +923,7 @@ router.post('/tinh-het-chi-tiet/:id', async (c) => {
       `SELECT id, so_chung_tu AS so_ct, ma_kh, ngay_chung_tu AS ngay, ma_hang, sl_ban, don_gia, doanh_so, ck FROM ${TABLE} WHERE id = ?`
     ).bind(id).first() as any
     if (!row) return c.json({ error: 'Không tìm thấy dòng' }, 404)
-    const ctx = await buildLop2Ctx(db)
+    const ctx = await buildLop2Ctx(db, TABLE)
     const tinh = await tinhCKChoDong(db, { ...row, ngay: row.ngay || '' }, ctx)
     await db.prepare(
       `UPDATE ${TABLE} SET
